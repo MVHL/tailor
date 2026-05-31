@@ -204,13 +204,12 @@
   }
   .prow-chip {
     display: none;
-    margin-top: 6px;
     font-family: var(--mono);
     font-size: 8px;
     font-weight: 500;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    padding: 3px 8px;
+    padding: 4px 9px;
     border-radius: 4px;
     width: fit-content;
   }
@@ -287,25 +286,10 @@
     50%     { box-shadow: 0 0 0 1px rgba(201,168,76,0.42), 0 0 48px -4px rgba(201,168,76,0.45); }
   }
 
-  /* listening indicator — only shown on the current row */
-  .prow-mic { display: none; align-items: center; gap: 9px; margin-top: 12px; }
-  .prow.current .prow-mic { display: flex; }
-  .mic-eq { display: inline-flex; align-items: flex-end; gap: 3px; height: 20px; }
-  .mic-eq span {
-    width: 3px; height: 6px; border-radius: 2px;
-    background: var(--gold);
-    animation: eq 0.9s ease-in-out infinite;
-  }
-  .mic-eq span:nth-child(2) { animation-delay: .12s; }
-  .mic-eq span:nth-child(3) { animation-delay: .24s; }
-  .mic-eq span:nth-child(4) { animation-delay: .36s; }
-  @keyframes eq { 0%,100% { height: 6px; } 50% { height: 20px; } }
-  .prow-mic .lbl {
-    font-family: var(--mono); font-size: 10px; letter-spacing: .24em;
-    text-transform: uppercase; color: var(--gold);
-  }
-  .prow-mic.idle .mic-eq span { animation: none; height: 6px; background: var(--ink-faint); }
-  .prow-mic.idle .lbl { color: var(--ink-faint); }
+  /* status line under the POM name: the chip + (when listening) the footer-style dot */
+  .prow-statusline { display: flex; align-items: center; gap: 9px; margin-top: 7px; }
+  .prow-dot { display: none; width: 8px; height: 8px; }
+  .prow-dot.live { display: inline-block; background: var(--green); animation: pulse 1.6s infinite; }
 
   /* ---------- Mic / footer ---------- */
   .mic-zone {
@@ -786,8 +770,10 @@ function rowHtml(p, i) {
       <div class="prow-idx">${String(i + 1).padStart(2, "0")}</div>
       <div class="prow-main">
         <div class="prow-name">${p.label}</div>
-        <div class="prow-chip"></div>
-        <div class="prow-mic idle"><span class="mic-eq"><span></span><span></span><span></span><span></span></span><span class="lbl">Mic off</span></div>
+        <div class="prow-statusline">
+          <div class="prow-chip"></div>
+          <span class="mic-dot prow-dot"></span>
+        </div>
       </div>
       <div class="prow-vals">
         <div class="prow-std">${p.std}<span class="u">${UNIT}</span></div>
@@ -818,7 +804,7 @@ function renderMeasure() {
       // CURRENT — measuring now
       row.className = "prow current" + (recorded ? " filled" + stdClass : "");
       if (!recorded) rec.classList.add("empty");
-      chip.textContent = "Measuring Now";
+      chip.textContent = "Current";
     } else if (i === state.lastFilled && recorded) {
       // JUST FILLED — last value recorded
       row.className = "prow just" + stdClass;
@@ -843,20 +829,11 @@ function renderMeasure() {
   reflectListening();
 }
 
-/* Reflect live mic state on the current row's listening indicator. */
+/* Show the current row's listening dot only while the mic is actually live. */
 function reflectListening() {
-  const row = $("pomScroll").querySelector(".prow.current");
-  if (!row) return;
-  const mic = row.querySelector(".prow-mic");
-  if (!mic) return;
-  const lbl = mic.querySelector(".lbl");
-  if (listening) {
-    mic.classList.remove("idle");
-    lbl.textContent = "Listening";
-  } else {
-    mic.classList.add("idle");
-    lbl.textContent = micPermDenied ? "Mic blocked" : "Mic off";
-  }
+  const dot = $("pomScroll").querySelector(".prow.current .prow-dot");
+  if (!dot) return;
+  dot.classList.toggle("live", listening);
 }
 
 /* ============================================================
