@@ -189,16 +189,18 @@
 
   .prow {
     display: flex;
-    align-items: center;
-    gap: 14px;
+    flex-direction: column;
+    justify-content: center;
     padding: 16px 16px;
     min-height: 66px;
     border-radius: 12px;
     background: var(--bg-elev);
     border: 1px solid var(--line);
     border-left: 3px solid transparent;
+    cursor: pointer;
     transition: background .2s ease, border-color .2s ease, opacity .2s ease, padding .2s ease;
   }
+  .prow-row { display: flex; align-items: center; gap: 14px; width: 100%; }
   .prow-idx {
     font-family: var(--mono);
     font-size: 14px;
@@ -258,6 +260,35 @@
   .prow.q-exact .prow-rec, .prow.q-near .prow-rec { color: var(--green); }
   .prow.q-mid  .prow-rec { color: var(--gold); }
   .prow.q-far  .prow-rec { color: var(--danger); }
+
+  /* ============ QUICK-INPUT EDIT BAR (current card only) ============ */
+  .prow-edit { display: none; gap: 5px; margin-top: 16px; }
+  .prow.current .prow-edit { display: flex; }
+  .eb-btn {
+    flex: 1; min-width: 0;
+    padding: 13px 2px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: rgba(255,255,255,0.03);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .12s ease, transform .08s ease, border-color .12s ease;
+  }
+  .eb-btn:hover { border-color: var(--ink-dim); background: rgba(255,255,255,0.06); }
+  .eb-btn:active { transform: scale(0.92); }
+  .eb-std {
+    flex: 1.5;
+    background: var(--gold);
+    color: #1a160f;
+    border-color: var(--gold);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .eb-std:hover { background: #d9bb63; border-color: #d9bb63; }
 
   /* one-shot flash when a value lands */
   @keyframes rowflash {
@@ -820,17 +851,28 @@ function rowHtml(p, i) {
   const recVal = (p.recorded != null) ? `${p.recorded}<span class="u">${UNIT}</span>` : "— —";
   return `
     <div class="prow" data-i="${i}">
-      <div class="prow-idx">${String(i + 1).padStart(2, "0")}</div>
-      <div class="prow-main">
-        <div class="prow-name">${p.label}</div>
-        <div class="prow-statusline">
-          <div class="prow-chip"></div>
-          <span class="mic-dot prow-dot"></span>
+      <div class="prow-row">
+        <div class="prow-idx">${String(i + 1).padStart(2, "0")}</div>
+        <div class="prow-main">
+          <div class="prow-name">${p.label}</div>
+          <div class="prow-statusline">
+            <div class="prow-chip"></div>
+            <span class="mic-dot prow-dot"></span>
+          </div>
+        </div>
+        <div class="prow-vals">
+          <div class="prow-std">${p.std}<span class="u">${UNIT}</span></div>
+          <div class="prow-rec">${recVal}</div>
         </div>
       </div>
-      <div class="prow-vals">
-        <div class="prow-std">${p.std}<span class="u">${UNIT}</span></div>
-        <div class="prow-rec">${recVal}</div>
+      <div class="prow-edit">
+        <button type="button" class="eb-btn" data-delta="-2">-2</button>
+        <button type="button" class="eb-btn" data-delta="-1">-1</button>
+        <button type="button" class="eb-btn" data-delta="-0.5">-0.5</button>
+        <button type="button" class="eb-btn eb-std" data-action="std">Standard</button>
+        <button type="button" class="eb-btn" data-delta="0.5">+0.5</button>
+        <button type="button" class="eb-btn" data-delta="1">+1</button>
+        <button type="button" class="eb-btn" data-delta="2">+2</button>
       </div>
     </div>`;
 }
@@ -967,6 +1009,35 @@ function fillTargeted(idx, value, note) {
   recordValue(idx, value, value === state.poms[idx].std, note);
   renderMeasure();
   flashRow(idx);
+}
+
+// set the current POM's value in place (quick-edit bar) — no auto-advance, no toast
+function setCurrentValue(value, accepted) {
+  const idx = state.index;
+  const pom = state.poms[idx];
+  pom.recorded = round2(value);
+  pom.accepted = !!accepted;
+  pom.skipped = false;
+  state.lastFilled = idx;
+  renderMeasure();
+}
+
+// edit-bar button: "Standard" sets the standard value; ±delta nudges the
+// current value (or the standard, if nothing is recorded yet)
+function handleEditButton(btn) {
+  if (!state) return;
+  const pom = state.poms[state.index];
+  if (btn.dataset.action === "std") {
+    setCurrentValue(pom.std, true);
+    cueRecord();
+    return;
+  }
+  const delta = parseFloat(btn.dataset.delta);
+  if (Number.isNaN(delta)) return;
+  const base = (pom.recorded != null) ? pom.recorded : pom.std;
+  const v = round2(Math.max(0, base + delta));
+  setCurrentValue(v, v === pom.std);
+  cueCommand();
 }
 
 function skipCurrent() {
@@ -1463,6 +1534,15 @@ $("btnNewSession").addEventListener("click", resetToSelect);
 $("retryBtn").addEventListener("click", () => {
   micPermDenied = false;
   startListening();
+});
+$("pomScroll").addEventListener("click", (e) => {
+  const ebtn = e.target.closest(".eb-btn");
+  if (ebtn) { handleEditButton(ebtn); return; }   // quick-edit, don't navigate
+  const row = e.target.closest(".prow");
+  if (!row || !state) return;
+  const i = parseInt(row.dataset.i, 10);
+  if (Number.isNaN(i) || i === state.index) return; // already current — ignore
+  gotoPom(i);
 });
 $("progressSegs").addEventListener("click", (e) => {
   const seg = e.target.closest(".seg");
