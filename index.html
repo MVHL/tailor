@@ -263,7 +263,7 @@
 
   /* ============ QUICK-INPUT EDIT BAR (current card only) ============ */
   .prow-edit { display: none; gap: 5px; margin-top: 16px; }
-  .prow.current .prow-edit { display: flex; }
+  .pom-scroll.edit-open .prow.current .prow-edit { display: flex; }
   .eb-btn {
     flex: 1; min-width: 0;
     padding: 13px 2px;
@@ -337,15 +337,6 @@
     justify-content: space-between;
     gap: 12px;
   }
-  .mic-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-dim);
-  }
   .tts-toggle {
     display: inline-flex;
     align-items: center;
@@ -380,13 +371,14 @@
     background: var(--ink-faint);
     flex-shrink: 0;
   }
-  .mic-status.live .mic-dot {
+  .mic-toggle.on .mic-dot { background: var(--gold); }
+  .mic-toggle.live .mic-dot {
     background: var(--green);
     box-shadow: 0 0 0 0 rgba(111,174,106,0.6);
     animation: pulse 1.6s infinite;
   }
-  .mic-status.error .mic-dot { background: var(--danger); }
-  .mic-status.error { color: var(--danger); }
+  .mic-toggle.error { border-color: var(--danger); color: var(--danger); }
+  .mic-toggle.error .mic-dot { background: var(--danger); animation: none; }
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(111,174,106,0.55); }
     70% { box-shadow: 0 0 0 10px rgba(111,174,106,0); }
@@ -635,7 +627,10 @@
 
   <div class="mic-zone">
     <div class="mic-bar">
-      <div class="mic-status" id="micStatus"><span class="mic-dot"></span><span id="micStatusText">Starting…</span></div>
+      <button class="tts-toggle mic-toggle on" id="micToggle" type="button" aria-pressed="true" title="Toggle microphone listening">
+        <span class="mic-dot"></span>
+        <span class="tts-lbl" id="micStatusText">Listening</span>
+      </button>
       <button class="tts-toggle on" id="ttsToggle" type="button" aria-pressed="true" title="Read each point of measure aloud">
         <svg class="tts-ico" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="tts-wave" d="M16.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span class="tts-lbl">Read POM</span>
@@ -783,6 +778,10 @@ let speakUntil = 0;         // ignore recognition until this time (anti-feedback
 let lastSpokenIndex = -1;   // which POM index we last announced
 let audioCtx = null;
 
+// quick-edit bar visibility
+let editVisible = false;
+let lastEditIndex = -1;     // POM index the edit-bar default was last applied for
+
 /* ============================================================
    DOM
 ============================================================ */
@@ -831,9 +830,10 @@ function startSession(templateId) {
   $("measureTitle").textContent = tpl.name;
   ensureAudio();          // template tap is a user gesture — unlocks audio
   lastSpokenIndex = -1;
+  lastEditIndex = -1;
   showScreen("measure");
+  startListening();       // set listening state before first render (edit-bar default)
   renderMeasure();
-  startListening();
 }
 
 function resetToSelect() {
@@ -944,6 +944,17 @@ function renderMeasure() {
     lastSpokenIndex = index;
     speakPom(poms[index]);
   }
+
+  // edit-bar default visibility follows listening state; reset when the POM changes
+  if (index !== lastEditIndex) {
+    lastEditIndex = index;
+    editVisible = !wantListening;   // shown when not listening, hidden when listening
+  }
+  applyEditVisibility();
+}
+
+function applyEditVisibility() {
+  $("pomScroll").classList.toggle("edit-open", editVisible);
 }
 
 /* Show the current row's listening dot only while the mic is actually live. */
@@ -1263,7 +1274,7 @@ function interpret(rawText) {
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 function setMicStatus(mode, text) {
-  const el = $("micStatus");
+  const el = $("micToggle");
   el.classList.remove("live", "error");
   if (mode === "live") el.classList.add("live");
   if (mode === "error") el.classList.add("error");
@@ -1275,7 +1286,9 @@ function showMicError(msg) {
   e.textContent = msg;
   e.classList.add("show");
   $("retryBtn").classList.add("show");
-  setMicStatus("error", "Microphone off");
+  $("micToggle").classList.remove("on");
+  $("micToggle").setAttribute("aria-pressed", "false");
+  setMicStatus("error", "Mic blocked");
   reflectListening();
 }
 function clearMicError() {
@@ -1338,7 +1351,7 @@ function initRecognition() {
       try { recognition.start(); }
       catch (e) { /* may already be starting; ignore */ }
     } else if (!wantListening) {
-      setMicStatus("idle", "Microphone off");
+      setMicStatus("idle", "Mic off");
     }
   };
   return true;
@@ -1358,12 +1371,14 @@ function handleFinal(transcript) {
   lastFinalAt = now;
 
   const handled = interpret(text);
-  $("interim").textContent = "";
-  if (!handled) {
-    // brief feedback that nothing matched
-    setMicStatus("live", "Heard: " + text.slice(0, 24));
+  if (handled) {
+    $("interim").textContent = "";
+  } else {
+    // brief feedback in the interim line that nothing matched
+    const el = $("interim");
+    el.textContent = "“" + text.slice(0, 40) + "” — not recognized";
     clearTimeout(handleFinal._t);
-    handleFinal._t = setTimeout(() => { if (listening) setMicStatus("live", "Listening"); }, 1400);
+    handleFinal._t = setTimeout(() => { el.textContent = ""; }, 1400);
   }
 }
 
@@ -1371,6 +1386,8 @@ function startListening() {
   micPermDenied = false;
   wantListening = true;
   clearMicError();
+  $("micToggle").classList.add("on");
+  $("micToggle").setAttribute("aria-pressed", "true");
   setMicStatus("idle", "Starting…");
   if (!recognition) {
     if (!initRecognition()) return;
@@ -1387,7 +1404,9 @@ function stopListening() {
   if (recognition) {
     try { recognition.stop(); } catch (e) {}
   }
-  setMicStatus("idle", "Microphone off");
+  $("micToggle").classList.remove("on");
+  $("micToggle").setAttribute("aria-pressed", "false");
+  setMicStatus("idle", "Mic off");
   $("interim").textContent = "";
   reflectListening();
 }
@@ -1519,9 +1538,10 @@ function showSummary() {
 function resumeMeasuring() {
   ensureAudio();
   lastSpokenIndex = -1;   // re-announce the current POM on resume
+  lastEditIndex = -1;
   showScreen("measure");
-  renderMeasure();
   startListening();
+  renderMeasure();
 }
 
 /* ============================================================
@@ -1541,8 +1561,23 @@ $("pomScroll").addEventListener("click", (e) => {
   const row = e.target.closest(".prow");
   if (!row || !state) return;
   const i = parseInt(row.dataset.i, 10);
-  if (Number.isNaN(i) || i === state.index) return; // already current — ignore
-  gotoPom(i);
+  if (Number.isNaN(i)) return;
+  if (i === state.index) {
+    // tapping the current card toggles its edit bar (hide on another tap)
+    editVisible = !editVisible;
+    applyEditVisibility();
+  } else {
+    gotoPom(i);
+  }
+});
+$("micToggle").addEventListener("click", () => {
+  if (wantListening) stopListening();
+  else startListening();
+  ensureAudio();
+  cueCommand();
+  // edit-bar default flips with listening state
+  editVisible = !wantListening;
+  applyEditVisibility();
 });
 $("progressSegs").addEventListener("click", (e) => {
   const seg = e.target.closest(".seg");
