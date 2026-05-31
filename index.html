@@ -151,19 +151,31 @@
     letter-spacing: 0.12em;
     color: var(--ink-dim);
   }
-  .progress-track {
-    height: 4px;
-    background: var(--line);
-    border-radius: 4px;
+  /* segmented progress bar — one clickable chunk per POM, colored by quality */
+  .progress-segs {
+    display: flex;
+    align-items: center;
+    gap: 3px;
     margin-top: 12px;
-    overflow: hidden;
+    height: 12px;
   }
-  .progress-fill {
-    height: 100%;
-    width: 0;
-    background: linear-gradient(90deg, var(--gold), #e2c876);
-    transition: width .35s cubic-bezier(.2,.8,.2,1);
+  .seg {
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: var(--line);
+    cursor: pointer;
+    transition: background .2s ease, height .15s ease, box-shadow .15s ease;
   }
+  .seg:hover { background: var(--ink-faint); }
+  .seg.q-exact, .seg.q-near { background: var(--green); }
+  .seg.q-mid  { background: var(--gold); }
+  .seg.q-far  { background: var(--danger); }
+  .seg.current { height: 11px; box-shadow: 0 0 0 1px var(--gold), 0 0 8px -1px var(--gold); }
+  .seg.current:not(.filled) { background: rgba(201, 168, 76, 0.55); }
 
   .pom-scroll {
     flex: 1;
@@ -190,7 +202,7 @@
   .prow-idx {
     font-family: var(--mono);
     font-size: 14px;
-    color: var(--ink-faint);
+    color: #a89e8c;
     width: 26px;
     text-align: right;
     flex-shrink: 0;
@@ -581,7 +593,7 @@
       <div class="mh-title" id="measureTitle">—</div>
       <div class="mh-count" id="measureCount">0 of 0</div>
     </div>
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-segs" id="progressSegs"></div>
   </div>
 
   <div class="pom-scroll" id="pomScroll"></div>
@@ -838,7 +850,14 @@ function renderMeasure() {
   const total = poms.length;
 
   $("measureCount").textContent = `${index + 1} of ${total}`;
-  $("progressFill").style.width = `${(index / total) * 100}%`;
+
+  // segmented progress bar — one chunk per POM, quality-colored, clickable
+  $("progressSegs").innerHTML = poms.map((p, i) => {
+    const filled = p.recorded != null;
+    const q = filled ? qualityClass(p.recorded, p.std) : "";
+    const cls = ["seg", filled ? "filled" : "", q, i === index ? "current" : ""].filter(Boolean).join(" ");
+    return `<button type="button" class="${cls}" data-i="${i}" title="${p.label}"></button>`;
+  }).join("");
 
   const host = $("pomScroll");
   host.innerHTML = poms.map(rowHtml).join("");
@@ -1444,6 +1463,12 @@ $("btnNewSession").addEventListener("click", resetToSelect);
 $("retryBtn").addEventListener("click", () => {
   micPermDenied = false;
   startListening();
+});
+$("progressSegs").addEventListener("click", (e) => {
+  const seg = e.target.closest(".seg");
+  if (!seg || !state) return;
+  const i = parseInt(seg.dataset.i, 10);
+  if (!Number.isNaN(i)) gotoPom(i);
 });
 $("ttsToggle").addEventListener("click", () => {
   ttsEnabled = !ttsEnabled;
