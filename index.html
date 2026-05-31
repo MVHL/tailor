@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Atelier — Voice Measurement Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14110e;
+    --bg-elev: #1d1916;
+    --bg-card: #221d18;
+    --ink: #ece4d6;
+    --ink-dim: #8a8073;
+    --ink-faint: #5a5247;
+    --gold: #c9a84c;
+    --gold-soft: rgba(201, 168, 76, 0.14);
+    --green: #6fae6a;
+    --green-soft: rgba(111, 174, 106, 0.16);
+    --line: #2f2922;
+    --danger: #c96a4c;
+    --serif: 'Playfair Display', Georgia, serif;
+    --mono: 'DM Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    overscroll-behavior: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(201,168,76,0.06), transparent 60%),
+      var(--bg);
+  }
+
+  .screen { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .screen.active { display: flex; }
+
+  /* ---------- Generic header ---------- */
+  .topbar {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .brand-sub {
+    font-family: var(--serif);
+    font-size: 13px;
+    font-style: italic;
+    color: var(--ink-dim);
+    margin-top: 3px;
+  }
+
+  /* ---------- Template select ---------- */
+  #screen-select { padding: 0; }
+  .select-hero {
+    padding: 40px 24px 22px;
+    text-align: center;
+  }
+  .select-hero .kicker {
+    font-size: 11px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .select-hero h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 34px;
+    line-height: 1.1;
+    letter-spacing: 0.5px;
+  }
+  .select-hero p {
+    color: var(--ink-dim);
+    font-size: 13px;
+    margin-top: 12px;
+    line-height: 1.6;
+  }
+  .template-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 18px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .template-card {
+    background: var(--bg-card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    transition: border-color .18s ease, transform .12s ease, background .18s ease;
+  }
+  .template-card:active { transform: scale(0.985); }
+  .template-card:hover { border-color: var(--gold); background: #251f19; }
+  .template-card .tc-name {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+  }
+  .template-card .tc-meta {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-top: 6px;
+  }
+  .template-card .tc-arrow {
+    font-family: var(--serif);
+    font-size: 26px;
+    color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  /* ---------- Measuring ---------- */
+  #screen-measure { padding: 0; }
+  .measure-head {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .mh-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .mh-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .mh-count {
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+  }
+  .progress-track {
+    height: 4px;
+    background: var(--line);
+    border-radius: 4px;
+    margin-top: 12px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--gold), #e2c876);
+    transition: width .35s cubic-bezier(.2,.8,.2,1);
+  }
+
+  .pom-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 14px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scroll-behavior: smooth;
+  }
+
+  .prow {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 16px;
+    min-height: 66px;
+    border-radius: 12px;
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-left: 3px solid transparent;
+    transition: background .2s ease, border-color .2s ease, opacity .2s ease, padding .2s ease;
+  }
+  .prow-idx {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--ink-faint);
+    width: 26px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .prow-main { flex: 1; min-width: 0; }
+  .prow-name {
+    font-family: var(--serif);
+    font-size: 23px;
+    color: var(--ink);
+    line-height: 1.12;
+  }
+  .prow-chip {
+    display: none;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    width: fit-content;
+  }
+  .prow-vals {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .prow-std { font-family: var(--mono); font-size: 15px; color: var(--ink-dim); }
+  .prow-std .u, .prow-rec .u { font-size: .55em; color: var(--ink-faint); margin-left: 2px; }
+  .prow-rec {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 500;
+    color: var(--ink-faint);
+    min-width: 78px;
+  }
+
+  /* pending (default, not yet reached) */
+  .prow.pending { opacity: 0.45; }
+
+  /* filled (recorded earlier) */
+  .prow.filled { opacity: 1; border-left-color: var(--green); }
+  .prow.filled .prow-rec { color: var(--green); }
+  .prow.filled.std { border-left-color: var(--gold); }
+  .prow.filled.std .prow-rec { color: var(--gold); }
+
+  /* skipped */
+  .prow.skipped { opacity: 0.55; border-left-color: var(--ink-faint); }
+  .prow.skipped .prow-rec { color: var(--ink-faint); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+
+  /* UP NEXT */
+  .prow.next { opacity: 1; border-color: rgba(201,168,76,0.32); }
+  .prow.next .prow-chip { display: inline-block; background: transparent; border: 1px solid var(--gold); color: var(--gold); }
+
+  /* JUST FILLED (most recent record) — strongest "what I just did" cue */
+  .prow.just { opacity: 1; border-left-color: var(--green); box-shadow: 0 0 0 1px var(--green-soft), 0 0 22px -8px rgba(111,174,106,0.6); }
+  .prow.just .prow-rec { color: var(--green); }
+  .prow.just .prow-chip { display: inline-block; background: var(--green-soft); color: var(--green); }
+  .prow.just.std { border-left-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-soft), 0 0 22px -8px rgba(201,168,76,0.6); }
+  .prow.just.std .prow-rec { color: var(--gold); }
+  .prow.just.std .prow-chip { background: var(--gold-soft); color: var(--gold); }
+
+  /* one-shot flash when a value lands */
+  @keyframes rowflash {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.02); background: rgba(111,174,106,0.14); }
+    100% { transform: scale(1); }
+  }
+  .prow.flash { animation: rowflash .5s ease; }
+
+  /* CURRENT — big glowing row */
+  .prow.current {
+    opacity: 1;
+    background: linear-gradient(180deg, #2a2318, #221d16);
+    border-color: var(--gold);
+    border-left: 4px solid var(--gold);
+    padding: 20px 16px;
+    box-shadow: 0 0 0 1px rgba(201,168,76,0.28), 0 0 40px -8px rgba(201,168,76,0.4);
+    animation: glow 2.6s ease-in-out infinite;
+  }
+  .prow.current .prow-idx { color: var(--gold); font-size: 16px; }
+  .prow.current .prow-name { font-size: 36px; font-weight: 600; }
+  .prow.current .prow-chip { display: inline-block; background: var(--gold); color: #1a160f; }
+  .prow.current .prow-std { font-size: 17px; }
+  .prow.current .prow-rec { font-size: 46px; }
+  .prow.current.filled .prow-rec { color: var(--green); }
+  .prow.current.filled.std .prow-rec { color: var(--gold); }
+  .prow.current .prow-rec.empty { color: var(--ink-faint); }
+  @keyframes glow {
+    0%,100% { box-shadow: 0 0 0 1px rgba(201,168,76,0.25), 0 0 32px -8px rgba(201,168,76,0.28); }
+    50%     { box-shadow: 0 0 0 1px rgba(201,168,76,0.42), 0 0 48px -4px rgba(201,168,76,0.45); }
+  }
+
+  /* listening indicator — only shown on the current row */
+  .prow-mic { display: none; align-items: center; gap: 9px; margin-top: 12px; }
+  .prow.current .prow-mic { display: flex; }
+  .mic-eq { display: inline-flex; align-items: flex-end; gap: 3px; height: 20px; }
+  .mic-eq span {
+    width: 3px; height: 6px; border-radius: 2px;
+    background: var(--gold);
+    animation: eq 0.9s ease-in-out infinite;
+  }
+  .mic-eq span:nth-child(2) { animation-delay: .12s; }
+  .mic-eq span:nth-child(3) { animation-delay: .24s; }
+  .mic-eq span:nth-child(4) { animation-delay: .36s; }
+  @keyframes eq { 0%,100% { height: 6px; } 50% { height: 20px; } }
+  .prow-mic .lbl {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .24em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .prow-mic.idle .mic-eq span { animation: none; height: 6px; background: var(--ink-faint); }
+  .prow-mic.idle .lbl { color: var(--ink-faint); }
+
+  /* ---------- Mic / footer ---------- */
+  .mic-zone {
+    padding: 8px 18px 4px;
+    text-align: center;
+    min-height: 56px;
+  }
+  .mic-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .mic-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--ink-faint);
+    flex-shrink: 0;
+  }
+  .mic-status.live .mic-dot {
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(111,174,106,0.6);
+    animation: pulse 1.6s infinite;
+  }
+  .mic-status.error .mic-dot { background: var(--danger); }
+  .mic-status.error { color: var(--danger); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(111,174,106,0.55); }
+    70% { box-shadow: 0 0 0 10px rgba(111,174,106,0); }
+    100% { box-shadow: 0 0 0 0 rgba(111,174,106,0); }
+  }
+  .interim {
+    margin-top: 8px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--gold);
+    min-height: 22px;
+    opacity: 0.9;
+  }
+  .mic-error-msg {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--danger);
+    line-height: 1.5;
+    display: none;
+  }
+  .mic-error-msg.show { display: block; }
+  .retry-btn {
+    margin-top: 8px;
+    display: none;
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .retry-btn.show { display: inline-block; }
+
+  /* hint line */
+  .voice-hints {
+    padding: 4px 22px 0;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    line-height: 1.7;
+  }
+  .voice-hints b { color: var(--gold); font-weight: 500; }
+
+  .footer-bar {
+    display: flex;
+    gap: 12px;
+    padding: 14px 18px calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--bg-elev);
+  }
+
+  .btn {
+    flex: 1;
+    border-radius: 12px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--bg-card);
+    color: var(--ink);
+    transition: transform .1s ease, border-color .15s ease, background .15s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.ghost { color: var(--ink-dim); }
+  .btn.ghost:hover { border-color: var(--ink-dim); }
+  .btn.primary {
+    background: var(--gold);
+    color: #1a160f;
+    border-color: var(--gold);
+    font-weight: 500;
+  }
+  .btn.primary:hover { background: #d9bb63; }
+
+  /* ---------- Summary ---------- */
+  #screen-summary { padding: 0; }
+  .sum-head {
+    padding: 22px 22px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .sum-head .kicker {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .sum-head h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 28px;
+    margin-top: 8px;
+  }
+  .sum-count {
+    margin-top: 10px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--ink-dim);
+  }
+  .sum-count b { color: var(--green); font-weight: 500; }
+
+  .sum-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 14px;
+  }
+  table.sum {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  table.sum thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 12px 10px 10px;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+  }
+  table.sum thead th.r, table.sum tbody td.r { text-align: right; }
+  table.sum tbody td {
+    padding: 14px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.sum tbody td.pom {
+    font-family: var(--serif);
+    font-size: 17px;
+  }
+  table.sum tbody td.std { font-family: var(--mono); color: var(--ink-dim); }
+  table.sum tbody td.rec { font-family: var(--mono); font-size: 16px; }
+  .rec.custom { color: var(--green); }
+  .rec.standard { color: var(--gold); }
+  .rec.none { color: var(--ink-faint); }
+  .rec .unit { font-size: 0.6em; color: var(--ink-faint); margin-left: 2px; }
+  .rec-tag {
+    display: inline-block;
+    font-size: 8px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-left: 7px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+  .rec-tag.custom { background: var(--green-soft); color: var(--green); }
+  .rec-tag.standard { background: var(--gold-soft); color: var(--gold); }
+
+  /* ---------- Toast ---------- */
+  .toast-host {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: calc(98px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 50;
+    padding: 0 16px;
+  }
+  .toast {
+    background: var(--bg-card);
+    border: 1px solid var(--gold);
+    box-shadow: 0 10px 30px -8px rgba(0,0,0,0.6);
+    border-radius: 12px;
+    padding: 12px 18px;
+    min-width: 200px;
+    max-width: 92vw;
+    text-align: center;
+    animation: toastIn .25s ease forwards;
+  }
+  .toast.out { animation: toastOut .3s ease forwards; }
+  .toast .t-pom {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .toast .t-val {
+    font-family: var(--mono);
+    font-size: 22px;
+    margin-top: 2px;
+    color: var(--green);
+  }
+  .toast .t-val.gold { color: var(--gold); }
+  .toast .t-sub {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 4px;
+  }
+  .toast.skip { border-color: var(--ink-faint); }
+  .toast.skip .t-val { color: var(--ink-dim); font-size: 15px; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(10px); } }
+
+  .scrim-note {
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: center;
+    padding: 10px 20px 0;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ TEMPLATE SELECT ============ -->
+<section id="screen-select" class="screen active">
+  <div class="select-hero">
+    <div class="kicker">Atelier</div>
+    <h1>Voice Measurement<br>Assistant</h1>
+    <p>Keep your hands on the cloth.<br>Select a garment to begin a hands-free session.</p>
+  </div>
+  <div class="template-list" id="templateList"></div>
+</section>
+
+<!-- ============ MEASURING ============ -->
+<section id="screen-measure" class="screen">
+  <div class="measure-head">
+    <div class="mh-row">
+      <div class="mh-title" id="measureTitle">—</div>
+      <div class="mh-count" id="measureCount">0 of 0</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="pom-scroll" id="pomScroll"></div>
+
+  <div class="voice-hints">
+    <b>number</b> or <b>"+5" / "-6"</b> fills now &middot; <b>"standard"</b> accepts &middot; <b>"next"</b> &middot; <b>"previous"</b> &middot; <b>"go to {pom}"</b> or <b>"go to 5"</b> &middot; <b>"{pom} {number}"</b>
+  </div>
+
+  <div class="mic-zone">
+    <div class="mic-status" id="micStatus"><span class="mic-dot"></span><span id="micStatusText">Starting…</span></div>
+    <div class="interim" id="interim"></div>
+    <div class="mic-error-msg" id="micError"></div>
+    <button class="retry-btn" id="retryBtn">Enable Microphone</button>
+  </div>
+
+  <div class="footer-bar">
+    <button class="btn ghost" id="btnMeasureBack">Back</button>
+    <button class="btn primary" id="btnDone">Done</button>
+  </div>
+</section>
+
+<!-- ============ SUMMARY ============ -->
+<section id="screen-summary" class="screen">
+  <div class="sum-head">
+    <div class="kicker">Session Summary</div>
+    <h2 id="sumTitle">—</h2>
+    <div class="sum-count"><b id="sumRecorded">0</b> of <span id="sumTotal">0</span> measurements recorded</div>
+  </div>
+  <div class="sum-table-wrap">
+    <table class="sum">
+      <thead>
+        <tr><th>Point of Measure</th><th class="r">Standard</th><th class="r">Recorded</th></tr>
+      </thead>
+      <tbody id="sumBody"></tbody>
+    </table>
+    <div class="scrim-note">Gold = accepted standard &middot; Green = custom measurement &middot; Muted = not recorded</div>
+  </div>
+  <div class="footer-bar">
+    <button class="btn ghost" id="btnSummaryBack">Back</button>
+    <button class="btn primary" id="btnNewSession">New Session</button>
+  </div>
+</section>
+
+<div class="toast-host" id="toastHost"></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   TEMPLATES
+   Each POM: { key, label, std, unit }
+============================================================ */
+const TEMPLATES = {
+  suit: {
+    name: "Men's Suit",
+    poms: [
+      { key: "chest",        label: "Chest",          std: 102 },
+      { key: "waist",        label: "Waist",          std: 88  },
+      { key: "hip",          label: "Hip",            std: 100 },
+      { key: "shoulder",     label: "Shoulder Width", std: 46  },
+      { key: "sleeve",       label: "Sleeve Length",  std: 64  },
+      { key: "jacketlength", label: "Jacket Length",  std: 76  },
+      { key: "neck",         label: "Neck",           std: 40  },
+      { key: "inseam",       label: "Inseam",         std: 82  },
+      { key: "outseam",      label: "Outseam",        std: 108 },
+      { key: "thigh",        label: "Thigh",          std: 58  },
+      { key: "knee",         label: "Knee",           std: 44  },
+      { key: "trouserbottom",label: "Trouser Bottom", std: 38  },
+    ],
+  },
+  dress: {
+    name: "Women's Dress",
+    poms: [
+      { key: "bust",        label: "Bust",          std: 90  },
+      { key: "waist",       label: "Waist",         std: 72  },
+      { key: "hip",         label: "Hip",           std: 96  },
+      { key: "shoulder",    label: "Shoulder Width",std: 38  },
+      { key: "frontlength", label: "Front Length",  std: 60  },
+      { key: "backlength",  label: "Back Length",   std: 62  },
+      { key: "sleeve",      label: "Sleeve Length", std: 58  },
+      { key: "armhole",     label: "Armhole",       std: 42  },
+      { key: "neck",        label: "Neck",          std: 36  },
+      { key: "dresslength", label: "Dress Length",  std: 120 },
+      { key: "sideseam",    label: "Side Seam",     std: 62  },
+    ],
+  },
+  shirt: {
+    name: "Men's Dress Shirt",
+    poms: [
+      { key: "neck",       label: "Neck",          std: 40  },
+      { key: "chest",      label: "Chest",         std: 104 },
+      { key: "waist",      label: "Waist",         std: 90  },
+      { key: "shoulder",   label: "Shoulder Width",std: 46  },
+      { key: "sleeve",     label: "Sleeve Length", std: 64  },
+      { key: "shirtlength",label: "Shirt Length",  std: 80  },
+      { key: "cuff",       label: "Cuff",          std: 24  },
+      { key: "backwidth",  label: "Back Width",    std: 44  },
+      { key: "frontwidth", label: "Front Width",   std: 42  },
+    ],
+  },
+  cheongsam: {
+    name: "Cheongsam / Qipao",
+    poms: [
+      { key: "bust",       label: "Bust",          std: 88  },
+      { key: "waist",      label: "Waist",         std: 70  },
+      { key: "hip",        label: "Hip",           std: 94  },
+      { key: "shoulder",   label: "Shoulder Width",std: 37  },
+      { key: "neck",       label: "Neck",          std: 35  },
+      { key: "sleeve",     label: "Sleeve Length", std: 55  },
+      { key: "armhole",    label: "Armhole",       std: 40  },
+      { key: "frontlength",label: "Front Length",  std: 58  },
+      { key: "backlength", label: "Back Length",   std: 60  },
+      { key: "fulllength", label: "Full Length",   std: 130 },
+      { key: "slitheight", label: "Slit Height",   std: 35  },
+      { key: "thigh",      label: "Thigh",         std: 54  },
+      { key: "cuff",       label: "Cuff",          std: 20  },
+    ],
+  },
+  trousers: {
+    name: "Trousers / Pants",
+    poms: [
+      { key: "waist",      label: "Waist",        std: 88  },
+      { key: "hip",        label: "Hip",          std: 100 },
+      { key: "rise",       label: "Rise",         std: 28  },
+      { key: "inseam",     label: "Inseam",       std: 80  },
+      { key: "outseam",    label: "Outseam",      std: 106 },
+      { key: "thigh",      label: "Thigh",        std: 60  },
+      { key: "knee",       label: "Knee",         std: 46  },
+      { key: "legopening", label: "Leg Opening",  std: 38  },
+      { key: "crotchdepth",label: "Crotch Depth", std: 24  },
+    ],
+  },
+};
+const UNIT = "cm";
+
+/* ============================================================
+   STATE
+============================================================ */
+let state = null; // { templateId, poms:[{...,recorded:number|null, accepted:bool}], index }
+let recognition = null;
+let listening = false;       // SpeechRecognition currently running
+let wantListening = false;   // we WANT to listen (measuring mode active)
+let micPermDenied = false;
+
+/* ============================================================
+   DOM
+============================================================ */
+const $ = (id) => document.getElementById(id);
+const screens = {
+  select: $("screen-select"),
+  measure: $("screen-measure"),
+  summary: $("screen-summary"),
+};
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove("active"));
+  screens[name].classList.add("active");
+}
+
+/* ============================================================
+   TEMPLATE SELECT
+============================================================ */
+function renderTemplateList() {
+  const host = $("templateList");
+  host.innerHTML = "";
+  Object.entries(TEMPLATES).forEach(([id, tpl]) => {
+    const card = document.createElement("div");
+    card.className = "template-card";
+    card.innerHTML = `
+      <div>
+        <div class="tc-name">${tpl.name}</div>
+        <div class="tc-meta">${tpl.poms.length} Points of Measure</div>
+      </div>
+      <div class="tc-arrow">&rarr;</div>`;
+    card.addEventListener("click", () => startSession(id));
+    host.appendChild(card);
+  });
+}
+
+/* ============================================================
+   SESSION LIFECYCLE
+============================================================ */
+function startSession(templateId) {
+  const tpl = TEMPLATES[templateId];
+  state = {
+    templateId,
+    poms: tpl.poms.map(p => ({ ...p, recorded: null, accepted: false, skipped: false })),
+    index: 0,
+    lastFilled: null,
+  };
+  $("measureTitle").textContent = tpl.name;
+  showScreen("measure");
+  renderMeasure();
+  startListening();
+}
+
+function resetToSelect() {
+  stopListening();
+  state = null;
+  showScreen("select");
+}
+
+/* ============================================================
+   MEASURING RENDER
+============================================================ */
+function rowHtml(p, i) {
+  let recVal;
+  if (p.recorded != null) recVal = `${p.recorded}<span class="u">${UNIT}</span>`;
+  else if (p.skipped)     recVal = "skipped";
+  else                    recVal = "— —";
+  return `
+    <div class="prow" data-i="${i}">
+      <div class="prow-idx">${String(i + 1).padStart(2, "0")}</div>
+      <div class="prow-main">
+        <div class="prow-name">${p.label}</div>
+        <div class="prow-chip"></div>
+        <div class="prow-mic idle"><span class="mic-eq"><span></span><span></span><span></span><span></span></span><span class="lbl">Mic off</span></div>
+      </div>
+      <div class="prow-vals">
+        <div class="prow-std">${p.std}<span class="u">${UNIT}</span></div>
+        <div class="prow-rec">${recVal}</div>
+      </div>
+    </div>`;
+}
+
+function renderMeasure() {
+  if (!state) return;
+  const { poms, index } = state;
+  const total = poms.length;
+
+  $("measureCount").textContent = `${index + 1} of ${total}`;
+  $("progressFill").style.width = `${(index / total) * 100}%`;
+
+  const host = $("pomScroll");
+  host.innerHTML = poms.map(rowHtml).join("");
+
+  poms.forEach((p, i) => {
+    const row = host.querySelector(`[data-i="${i}"]`);
+    const chip = row.querySelector(".prow-chip");
+    const rec = row.querySelector(".prow-rec");
+    const recorded = p.recorded != null;
+    const stdClass = p.accepted ? " std" : "";
+
+    if (i === index) {
+      // CURRENT — measuring now
+      row.className = "prow current" + (recorded ? " filled" + stdClass : "");
+      if (!recorded) rec.classList.add("empty");
+      chip.textContent = "Measuring Now";
+    } else if (i === state.lastFilled && recorded) {
+      // JUST FILLED — last value recorded
+      row.className = "prow just" + stdClass;
+      chip.textContent = "Just Filled";
+    } else if (i === index + 1) {
+      // UP NEXT
+      row.className = "prow next" + (recorded ? " filled" + stdClass : (p.skipped ? " skipped" : ""));
+      chip.textContent = "Up Next";
+    } else if (recorded) {
+      row.className = "prow filled" + stdClass;
+    } else if (p.skipped) {
+      row.className = "prow skipped";
+    } else {
+      row.className = "prow pending";
+    }
+  });
+
+  // keep the current POM centered in view
+  const cur = host.querySelector(`[data-i="${index}"]`);
+  if (cur) cur.scrollIntoView({ block: "center", behavior: "smooth" });
+
+  reflectListening();
+}
+
+/* Reflect live mic state on the current row's listening indicator. */
+function reflectListening() {
+  const row = $("pomScroll").querySelector(".prow.current");
+  if (!row) return;
+  const mic = row.querySelector(".prow-mic");
+  if (!mic) return;
+  const lbl = mic.querySelector(".lbl");
+  if (listening) {
+    mic.classList.remove("idle");
+    lbl.textContent = "Listening";
+  } else {
+    mic.classList.add("idle");
+    lbl.textContent = micPermDenied ? "Mic blocked" : "Mic off";
+  }
+}
+
+/* ============================================================
+   RECORDING ACTIONS
+============================================================ */
+function recordValue(idx, value, accepted, note) {
+  const pom = state.poms[idx];
+  pom.recorded = value;
+  pom.accepted = !!accepted;
+  pom.skipped = false;
+  state.lastFilled = idx;
+  showToast(pom.label, value, accepted ? "standard" : "custom", note);
+}
+
+function advance() {
+  if (state.index < state.poms.length - 1) state.index++;
+}
+
+function flashRow(i) {
+  const row = $("pomScroll").querySelector(`[data-i="${i}"]`);
+  if (row) { row.classList.add("flash"); setTimeout(() => row.classList.remove("flash"), 520); }
+}
+
+// plain number -> fill current, advance once (also covers "<number> next")
+function recordCurrentNumber(value, note) {
+  const idx = state.index;
+  recordValue(idx, value, value === state.poms[idx].std, note);
+  advance();
+  renderMeasure();
+  flashRow(idx);
+}
+
+function acceptStandard() {
+  const idx = state.index;
+  recordValue(idx, state.poms[idx].std, true, null);
+  advance();
+  renderMeasure();
+  flashRow(idx);
+}
+
+// POM name + number -> fill that POM in place, do NOT move the cursor (#5)
+function fillTargeted(idx, value, note) {
+  recordValue(idx, value, value === state.poms[idx].std, note);
+  renderMeasure();
+  flashRow(idx);
+}
+
+function skipCurrent() {
+  const pom = state.poms[state.index];
+  pom.skipped = true;
+  showToast(pom.label, "Skipped", "skip");
+  advance();
+  renderMeasure();
+}
+
+function goPrev() {
+  if (state.index > 0) state.index--;
+  renderMeasure();
+  showNavToast("Back to", state.poms[state.index].label);
+}
+
+function gotoPom(idx) {
+  state.index = idx;
+  renderMeasure();
+  showNavToast("Go to", state.poms[idx].label);
+}
+
+/* ============================================================
+   VOICE PARSING
+============================================================ */
+const WORD_NUM = {
+  zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9,
+  ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16,
+  seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40, fourty:40,
+  fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100,
+};
+const ACCEPT_WORDS = ["ok","okay","good","standard","perfect","yes","correct","fine","default","accept"];
+const SKIP_WORDS = ["next","skip","pass","later"];
+
+/* Convert a transcript chunk into a numeric value, supporting:
+   - digits "42", "42.5"
+   - "and a half" -> +0.5,  "and a quarter" -> +0.25, "and three quarters" -> +0.75
+   - "point five" -> .5
+   - simple number words ("forty two", "thirty") */
+function parseNumber(text) {
+  if (!text) return null;
+  let t = " " + text.toLowerCase().trim() + " ";
+
+  // fraction phrases -> additive fraction
+  let frac = 0;
+  if (/\band a half\b|\band half\b|\bpoint five\b/.test(t)) frac = 0.5;
+  else if (/\band a quarter\b|\band one quarter\b/.test(t)) frac = 0.25;
+  else if (/\band three quarters?\b|\band three quarter\b/.test(t)) frac = 0.75;
+  else if (/\band a third\b/.test(t)) frac = 0.33;
+
+  // strip fraction phrases so they don't pollute digit parsing
+  t = t.replace(/\band a half\b|\band half\b|\band a quarter\b|\band one quarter\b|\band three quarters?\b|\band three quarter\b|\band a third\b|\bpoint five\b/g, " ");
+
+  // 1) explicit decimal / integer digits e.g. "42", "42.5", "36 1/2"
+  const decMatch = t.match(/(\d+(?:\.\d+)?)/);
+  if (decMatch) {
+    let base = parseFloat(decMatch[1]);
+    // handle "X 1/2" style
+    const slash = t.match(/(\d+)\s*\/\s*(\d+)/);
+    if (slash && parseInt(slash[2]) !== 0 && !decMatch[1].includes(".")) {
+      // only add slash fraction if it isn't the same digits we already took
+      const whole = t.match(/(\d+)\s+(\d+)\s*\/\s*(\d+)/);
+      if (whole) {
+        base = parseInt(whole[1]) + parseInt(whole[2]) / parseInt(whole[3]);
+      }
+    }
+    return round2(base + frac);
+  }
+
+  // 2) number words
+  const wordVal = parseWordNumber(t);
+  if (wordVal != null) return round2(wordVal + frac);
+
+  // 3) only a fraction phrase present (rare) -> ignore (needs a base)
+  return null;
+}
+
+function parseWordNumber(t) {
+  const tokens = t.split(/[^a-z]+/).filter(Boolean);
+  let total = 0, current = 0, found = false;
+  for (const tok of tokens) {
+    if (tok in WORD_NUM) {
+      found = true;
+      const v = WORD_NUM[tok];
+      if (v === 100) {
+        current = (current === 0 ? 1 : current) * 100;
+      } else {
+        current += v;
+      }
+    } else {
+      // non-number token breaks a run; commit current
+      if (found && current > 0) { total += current; current = 0; }
+    }
+  }
+  total += current;
+  return found ? total : null;
+}
+
+function round2(n) { return Math.round(n * 100) / 100; }
+
+/* Detect a relative sign: +1 (add to standard), -1 (subtract), 0 (absolute). */
+function parseSign(text) {
+  if (/\b(plus|add|positive)\b/.test(text) || /[+]\s*\d/.test(text)) return 1;
+  if (/\b(minus|negative|subtract)\b/.test(text) || /[-−]\s*\d/.test(text)) return -1;
+  return 0;
+}
+
+/* Resolve a spoken magnitude into a final value for POM `idx`.
+   sign === 0 -> absolute; otherwise delta from that POM's standard. */
+function resolveValue(idx, magnitude, sign) {
+  const std = state.poms[idx].std;
+  if (sign !== 0) {
+    const value = round2(Math.max(0, std + sign * magnitude));
+    return { value, note: `Std ${std} ${sign < 0 ? "−" : "+"} ${magnitude}` };
+  }
+  return { value: magnitude, note: null };
+}
+
+/* Try to match a POM name at the start/anywhere in the phrase.
+   Returns index of best matching pom, or -1. */
+function matchPom(text) {
+  const t = text.toLowerCase();
+  let best = -1, bestLen = 0;
+  state.poms.forEach((p, i) => {
+    const label = p.label.toLowerCase();
+    // match full label or first word of label (e.g. "shoulder")
+    const candidates = [label, label.split(" ")[0]];
+    for (const c of candidates) {
+      if (c.length >= 3 && t.includes(c) && c.length > bestLen) {
+        best = i; bestLen = c.length;
+      }
+    }
+  });
+  return best;
+}
+
+const hasWord = (text, words) => words.some(w => new RegExp(`\\b${w}\\b`).test(text));
+
+/* Main command interpreter. Returns true if a command was handled. */
+function interpret(rawText) {
+  if (!state) return false;
+  const text = rawText.toLowerCase().trim();
+  if (!text) return false;
+
+  const num = parseNumber(text);
+  const sign = parseSign(text);
+
+  // 1) GO TO <pom name | index number> -> move the cursor there
+  const gotoMatch = text.match(/\b(?:go\s*to|goto|jump to)\b(.*)/);
+  if (gotoMatch) {
+    const rest = gotoMatch[1].trim();
+    const n = parseNumber(rest);
+    if (n != null && Number.isInteger(n) && n >= 1 && n <= state.poms.length) {
+      gotoPom(n - 1); return true;            // "go to 5" -> 5th POM
+    }
+    const idx = matchPom(rest || text);
+    if (idx !== -1) { gotoPom(idx); return true; }
+    return true; // recognized "go to …" but nothing matched — swallow, don't misfire
+  }
+
+  // 2) PREVIOUS / BACK -> step back one (ignore if a number was spoken)
+  if (num == null && hasWord(text, ["previous", "prev", "go back", "back"])) {
+    goPrev();
+    return true;
+  }
+
+  // 3) POM name + number -> fill that POM in place, NO cursor move (#5)
+  //    supports +/- relative to that POM's standard
+  const pomIdx = matchPom(text);
+  if (pomIdx !== -1 && num != null) {
+    const r = resolveValue(pomIdx, num, sign);
+    fillTargeted(pomIdx, r.value, r.note);
+    return true;
+  }
+
+  // 4) NEXT / SKIP (no number) -> skip current without recording
+  if (num == null && hasWord(text, SKIP_WORDS)) {
+    skipCurrent();
+    return true;
+  }
+
+  // 5) number (optionally trailed by "next"); absolute, or +/- from current standard
+  if (num != null) {
+    const r = resolveValue(state.index, num, sign);
+    recordCurrentNumber(r.value, r.note);
+    return true;
+  }
+
+  // 6) accept standard
+  if (hasWord(text, ACCEPT_WORDS)) {
+    acceptStandard();
+    return true;
+  }
+
+  return false;
+}
+
+/* ============================================================
+   SPEECH RECOGNITION
+============================================================ */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function setMicStatus(mode, text) {
+  const el = $("micStatus");
+  el.classList.remove("live", "error");
+  if (mode === "live") el.classList.add("live");
+  if (mode === "error") el.classList.add("error");
+  $("micStatusText").textContent = text;
+}
+
+function showMicError(msg) {
+  const e = $("micError");
+  e.textContent = msg;
+  e.classList.add("show");
+  $("retryBtn").classList.add("show");
+  setMicStatus("error", "Microphone off");
+  reflectListening();
+}
+function clearMicError() {
+  $("micError").classList.remove("show");
+  $("retryBtn").classList.remove("show");
+}
+
+function initRecognition() {
+  if (!SpeechRecognition) {
+    showMicError("Speech recognition is not supported in this browser. Use Chrome on Android or desktop Chrome.");
+    return false;
+  }
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  recognition.onstart = () => {
+    listening = true;
+    clearMicError();
+    setMicStatus("live", "Listening");
+    reflectListening();
+  };
+
+  recognition.onerror = (ev) => {
+    if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+      micPermDenied = true;
+      wantListening = false;
+      showMicError("Microphone access was denied. Tap below and allow the microphone to record by voice.");
+    } else if (ev.error === "no-speech") {
+      // benign; will auto-restart on end
+    } else if (ev.error === "audio-capture") {
+      showMicError("No microphone was found on this device.");
+      wantListening = false;
+    } else if (ev.error === "aborted") {
+      // intentional stop
+    }
+  };
+
+  recognition.onresult = (ev) => {
+    let interim = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const res = ev.results[i];
+      const transcript = res[0].transcript;
+      if (res.isFinal) {
+        handleFinal(transcript);
+      } else {
+        interim += transcript;
+      }
+    }
+    $("interim").textContent = interim ? `“${interim.trim()}”` : "";
+  };
+
+  recognition.onend = () => {
+    listening = false;
+    reflectListening();
+    $("interim").textContent = "";
+    // auto-restart if we still want to listen
+    if (wantListening && !micPermDenied) {
+      try { recognition.start(); }
+      catch (e) { /* may already be starting; ignore */ }
+    } else if (!wantListening) {
+      setMicStatus("idle", "Microphone off");
+    }
+  };
+  return true;
+}
+
+let lastFinalText = "";
+let lastFinalAt = 0;
+function handleFinal(transcript) {
+  const text = transcript.trim();
+  if (!text) return;
+  // de-dupe identical finals fired in quick succession
+  const now = Date.now();
+  if (text.toLowerCase() === lastFinalText && (now - lastFinalAt) < 1200) return;
+  lastFinalText = text.toLowerCase();
+  lastFinalAt = now;
+
+  const handled = interpret(text);
+  $("interim").textContent = "";
+  if (!handled) {
+    // brief feedback that nothing matched
+    setMicStatus("live", "Heard: " + text.slice(0, 24));
+    clearTimeout(handleFinal._t);
+    handleFinal._t = setTimeout(() => { if (listening) setMicStatus("live", "Listening"); }, 1400);
+  }
+}
+
+function startListening() {
+  micPermDenied = false;
+  wantListening = true;
+  clearMicError();
+  setMicStatus("idle", "Starting…");
+  if (!recognition) {
+    if (!initRecognition()) return;
+  }
+  try {
+    recognition.start();
+  } catch (e) {
+    // "already started" — ignore
+  }
+}
+
+function stopListening() {
+  wantListening = false;
+  if (recognition) {
+    try { recognition.stop(); } catch (e) {}
+  }
+  setMicStatus("idle", "Microphone off");
+  $("interim").textContent = "";
+  reflectListening();
+}
+
+/* ============================================================
+   TOASTS
+============================================================ */
+function showToast(pomLabel, value, kind, note) {
+  const host = $("toastHost");
+  const t = document.createElement("div");
+  t.className = "toast" + (kind === "skip" ? " skip" : "");
+  let valClass = kind === "standard" ? "t-val gold" : "t-val";
+  let sub = kind === "standard" ? "Standard accepted"
+          : kind === "custom"   ? "Custom measurement"
+          : "Skipped";
+  if (note) sub = note;
+  const valDisplay = (kind === "skip") ? value : `${value}<span style="font-size:.55em;color:var(--ink-dim)">${UNIT}</span>`;
+  t.innerHTML = `
+    <div class="t-pom">${pomLabel}</div>
+    <div class="${valClass}">${valDisplay}</div>
+    <div class="t-sub">${sub}</div>`;
+  host.appendChild(t);
+  setTimeout(() => {
+    t.classList.add("out");
+    setTimeout(() => t.remove(), 320);
+  }, 2000);
+}
+
+function showNavToast(action, label) {
+  const host = $("toastHost");
+  const t = document.createElement("div");
+  t.className = "toast skip";
+  t.innerHTML = `
+    <div class="t-sub" style="margin-top:0">${action}</div>
+    <div class="t-pom" style="color:var(--gold)">${label}</div>`;
+  host.appendChild(t);
+  setTimeout(() => {
+    t.classList.add("out");
+    setTimeout(() => t.remove(), 320);
+  }, 1500);
+}
+
+/* ============================================================
+   SUMMARY
+============================================================ */
+function showSummary() {
+  stopListening();
+  const tpl = TEMPLATES[state.templateId];
+  $("sumTitle").textContent = tpl.name;
+  const recordedCount = state.poms.filter(p => p.recorded != null).length;
+  $("sumRecorded").textContent = recordedCount;
+  $("sumTotal").textContent = state.poms.length;
+
+  const body = $("sumBody");
+  body.innerHTML = "";
+  state.poms.forEach(p => {
+    const tr = document.createElement("tr");
+    let recCell;
+    if (p.recorded == null) {
+      recCell = `<td class="r rec none">— —</td>`;
+    } else if (p.accepted) {
+      recCell = `<td class="r rec standard">${p.recorded}<span class="unit">${UNIT}</span><span class="rec-tag standard">Std</span></td>`;
+    } else {
+      recCell = `<td class="r rec custom">${p.recorded}<span class="unit">${UNIT}</span><span class="rec-tag custom">Custom</span></td>`;
+    }
+    tr.innerHTML = `
+      <td class="pom">${p.label}</td>
+      <td class="r std">${p.std}<span class="unit" style="font-size:.6em;color:var(--ink-faint)"> ${UNIT}</span></td>
+      ${recCell}`;
+    body.appendChild(tr);
+  });
+
+  showScreen("summary");
+}
+
+function resumeMeasuring() {
+  showScreen("measure");
+  renderMeasure();
+  startListening();
+}
+
+/* ============================================================
+   EVENT WIRING
+============================================================ */
+$("btnDone").addEventListener("click", showSummary);
+$("btnMeasureBack").addEventListener("click", resetToSelect);
+$("btnSummaryBack").addEventListener("click", resumeMeasuring);
+$("btnNewSession").addEventListener("click", resetToSelect);
+$("retryBtn").addEventListener("click", () => {
+  micPermDenied = false;
+  startListening();
+});
+
+// initial render
+renderTemplateList();
+</script>
+</body>
+</html>
