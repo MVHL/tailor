@@ -95,7 +95,7 @@
 
   /* ---------- Template select ---------- */
   #screen-select { padding: 0; }
-  .select-top { display: flex; justify-content: flex-end; padding: 16px 18px 0; }
+  .select-top { display: flex; justify-content: space-between; gap: 10px; padding: 16px 18px 0; }
   .theme-switch {
     display: inline-flex;
     border: 1px solid var(--line);
@@ -650,15 +650,19 @@
 <!-- ============ TEMPLATE SELECT ============ -->
 <section id="screen-select" class="screen active">
   <div class="select-top">
+    <div class="theme-switch" id="langSwitch" role="group" aria-label="Language">
+      <button class="theme-opt" type="button" data-lang="en">EN</button>
+      <button class="theme-opt" type="button" data-lang="vi">VI</button>
+    </div>
     <div class="theme-switch" id="themeSwitch" role="group" aria-label="Theme">
-      <button class="theme-opt" type="button" data-theme="dark">Dark</button>
-      <button class="theme-opt" type="button" data-theme="light">Light</button>
+      <button class="theme-opt" type="button" data-theme="dark" data-i18n="themeDark">Dark</button>
+      <button class="theme-opt" type="button" data-theme="light" data-i18n="themeLight">Light</button>
     </div>
   </div>
   <div class="select-hero">
     <div class="kicker">Atelier</div>
-    <h1>Voice Measurement<br>Assistant</h1>
-    <p>Keep your hands on the cloth.<br>Select a garment to begin a hands-free session.</p>
+    <h1 data-i18n="heroTitle">Voice Measurement<br>Assistant</h1>
+    <p data-i18n="heroDesc">Keep your hands on the cloth.<br>Select a garment to begin a hands-free session.</p>
   </div>
   <div class="template-list" id="templateList"></div>
 </section>
@@ -675,7 +679,7 @@
 
   <div class="pom-scroll" id="pomScroll"></div>
 
-  <div class="voice-hints">
+  <div class="voice-hints" data-i18n="hints">
     <b>number</b> or <b>"+5" / "-6"</b> fills now &middot; <b>"standard"</b> accepts &middot; <b>"next"</b> &middot; <b>"previous"</b> &middot; <b>"clear"</b> removes &middot; <b>"go to {pom}"</b> or <b>"go to 5"</b> &middot; <b>"{pom} {number}"</b>
   </div>
 
@@ -687,40 +691,40 @@
       </button>
       <button class="tts-toggle on" id="ttsToggle" type="button" aria-pressed="true" title="Read each point of measure aloud">
         <svg class="tts-ico" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="tts-wave" d="M16.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <span class="tts-lbl">Read POM</span>
+        <span class="tts-lbl" data-i18n="ttsLabel">Read POM</span>
         <span class="sw"></span>
       </button>
     </div>
     <div class="interim" id="interim"></div>
     <div class="mic-error-msg" id="micError"></div>
-    <button class="retry-btn" id="retryBtn">Enable Microphone</button>
+    <button class="retry-btn" id="retryBtn" data-i18n="enableMic">Enable Microphone</button>
   </div>
 
   <div class="footer-bar">
-    <button class="btn ghost" id="btnMeasureBack">Back</button>
-    <button class="btn primary" id="btnDone">Done</button>
+    <button class="btn ghost" id="btnMeasureBack" data-i18n="back">Back</button>
+    <button class="btn primary" id="btnDone" data-i18n="done">Done</button>
   </div>
 </section>
 
 <!-- ============ SUMMARY ============ -->
 <section id="screen-summary" class="screen">
   <div class="sum-head">
-    <div class="kicker">Session Summary</div>
+    <div class="kicker" data-i18n="summaryKicker">Session Summary</div>
     <h2 id="sumTitle">—</h2>
-    <div class="sum-count"><b id="sumRecorded">0</b> of <span id="sumTotal">0</span> measurements recorded</div>
+    <div class="sum-count" id="sumCount"></div>
   </div>
   <div class="sum-table-wrap">
     <table class="sum">
       <thead>
-        <tr><th>Point of Measure</th><th class="r">Standard</th><th class="r">Recorded</th></tr>
+        <tr><th data-i18n="thPom">Point of Measure</th><th class="r" data-i18n="thStd">Standard</th><th class="r" data-i18n="thRec">Recorded</th></tr>
       </thead>
       <tbody id="sumBody"></tbody>
     </table>
-    <div class="scrim-note">Gold = accepted standard &middot; Green = custom measurement &middot; Muted = not recorded</div>
+    <div class="scrim-note" data-i18n="scrimNote">Accent = standard accepted &middot; Green = custom measurement &middot; Muted = not recorded</div>
   </div>
   <div class="footer-bar">
-    <button class="btn ghost" id="btnSummaryBack">Back</button>
-    <button class="btn primary" id="btnNewSession">New Session</button>
+    <button class="btn ghost" id="btnSummaryBack" data-i18n="back">Back</button>
+    <button class="btn primary" id="btnNewSession" data-i18n="newSession">New Session</button>
   </div>
 </section>
 
@@ -817,6 +821,85 @@ const TEMPLATES = {
 const UNIT = "cm";
 
 /* ============================================================
+   I18N — English + Vietnamese
+============================================================ */
+let lang = "en";
+
+const TPL_VI = {
+  "Men's Suit": "Vest Nam",
+  "Women's Dress": "Đầm Nữ",
+  "Men's Dress Shirt": "Sơ Mi Nam",
+  "Cheongsam / Qipao": "Sườn Xám",
+  "Trousers / Pants": "Quần Tây",
+};
+
+const POM_VI = {
+  "Chest": "Vòng ngực", "Waist": "Vòng eo", "Hip": "Vòng mông",
+  "Shoulder Width": "Rộng vai", "Sleeve Length": "Dài tay", "Jacket Length": "Dài áo",
+  "Neck": "Vòng cổ", "Inseam": "Dài dọc trong", "Outseam": "Dài dọc ngoài",
+  "Thigh": "Vòng đùi", "Knee": "Vòng gối", "Trouser Bottom": "Gấu quần",
+  "Bust": "Vòng ngực", "Front Length": "Dài thân trước", "Back Length": "Dài thân sau",
+  "Armhole": "Vòng nách", "Dress Length": "Dài váy", "Side Seam": "Dài sườn",
+  "Shirt Length": "Dài áo sơ mi", "Cuff": "Cửa tay", "Back Width": "Rộng lưng",
+  "Front Width": "Rộng thân trước", "Full Length": "Dài tổng thể", "Slit Height": "Cao xẻ tà",
+  "Rise": "Cao đáy", "Leg Opening": "Rộng ống", "Crotch Depth": "Sâu đáy",
+};
+
+const I18N = {
+  en: {
+    heroTitle: "Voice Measurement<br>Assistant",
+    heroDesc: "Keep your hands on the cloth.<br>Select a garment to begin a hands-free session.",
+    pomsLabel: "Points of Measure",
+    hints: '<b>number</b> or <b>"+5" / "-6"</b> fills now &middot; <b>"standard"</b> accepts &middot; <b>"next"</b> &middot; <b>"previous"</b> &middot; <b>"clear"</b> removes &middot; <b>"go to {pom}"</b> or <b>"go to 5"</b> &middot; <b>"{pom} {number}"</b>',
+    micListening: "Listening", micOff: "Mic off", micStarting: "Starting…", micBlocked: "Mic blocked",
+    ttsLabel: "Read POM",
+    done: "Done", back: "Back", newSession: "New Session", enableMic: "Enable Microphone",
+    summaryKicker: "Session Summary",
+    thPom: "Point of Measure", thStd: "Standard", thRec: "Recorded",
+    scrimNote: "Accent = standard accepted &middot; Green = custom measurement &middot; Muted = not recorded",
+    chipCurrent: "Current", chipNext: "Up Next", chipJust: "Just Filled",
+    standard: "Standard",
+    subStandard: "Standard accepted", subCustom: "Custom measurement", subSkipped: "Skipped",
+    navGoTo: "Go to", navBackTo: "Back to", cleared: "Cleared", skipped: "Skipped",
+    tagStd: "Std", tagCustom: "Custom",
+    notRecognized: "not recognized",
+    of: "of", recordedOf: "{n} of {t} measurements recorded",
+    themeDark: "Dark", themeLight: "Light",
+    errNoSupport: "Speech recognition is not supported in this browser. Use Chrome on Android or desktop Chrome.",
+    errDenied: "Microphone access was denied. Tap below and allow the microphone to record by voice.",
+    errNoMic: "No microphone was found on this device.",
+  },
+  vi: {
+    heroTitle: "Trợ Lý Đo<br>Bằng Giọng Nói",
+    heroDesc: "Giữ tay trên vải.<br>Chọn trang phục để bắt đầu phiên đo rảnh tay.",
+    pomsLabel: "Điểm đo",
+    hints: '<b>số</b> hoặc <b>"+5" / "-6"</b> để nhập &middot; <b>"chuẩn"</b> chấp nhận &middot; <b>"tiếp"</b> &middot; <b>"trước"</b> &middot; <b>"xóa"</b> để xoá &middot; <b>"đến {tên}"</b> hoặc <b>"đến 5"</b> &middot; <b>"{tên} {số}"</b>',
+    micListening: "Đang nghe", micOff: "Tắt mic", micStarting: "Đang khởi động…", micBlocked: "Mic bị chặn",
+    ttsLabel: "Đọc tên",
+    done: "Xong", back: "Quay lại", newSession: "Phiên mới", enableMic: "Bật micro",
+    summaryKicker: "Tổng kết phiên",
+    thPom: "Điểm đo", thStd: "Tiêu chuẩn", thRec: "Đã ghi",
+    scrimNote: "Màu nhấn = chuẩn được chấp nhận &middot; Xanh = số đo tùy chỉnh &middot; Mờ = chưa ghi",
+    chipCurrent: "Hiện tại", chipNext: "Tiếp theo", chipJust: "Vừa nhập",
+    standard: "Chuẩn",
+    subStandard: "Chấp nhận chuẩn", subCustom: "Số đo tùy chỉnh", subSkipped: "Bỏ qua",
+    navGoTo: "Đến", navBackTo: "Quay về", cleared: "Đã xóa", skipped: "Bỏ qua",
+    tagStd: "Chuẩn", tagCustom: "Tùy chỉnh",
+    notRecognized: "không nhận diện",
+    of: "/", recordedOf: "{n} trên {t} số đo đã ghi",
+    themeDark: "Tối", themeLight: "Sáng",
+    errNoSupport: "Trình duyệt này không hỗ trợ nhận diện giọng nói. Hãy dùng Chrome trên Android hoặc máy tính.",
+    errDenied: "Micro bị từ chối truy cập. Nhấn bên dưới và cho phép micro để ghi bằng giọng nói.",
+    errNoMic: "Không tìm thấy micro trên thiết bị này.",
+  },
+};
+
+function t(key) { return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }
+function pomLabel(p) { return lang === "vi" ? (POM_VI[p.label] || p.label) : p.label; }
+function tplName(id) { const n = TEMPLATES[id].name; return lang === "vi" ? (TPL_VI[n] || n) : n; }
+function speechLang() { return lang === "vi" ? "vi-VN" : "en-US"; }
+
+/* ============================================================
    STATE
 ============================================================ */
 let state = null; // { templateId, poms:[{...,recorded:number|null, accepted:bool}], index }
@@ -831,6 +914,7 @@ let speaking = false;       // TTS is currently talking
 let speakUntil = 0;         // ignore recognition until this time (anti-feedback cooldown)
 let lastSpokenIndex = -1;   // which POM index we last announced
 let audioCtx = null;
+let speakFallback = null;   // force-releases the mic guard if TTS onend never fires
 
 // quick-edit bar visibility
 let editVisible = false;
@@ -861,8 +945,8 @@ function renderTemplateList() {
     card.className = "template-card";
     card.innerHTML = `
       <div>
-        <div class="tc-name">${tpl.name}</div>
-        <div class="tc-meta">${tpl.poms.length} Points of Measure</div>
+        <div class="tc-name">${tplName(id)}</div>
+        <div class="tc-meta">${tpl.poms.length} ${t("pomsLabel")}</div>
       </div>
       <div class="tc-arrow">&rarr;</div>`;
     card.addEventListener("click", () => startSession(id));
@@ -881,13 +965,14 @@ function startSession(templateId) {
     index: 0,
     lastFilled: null,
   };
-  $("measureTitle").textContent = tpl.name;
+  $("measureTitle").textContent = tplName(templateId);
   ensureAudio();          // template tap is a user gesture — unlocks audio
-  lastSpokenIndex = -1;
   lastEditIndex = -1;
   showScreen("measure");
-  startListening();       // set listening state before first render (edit-bar default)
+  startListening();              // set listening state before first render (edit-bar default)
+  lastSpokenIndex = state.index; // suppress the synchronous announce (avoids TTS/mic start race)
   renderMeasure();
+  announceCurrentSoon();         // speak the first POM after recognition has settled
 }
 
 function resetToSelect() {
@@ -908,7 +993,7 @@ function rowHtml(p, i) {
       <div class="prow-row">
         <div class="prow-idx">${String(i + 1).padStart(2, "0")}</div>
         <div class="prow-main">
-          <div class="prow-name">${p.label}</div>
+          <div class="prow-name">${pomLabel(p)}</div>
           <div class="prow-statusline">
             <div class="prow-chip"></div>
             <span class="mic-dot prow-dot"></span>
@@ -923,7 +1008,7 @@ function rowHtml(p, i) {
         <button type="button" class="eb-btn" data-delta="-2">-2</button>
         <button type="button" class="eb-btn" data-delta="-1">-1</button>
         <button type="button" class="eb-btn" data-delta="-0.5">-0.5</button>
-        <button type="button" class="eb-btn eb-std" data-action="std">Standard</button>
+        <button type="button" class="eb-btn eb-std" data-action="std">${t("standard")}</button>
         <button type="button" class="eb-btn" data-delta="0.5">+0.5</button>
         <button type="button" class="eb-btn" data-delta="1">+1</button>
         <button type="button" class="eb-btn" data-delta="2">+2</button>
@@ -945,7 +1030,7 @@ function renderMeasure() {
   const { poms, index } = state;
   const total = poms.length;
 
-  $("measureCount").textContent = `${index + 1} of ${total}`;
+  $("measureCount").textContent = `${index + 1} ${t("of")} ${total}`;
 
   // segmented progress bar — one chunk per POM, quality-colored, clickable
   $("progressSegs").innerHTML = poms.map((p, i) => {
@@ -982,9 +1067,9 @@ function renderMeasure() {
 
     rec.classList.toggle("empty", status === "current" && !recorded);
 
-    chip.textContent = status === "current" ? "Current"
-                     : status === "just"    ? "Just Filled"
-                     : status === "next"    ? "Up Next" : "";
+    chip.textContent = status === "current" ? t("chipCurrent")
+                     : status === "just"    ? t("chipJust")
+                     : status === "next"    ? t("chipNext") : "";
   });
 
   // keep the current POM centered in view
@@ -1028,7 +1113,7 @@ function recordValue(idx, value, accepted, note) {
   pom.skipped = false;
   state.lastFilled = idx;
   cueRecord();
-  showToast(pom.label, value, accepted ? "standard" : "custom", note);
+  showToast(pomLabel(pom), value, accepted ? "standard" : "custom", note);
 }
 
 // next POM that still needs a value, searching forward and wrapping
@@ -1109,7 +1194,7 @@ function skipCurrent() {
   const pom = state.poms[state.index];
   pom.skipped = true;
   cueCommand();
-  showToast(pom.label, "Skipped", "skip");
+  showToast(pomLabel(pom), t("skipped"), "skip");
   advance();
   renderMeasure();
 }
@@ -1123,21 +1208,21 @@ function clearPom(idx) {
   if (state.lastFilled === idx) state.lastFilled = null;
   cueCommand();
   renderMeasure();
-  showNavToast("Cleared", pom.label);
+  showNavToast(t("cleared"), pomLabel(pom));
 }
 
 function goPrev() {
   if (state.index > 0) state.index--;
   cueCommand();
   renderMeasure();
-  showNavToast("Back to", state.poms[state.index].label);
+  showNavToast(t("navBackTo"), pomLabel(state.poms[state.index]));
 }
 
 function gotoPom(idx) {
   state.index = idx;
   cueCommand();
   renderMeasure();
-  showNavToast("Go to", state.poms[idx].label);
+  showNavToast(t("navGoTo"), pomLabel(state.poms[idx]));
 }
 
 /* ============================================================
@@ -1149,8 +1234,18 @@ const WORD_NUM = {
   seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40, fourty:40,
   fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100,
 };
-const ACCEPT_WORDS = ["ok","okay","good","standard","perfect","yes","correct","fine","default","accept"];
-const SKIP_WORDS = ["next","skip","pass","later"];
+// command vocabularies — English + Vietnamese (both always active)
+const ACCEPT_WORDS = ["ok","okay","good","standard","perfect","yes","correct","fine","default","accept",
+  "chuẩn","tiêu chuẩn","được","đúng","tốt","okê"];
+const SKIP_WORDS = ["next","skip","pass","later",
+  "tiếp","tiếp theo","kế tiếp","bỏ qua"];
+const PREV_WORDS = ["previous","prev","go back","back",
+  "trước","quay lại","lùi","trở lại"];
+const CLEAR_WORDS = ["clear","delete","remove","erase",
+  "xóa","xoá","xóa bỏ","xoá bỏ"];
+
+// Vietnamese number words
+const VI_UNIT = { "không":0,"một":1,"mốt":1,"hai":2,"ba":3,"bốn":4,"tư":4,"năm":5,"lăm":5,"nhăm":5,"sáu":6,"bảy":7,"bẩy":7,"tám":8,"chín":9 };
 
 /* Convert a transcript chunk into a numeric value, supporting:
    - digits "42", "42.5"
@@ -1161,15 +1256,15 @@ function parseNumber(text) {
   if (!text) return null;
   let t = " " + text.toLowerCase().trim() + " ";
 
-  // fraction phrases -> additive fraction
+  // fraction phrases -> additive fraction (EN + VI "rưỡi" = and a half)
   let frac = 0;
-  if (/\band a half\b|\band half\b|\bpoint five\b/.test(t)) frac = 0.5;
+  if (/\band a half\b|\band half\b|\bpoint five\b|rưỡi/.test(t)) frac = 0.5;
   else if (/\band a quarter\b|\band one quarter\b/.test(t)) frac = 0.25;
   else if (/\band three quarters?\b|\band three quarter\b/.test(t)) frac = 0.75;
   else if (/\band a third\b/.test(t)) frac = 0.33;
 
   // strip fraction phrases so they don't pollute digit parsing
-  t = t.replace(/\band a half\b|\band half\b|\band a quarter\b|\band one quarter\b|\band three quarters?\b|\band three quarter\b|\band a third\b|\bpoint five\b/g, " ");
+  t = t.replace(/\band a half\b|\band half\b|\band a quarter\b|\band one quarter\b|\band three quarters?\b|\band three quarter\b|\band a third\b|\bpoint five\b|rưỡi/g, " ");
 
   // 1) explicit decimal / integer digits e.g. "42", "42.5", "36 1/2"
   const decMatch = t.match(/(\d+(?:\.\d+)?)/);
@@ -1187,12 +1282,39 @@ function parseNumber(text) {
     return round2(base + frac);
   }
 
-  // 2) number words
+  // 2) English number words
   const wordVal = parseWordNumber(t);
   if (wordVal != null) return round2(wordVal + frac);
 
-  // 3) only a fraction phrase present (rare) -> ignore (needs a base)
+  // 3) Vietnamese number words
+  const viVal = parseViNumber(t);
+  if (viVal != null) return round2(viVal + frac);
+
+  // 4) only a fraction phrase present (rare) -> ignore (needs a base)
   return null;
+}
+
+// Vietnamese spoken numbers, e.g. "bốn mươi hai" -> 42, "một trăm lẻ hai" -> 102
+function parseViNumber(text) {
+  let toks = text.toLowerCase().split(/[^a-zà-ỹ0-9]+/i).filter(Boolean);
+  if (!toks.length) return null;
+  const scales = new Set(["mười", "mươi", "trăm", "nghìn", "ngàn", "lẻ", "linh"]);
+  if (!toks.some(w => (w in VI_UNIT) || scales.has(w))) return null;
+
+  let hundreds = 0;
+  const hi = toks.indexOf("trăm");
+  if (hi >= 0) {
+    const h = hi > 0 ? VI_UNIT[toks[hi - 1]] : 1;
+    hundreds = (h == null ? 1 : h) * 100;
+    toks = toks.slice(hi + 1).filter(w => w !== "lẻ" && w !== "linh");
+  }
+  let n = 0, seen = false;
+  for (const w of toks) {
+    if (w === "mười") { n += 10; seen = true; }
+    else if (w === "mươi") { n *= 10; seen = true; }
+    else if (w in VI_UNIT) { n += VI_UNIT[w]; seen = true; }
+  }
+  return (hundreds || seen) ? hundreds + n : null;
 }
 
 function parseWordNumber(t) {
@@ -1220,8 +1342,8 @@ function round2(n) { return Math.round(n * 100) / 100; }
 
 /* Detect a relative sign: +1 (add to standard), -1 (subtract), 0 (absolute). */
 function parseSign(text) {
-  if (/\b(plus|add|positive)\b/.test(text) || /[+]\s*\d/.test(text)) return 1;
-  if (/\b(minus|negative|subtract)\b/.test(text) || /[-−]\s*\d/.test(text)) return -1;
+  if (/\b(plus|add|positive)\b/.test(text) || /cộng/.test(text) || /[+]\s*\d/.test(text)) return 1;
+  if (/\b(minus|negative|subtract)\b/.test(text) || /trừ/.test(text) || /[-−]\s*\d/.test(text)) return -1;
   return 0;
 }
 
@@ -1242,11 +1364,12 @@ function matchPom(text) {
   const t = text.toLowerCase();
   let best = -1, bestLen = 0;
   state.poms.forEach((p, i) => {
-    const label = p.label.toLowerCase();
-    // match full label or first word of label (e.g. "shoulder")
-    const candidates = [label, label.split(" ")[0]];
+    const en = p.label.toLowerCase();
+    const vi = (POM_VI[p.label] || "").toLowerCase();
+    // full label, first English word, full VI label, last VI word
+    const candidates = [en, en.split(" ")[0], vi, vi.split(" ").slice(-1)[0]];
     for (const c of candidates) {
-      if (c.length >= 3 && t.includes(c) && c.length > bestLen) {
+      if (c && c.length >= 3 && t.includes(c) && c.length > bestLen) {
         best = i; bestLen = c.length;
       }
     }
@@ -1254,7 +1377,10 @@ function matchPom(text) {
   return best;
 }
 
-const hasWord = (text, words) => words.some(w => new RegExp(`\\b${w}\\b`).test(text));
+// whole-word match for ASCII (English) words; substring match for words with diacritics (Vietnamese)
+const hasWord = (text, words) => words.some(w =>
+  /[^\u0000-\u007f]/.test(w) ? text.includes(w) : new RegExp(`\\b${w}\\b`).test(text)
+);
 
 /* Main command interpreter. Returns true if a command was handled. */
 function interpret(rawText) {
@@ -1265,8 +1391,12 @@ function interpret(rawText) {
   const num = parseNumber(text);
   const sign = parseSign(text);
 
-  // 1) GO TO <pom name | index number> -> move the cursor there
-  const gotoMatch = text.match(/\b(?:go\s*to|goto|jump to)\b(.*)/);
+  // 1) GO TO <pom name | index number> -> move the cursor there (EN + VI verbs)
+  let gotoMatch = text.match(/\b(?:go\s*to|goto|jump to)\b(.*)/);
+  if (!gotoMatch) {
+    const vi = text.match(/(?:đi tới|đi đến|chuyển tới|chuyển đến|đến|tới)\s+(.+)/);
+    if (vi) gotoMatch = [vi[0], vi[1]];
+  }
   if (gotoMatch) {
     const rest = gotoMatch[1].trim();
     const n = parseNumber(rest);
@@ -1279,13 +1409,13 @@ function interpret(rawText) {
   }
 
   // 2) PREVIOUS / BACK -> step back one (ignore if a number was spoken)
-  if (num == null && hasWord(text, ["previous", "prev", "go back", "back"])) {
+  if (num == null && hasWord(text, PREV_WORDS)) {
     goPrev();
     return true;
   }
 
   // 2b) CLEAR -> remove a recorded value (current, or a named POM)
-  if (num == null && hasWord(text, ["clear", "delete", "remove", "erase"])) {
+  if (num == null && hasWord(text, CLEAR_WORDS)) {
     const ci = matchPom(text);
     clearPom(ci !== -1 ? ci : state.index);
     return true;
@@ -1342,7 +1472,7 @@ function showMicError(msg) {
   $("retryBtn").classList.add("show");
   $("micToggle").classList.remove("on");
   $("micToggle").setAttribute("aria-pressed", "false");
-  setMicStatus("error", "Mic blocked");
+  setMicStatus("error", t("micBlocked"));
   reflectListening();
 }
 function clearMicError() {
@@ -1352,18 +1482,19 @@ function clearMicError() {
 
 function initRecognition() {
   if (!SpeechRecognition) {
-    showMicError("Speech recognition is not supported in this browser. Use Chrome on Android or desktop Chrome.");
+    showMicError(t("errNoSupport"));
     return false;
   }
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = "en-US";
+  recognition.lang = speechLang();
 
   recognition.onstart = () => {
     listening = true;
+    consumed = "";   // fresh transcript for this recognition session
     clearMicError();
-    setMicStatus("live", "Listening");
+    setMicStatus("live", t("micListening"));
     reflectListening();
   };
 
@@ -1371,11 +1502,11 @@ function initRecognition() {
     if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
       micPermDenied = true;
       wantListening = false;
-      showMicError("Microphone access was denied. Tap below and allow the microphone to record by voice.");
+      showMicError(t("errDenied"));
     } else if (ev.error === "no-speech") {
       // benign; will auto-restart on end
     } else if (ev.error === "audio-capture") {
-      showMicError("No microphone was found on this device.");
+      showMicError(t("errNoMic"));
       wantListening = false;
     } else if (ev.error === "aborted") {
       // intentional stop
@@ -1383,21 +1514,31 @@ function initRecognition() {
   };
 
   recognition.onresult = (ev) => {
-    let interim = "";
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      const res = ev.results[i];
-      const transcript = res[0].transcript;
-      if (res.isFinal) {
-        handleFinal(transcript);
-      } else {
-        interim += transcript;
-      }
+    // Build the FULL session transcript so far. vi-VN keeps appending to one ever-growing
+    // result instead of finalizing, so "46" then "35" arrives as "46 35". We act only on the
+    // NEW suffix since the last command (see handleFinal), so each number is recorded once.
+    let full = "";
+    for (let k = 0; k < ev.results.length; k++) full += ev.results[k][0].transcript + " ";
+    full = full.replace(/\s+/g, " ").trimEnd();
+    const lastFinal = ev.results.length > 0 && ev.results[ev.results.length - 1].isFinal;
+
+    const disp = newSuffix(full).trim();
+    $("interim").textContent = disp ? `“${disp}”` : "";
+
+    if (lastFinal) {
+      clearTimeout(interimTimer);
+      handleFinal(full);
+    } else if (disp) {
+      // act on a STABLE interim after a short pause (vi-VN finalizes very slowly, or never)
+      clearTimeout(interimTimer);
+      const snap = full;
+      interimTimer = setTimeout(() => handleFinal(snap), 650);
     }
-    $("interim").textContent = interim ? `“${interim.trim()}”` : "";
   };
 
   recognition.onend = () => {
     listening = false;
+    clearTimeout(interimTimer);
     reflectListening();
     $("interim").textContent = "";
     // auto-restart if we still want to listen
@@ -1405,24 +1546,36 @@ function initRecognition() {
       try { recognition.start(); }
       catch (e) { /* may already be starting; ignore */ }
     } else if (!wantListening) {
-      setMicStatus("idle", "Mic off");
+      setMicStatus("idle", t("micOff"));
     }
   };
   return true;
 }
 
-let lastFinalText = "";
-let lastFinalAt = 0;
-function handleFinal(transcript) {
-  const text = transcript.trim();
+let interimTimer = null;
+let consumed = "";   // full session transcript already acted on (reset each recognition session)
+
+// the part of `full` that comes after everything we've already handled (handles the
+// vi-VN "one growing result" case: "46" then "46 35" -> we only act on " 35")
+function newSuffix(full) {
+  let s = 0;
+  const a = consumed.toLowerCase(), b = full.toLowerCase();
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  return full.slice(s);
+}
+
+function handleFinal(full) {
+  if (!state) return;
+  const text = newSuffix(full || "").trim();
+  consumed = full || "";          // mark this transcript as seen (even if we ignore it below)
   if (!text) return;
-  // ignore input while we're reading a POM aloud (prevents hearing our own voice)
-  if (speaking || Date.now() < speakUntil) { $("interim").textContent = ""; return; }
-  // de-dupe identical finals fired in quick succession
-  const now = Date.now();
-  if (text.toLowerCase() === lastFinalText && (now - lastFinalAt) < 1200) return;
-  lastFinalText = text.toLowerCase();
-  lastFinalAt = now;
+  // While announcing a POM aloud, the mic can pick up our own voice. Only suppress input
+  // that looks like an echo of the announced name (a POM name with NO number). Real commands
+  // — numbers, +/-, next, previous, clear, go to — still go through, so input stays snappy.
+  if ((speaking || Date.now() < speakUntil) && parseNumber(text) == null && matchPom(text) !== -1) {
+    $("interim").textContent = "";
+    return;
+  }
 
   const handled = interpret(text);
   if (handled) {
@@ -1430,7 +1583,7 @@ function handleFinal(transcript) {
   } else {
     // brief feedback in the interim line that nothing matched
     const el = $("interim");
-    el.textContent = "“" + text.slice(0, 40) + "” — not recognized";
+    el.textContent = "“" + text.slice(0, 40) + "” — " + t("notRecognized");
     clearTimeout(handleFinal._t);
     handleFinal._t = setTimeout(() => { el.textContent = ""; }, 1400);
   }
@@ -1442,7 +1595,7 @@ function startListening() {
   clearMicError();
   $("micToggle").classList.add("on");
   $("micToggle").setAttribute("aria-pressed", "true");
-  setMicStatus("idle", "Starting…");
+  setMicStatus("idle", t("micStarting"));
   if (!recognition) {
     if (!initRecognition()) return;
   }
@@ -1460,7 +1613,7 @@ function stopListening() {
   }
   $("micToggle").classList.remove("on");
   $("micToggle").setAttribute("aria-pressed", "false");
-  setMicStatus("idle", "Mic off");
+  setMicStatus("idle", t("micOff"));
   $("interim").textContent = "";
   reflectListening();
 }
@@ -1468,38 +1621,38 @@ function stopListening() {
 /* ============================================================
    TOASTS
 ============================================================ */
-function showToast(pomLabel, value, kind, note) {
+function showToast(label, value, kind, note) {
   const host = $("toastHost");
-  const t = document.createElement("div");
-  t.className = "toast" + (kind === "skip" ? " skip" : "");
-  let valClass = kind === "standard" ? "t-val gold" : "t-val";
-  let sub = kind === "standard" ? "Standard accepted"
-          : kind === "custom"   ? "Custom measurement"
-          : "Skipped";
+  const el = document.createElement("div");
+  el.className = "toast" + (kind === "skip" ? " skip" : "");
+  const valClass = kind === "standard" ? "t-val gold" : "t-val";
+  let sub = kind === "standard" ? t("subStandard")
+          : kind === "custom"   ? t("subCustom")
+          : t("subSkipped");
   if (note) sub = note;
   const valDisplay = (kind === "skip") ? value : `${value}<span style="font-size:.55em;color:var(--ink-dim)">${UNIT}</span>`;
-  t.innerHTML = `
-    <div class="t-pom">${pomLabel}</div>
+  el.innerHTML = `
+    <div class="t-pom">${label}</div>
     <div class="${valClass}">${valDisplay}</div>
     <div class="t-sub">${sub}</div>`;
-  host.appendChild(t);
+  host.appendChild(el);
   setTimeout(() => {
-    t.classList.add("out");
-    setTimeout(() => t.remove(), 320);
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 320);
   }, 2000);
 }
 
 function showNavToast(action, label) {
   const host = $("toastHost");
-  const t = document.createElement("div");
-  t.className = "toast skip";
-  t.innerHTML = `
+  const el = document.createElement("div");
+  el.className = "toast skip";
+  el.innerHTML = `
     <div class="t-sub" style="margin-top:0">${action}</div>
     <div class="t-pom" style="color:var(--gold)">${label}</div>`;
-  host.appendChild(t);
+  host.appendChild(el);
   setTimeout(() => {
-    t.classList.add("out");
-    setTimeout(() => t.remove(), 320);
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 320);
   }, 1500);
 }
 
@@ -1540,17 +1693,30 @@ function speakPom(pom) {
   if (!ttsEnabled || !pom) return;
   const synth = window.speechSynthesis;
   if (!synth) return;
+  const code = speechLang();
+  const voice = (synth.getVoices() || []).find(v =>
+    (v.lang || "").toLowerCase().startsWith(code.split("-")[0]));
+  // No voice for this language (e.g. no Vietnamese TTS installed)? Skip the announcement
+  // entirely — speaking would produce no audio yet still block the mic.
+  if (!voice && code !== "en-US") return;
+
   synth.cancel();
-  const u = new SpeechSynthesisUtterance(pom.label);
-  u.rate = 1.05; u.pitch = 1; u.lang = "en-US";
+  const u = new SpeechSynthesisUtterance(pomLabel(pom));
+  u.rate = 1.05; u.pitch = 1; u.lang = code;
+  if (voice) u.voice = voice;
   speaking = true;
   // guard recognition against hearing our own voice (some labels contain "back" etc.)
-  u.onend = () => { speaking = false; speakUntil = Date.now() + 500; };
-  u.onerror = () => { speaking = false; speakUntil = Date.now() + 500; };
+  const release = () => { clearTimeout(speakFallback); speaking = false; speakUntil = Date.now() + 350; };
+  u.onend = release;
+  u.onerror = release;
+  // SAFETY: if onend never fires, force-release so the mic guard can never get stuck
+  clearTimeout(speakFallback);
+  speakFallback = setTimeout(release, 1000 + pomLabel(pom).length * 70);
   synth.speak(u);
 }
 
 function stopSpeaking() {
+  clearTimeout(speakFallback);
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   speaking = false;
 }
@@ -1561,11 +1727,11 @@ function stopSpeaking() {
 function showSummary() {
   stopListening();
   stopSpeaking();
-  const tpl = TEMPLATES[state.templateId];
-  $("sumTitle").textContent = tpl.name;
+  $("sumTitle").textContent = tplName(state.templateId);
   const recordedCount = state.poms.filter(p => p.recorded != null).length;
-  $("sumRecorded").textContent = recordedCount;
-  $("sumTotal").textContent = state.poms.length;
+  $("sumCount").innerHTML = t("recordedOf")
+    .replace("{n}", `<b>${recordedCount}</b>`)
+    .replace("{t}", state.poms.length);
 
   const body = $("sumBody");
   body.innerHTML = "";
@@ -1575,12 +1741,12 @@ function showSummary() {
     if (p.recorded == null) {
       recCell = `<td class="r rec none">— —</td>`;
     } else if (p.accepted) {
-      recCell = `<td class="r rec standard">${p.recorded}<span class="unit">${UNIT}</span><span class="rec-tag standard">Std</span></td>`;
+      recCell = `<td class="r rec standard">${p.recorded}<span class="unit">${UNIT}</span><span class="rec-tag standard">${t("tagStd")}</span></td>`;
     } else {
-      recCell = `<td class="r rec custom">${p.recorded}<span class="unit">${UNIT}</span><span class="rec-tag custom">Custom</span></td>`;
+      recCell = `<td class="r rec custom">${p.recorded}<span class="unit">${UNIT}</span><span class="rec-tag custom">${t("tagCustom")}</span></td>`;
     }
     tr.innerHTML = `
-      <td class="pom">${p.label}</td>
+      <td class="pom">${pomLabel(p)}</td>
       <td class="r std">${p.std}<span class="unit" style="font-size:.6em;color:var(--ink-faint)"> ${UNIT}</span></td>
       ${recCell}`;
     body.appendChild(tr);
@@ -1591,11 +1757,24 @@ function showSummary() {
 
 function resumeMeasuring() {
   ensureAudio();
-  lastSpokenIndex = -1;   // re-announce the current POM on resume
   lastEditIndex = -1;
   showScreen("measure");
   startListening();
+  lastSpokenIndex = state.index;   // suppress synchronous announce (TTS/mic start race)
   renderMeasure();
+  announceCurrentSoon();
+}
+
+// announce the current POM shortly after recognition has started, so TTS and
+// SpeechRecognition don't initialize at the same instant (Chrome wedges the mic if they do)
+function announceCurrentSoon() {
+  if (!ttsEnabled || !state) return;
+  setTimeout(() => {
+    if (state && screens.measure.classList.contains("active")) {
+      lastSpokenIndex = state.index;
+      speakPom(state.poms[state.index]);
+    }
+  }, 800);
 }
 
 /* ============================================================
@@ -1669,9 +1848,52 @@ $("themeSwitch").addEventListener("click", (e) => {
   if (opt) setTheme(opt.dataset.theme);
 });
 
+/* ============================================================
+   LANGUAGE
+============================================================ */
+function applyLang() {
+  // static elements tagged with data-i18n
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.innerHTML = t(el.dataset.i18n);
+  });
+  // active state on the language switch
+  document.querySelectorAll("#langSwitch .theme-opt").forEach((b) => {
+    b.classList.toggle("active", b.dataset.lang === lang);
+  });
+}
+
+function setLang(name) {
+  if (name !== "en" && name !== "vi") return;
+  lang = name;
+  document.documentElement.setAttribute("lang", lang === "vi" ? "vi" : "en");
+  applyLang();
+
+  // re-render any dynamic, on-screen content
+  renderTemplateList();
+  if (state) {
+    $("measureTitle").textContent = tplName(state.templateId);
+    lastSpokenIndex = state.index;   // suppress synchronous announce
+    renderMeasure();
+  }
+
+  // switch the speech-recognition language live, if we're listening
+  if (recognition) {
+    recognition.lang = speechLang();
+    if (wantListening) { try { recognition.stop(); } catch (e) {} } // onend auto-restarts with new lang
+  }
+
+  // re-announce in the new language once recognition has settled
+  if (state && screens.measure.classList.contains("active")) announceCurrentSoon();
+}
+
+$("langSwitch").addEventListener("click", (e) => {
+  const opt = e.target.closest(".theme-opt");
+  if (opt) setLang(opt.dataset.lang);
+});
+
 // initial render
 setTheme("dark");
-renderTemplateList();
+setLang("en");   // also renders the template list
 </script>
 </body>
 </html>
