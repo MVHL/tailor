@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speech Engine Comparison — Atelier</title>
+<script src="https://cdn.jsdelivr.net/npm/coi-serviceworker@0.1.7/coi-serviceworker.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #14110e;
+  --surface:  #1a1612;
+  --card:     #221d18;
+  --card2:    #2a2319;
+  --ink:      #ece4d6;
+  --ink-dim:  #8a8073;
+  --ink-faint:#5a5247;
+  --line:     #2f2922;
+  --serif:    'Playfair Display', Georgia, serif;
+  --mono:     'DM Mono', ui-monospace, monospace;
+  /* Engine accents */
+  --web:      #6fae6a;
+  --web-soft: rgba(111,174,106,0.14);
+  --vosk:     #c9a84c;
+  --vosk-soft:rgba(201,168,76,0.14);
+  --rhino:    #9b7fe8;
+  --rhino-soft:rgba(155,127,232,0.14);
+  /* Latency */
+  --lat-fast: #6fae6a;
+  --lat-mid:  #c9a84c;
+  --lat-slow: #c96a4c;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---- Page header ---- */
+.page-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.page-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.page-kicker {
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 4px;
+}
+.global-controls {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.gbtn {
+  padding: 9px 20px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.gbtn:active { transform: scale(0.96); }
+.gbtn.start { border-color: var(--web); color: var(--web); }
+.gbtn.start:hover { background: var(--web-soft); }
+.gbtn.stop  { border-color: var(--lat-slow); color: var(--lat-slow); }
+.gbtn.stop:hover { background: rgba(201,106,76,0.14); }
+
+/* ---- Three-column grid ---- */
+.cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 65px);
+  overflow: hidden;
+}
+@media (max-width: 900px) {
+  .cols { grid-template-columns: 1fr; height: auto; overflow: visible; }
+}
+
+/* ---- Engine column ---- */
+.col {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+.col:last-child { border-right: none; }
+@media (max-width: 900px) {
+  .col { border-right: none; border-bottom: 1px solid var(--line); }
+}
+
+.col-header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.col-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.engine-name {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+}
+.col-web   .engine-name { color: var(--web); }
+.col-vosk  .engine-name { color: var(--vosk); }
+.col-rhino .engine-name { color: var(--rhino); }
+
+.status-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--ink-faint);
+  flex-shrink: 0;
+  transition: background .2s, box-shadow .2s;
+}
+.status-dot.loading { background: var(--vosk); animation: blink 1.2s ease-in-out infinite; }
+.status-dot.ready   { background: var(--ink-dim); }
+.status-dot.live    { background: var(--lat-fast); box-shadow: 0 0 0 0 rgba(111,174,106,0.6); animation: pulse 1.6s infinite; }
+.status-dot.error   { background: var(--lat-slow); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(111,174,106,0.55); }
+  70%  { box-shadow: 0 0 0 8px rgba(111,174,106,0); }
+  100% { box-shadow: 0 0 0 0 rgba(111,174,106,0); }
+}
+
+.status-label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-left: 8px;
+}
+
+.eng-btn {
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--ink-dim);
+  transition: border-color .15s, color .15s, background .15s, transform .1s;
+}
+.eng-btn:active { transform: scale(0.93); }
+.eng-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.col-web   .eng-btn.running { border-color: var(--web);   color: var(--web);   }
+.col-vosk  .eng-btn.running { border-color: var(--vosk);  color: var(--vosk);  }
+.col-rhino .eng-btn.running { border-color: var(--rhino); color: var(--rhino); }
+
+/* ---- Setup section ---- */
+.setup-section {
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.setup-toggle {
+  width: 100%;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: color .15s;
+}
+.setup-toggle:hover { color: var(--ink); }
+.setup-toggle::before { content: "▸"; transition: transform .2s; }
+.setup-toggle.open::before { transform: rotate(90deg); }
+.setup-body {
+  display: none;
+  padding: 12px 16px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.setup-body.open { display: block; }
+.setup-row { margin-bottom: 10px; }
+.setup-row:last-child { margin-bottom: 0; }
+.setup-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 5px;
+}
+.setup-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 11px;
+  outline: none;
+  transition: border-color .15s;
+}
+.setup-input:focus { border-color: var(--ink-dim); }
+.setup-file {
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.load-btn {
+  margin-top: 10px;
+  padding: 8px 18px;
+  border-radius: 7px;
+  border: 1px solid;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.load-btn:active { transform: scale(0.95); }
+.col-vosk  .load-btn { border-color: var(--vosk);  color: var(--vosk);  }
+.col-vosk  .load-btn:hover { background: var(--vosk-soft); }
+.col-rhino .load-btn { border-color: var(--rhino); color: var(--rhino); }
+.col-rhino .load-btn:hover { background: var(--rhino-soft); }
+.progress-bar-wrap {
+  margin-top: 8px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  display: none;
+}
+.progress-bar-wrap.show { display: block; }
+.progress-bar-fill {
+  height: 100%;
+  background: var(--vosk);
+  width: 0%;
+  transition: width .3s ease;
+  border-radius: 2px;
+}
+.setup-msg {
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  min-height: 16px;
+}
+.setup-msg.err { color: var(--lat-slow); }
+.setup-msg.ok  { color: var(--lat-fast); }
+
+/* ---- Live transcript area ---- */
+.live-area {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  min-height: 80px;
+}
+.live-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+.interim-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-dim);
+  min-height: 22px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.col-web   .interim-text.active { color: var(--web); }
+.col-vosk  .interim-text.active { color: var(--vosk); }
+.col-rhino .interim-text.active { color: var(--rhino); }
+.final-text {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink);
+  word-break: break-word;
+  min-height: 18px;
+}
+
+/* ---- Parsed command + latency ---- */
+.parsed-area {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 50px;
+}
+.parsed-cmd {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink-faint);
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+.parsed-cmd.has-cmd { color: var(--ink); }
+.latency-badge {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: var(--card2);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.latency-badge.fast { background: rgba(111,174,106,0.18); color: var(--lat-fast); }
+.latency-badge.mid  { background: rgba(201,168,76,0.18);  color: var(--lat-mid); }
+.latency-badge.slow { background: rgba(201,106,76,0.18);  color: var(--lat-slow); }
+
+/* ---- History ---- */
+.history-header {
+  padding: 7px 16px 5px;
+  border-bottom: 1px solid var(--line);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.history-clear-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 9px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faint);
+  transition: color .15s;
+}
+.history-clear-btn:hover { color: var(--ink-dim); }
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.history-list::-webkit-scrollbar { width: 4px; }
+.history-list::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+.history-item {
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--line);
+  animation: fadeSlide .25s ease;
+}
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hi-text { font-size: 12px; color: var(--ink-dim); word-break: break-word; }
+.hi-row  { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 2px; }
+.hi-cmd  { font-size: 11px; color: var(--ink-faint); }
+.hi-cmd.ok { color: var(--ink); }
+.hi-ms   { font-size: 10px; font-family: var(--mono); }
+.hi-ms.fast { color: var(--lat-fast); }
+.hi-ms.mid  { color: var(--lat-mid); }
+.hi-ms.slow { color: var(--lat-slow); }
+
+/* ---- Rhino reference section ---- */
+.rhino-ref {
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.rhino-ref .setup-toggle { font-size: 9px; }
+.rhino-ref-body {
+  display: none;
+  padding: 10px 16px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-dim);
+  line-height: 1.7;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.rhino-ref-body.open { display: block; }
+.rhino-ref-body code {
+  display: block;
+  background: var(--card2);
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-size: 10px;
+  color: var(--rhino);
+  white-space: pre;
+  overflow-x: auto;
+  margin-top: 6px;
+}
+
+/* ---- Scrollbar for mobile ---- */
+@media (max-width: 900px) {
+  .cols { overflow: visible; }
+  .col  { height: auto; min-height: 500px; }
+  .history-list { max-height: 300px; }
+}
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <div>
+    <div class="page-kicker">Atelier</div>
+    <h1 class="page-title">Speech Engine Comparison</h1>
+  </div>
+  <div class="global-controls">
+    <button class="gbtn start" id="btnStartAll">&#9654; Start All</button>
+    <button class="gbtn stop"  id="btnStopAll">&#9632; Stop All</button>
+  </div>
+</header>
+
+<div class="cols">
+
+  <!-- ========== WEB SPEECH API ========== -->
+  <div class="col col-web" id="col-web">
+    <div class="col-header">
+      <div class="col-header-row">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-dot" id="web-dot"></span>
+          <span class="engine-name">Web Speech API</span>
+          <span class="status-label" id="web-status">Idle</span>
+        </div>
+        <button class="eng-btn" id="web-toggle">Start</button>
+      </div>
+    </div>
+
+    <div class="live-area">
+      <div class="live-label">Transcript</div>
+      <div class="interim-text" id="web-interim">—</div>
+      <div class="final-text"   id="web-final"></div>
+    </div>
+
+    <div class="parsed-area">
+      <div class="parsed-cmd" id="web-parsed">—</div>
+      <div class="latency-badge" id="web-latency">—</div>
+    </div>
+
+    <div class="history-header">
+      History (last 20)
+      <button class="history-clear-btn" data-engine="web">Clear</button>
+    </div>
+    <div class="history-list" id="web-history"></div>
+  </div>
+
+  <!-- ========== VOSK ========== -->
+  <div class="col col-vosk" id="col-vosk">
+    <div class="col-header">
+      <div class="col-header-row">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-dot" id="vosk-dot"></span>
+          <span class="engine-name">Vosk</span>
+          <span class="status-label" id="vosk-status">Not loaded</span>
+        </div>
+        <button class="eng-btn" id="vosk-toggle" disabled>Start</button>
+      </div>
+    </div>
+
+    <div class="setup-section" id="vosk-setup-section">
+      <button class="setup-toggle open" id="vosk-setup-toggle">Setup</button>
+      <div class="setup-body open" id="vosk-setup-body">
+        <div class="setup-row">
+          <label class="setup-label" for="vosk-url">Model URL</label>
+          <input class="setup-input" id="vosk-url" type="url"
+            value="https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz"
+            placeholder="https://…/model.tar.gz">
+        </div>
+        <div class="setup-row">
+          <label class="setup-label">Or upload model archive</label>
+          <input type="file" class="setup-file" id="vosk-file" accept=".tar.gz,.zip">
+        </div>
+        <button class="load-btn" id="vosk-load">Load Model</button>
+        <div class="progress-bar-wrap" id="vosk-progress-wrap">
+          <div class="progress-bar-fill" id="vosk-progress-fill"></div>
+        </div>
+        <div class="setup-msg" id="vosk-msg"></div>
+      </div>
+    </div>
+
+    <div class="live-area">
+      <div class="live-label">Transcript</div>
+      <div class="interim-text" id="vosk-interim">—</div>
+      <div class="final-text"   id="vosk-final"></div>
+    </div>
+
+    <div class="parsed-area">
+      <div class="parsed-cmd" id="vosk-parsed">—</div>
+      <div class="latency-badge" id="vosk-latency">—</div>
+    </div>
+
+    <div class="history-header">
+      History (last 20)
+      <button class="history-clear-btn" data-engine="vosk">Clear</button>
+    </div>
+    <div class="history-list" id="vosk-history"></div>
+  </div>
+
+  <!-- ========== PICOVOICE RHINO ========== -->
+  <div class="col col-rhino" id="col-rhino">
+    <div class="col-header">
+      <div class="col-header-row">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="status-dot" id="rhino-dot"></span>
+          <span class="engine-name">Picovoice Rhino</span>
+          <span class="status-label" id="rhino-status">Not loaded</span>
+        </div>
+        <button class="eng-btn" id="rhino-toggle" disabled>Start</button>
+      </div>
+    </div>
+
+    <div class="setup-section" id="rhino-setup-section">
+      <button class="setup-toggle open" id="rhino-setup-toggle">Setup</button>
+      <div class="setup-body open" id="rhino-setup-body">
+        <div class="setup-row">
+          <label class="setup-label" for="rhino-key">Picovoice Access Key</label>
+          <input class="setup-input" id="rhino-key" type="text"
+            placeholder="Paste your AccessKey from console.picovoice.ai">
+        </div>
+        <div class="setup-row">
+          <label class="setup-label">Context file (.rhn)</label>
+          <input type="file" class="setup-file" id="rhino-file" accept=".rhn">
+        </div>
+        <button class="load-btn" id="rhino-load">Load Engine</button>
+        <div class="setup-msg" id="rhino-msg"></div>
+      </div>
+    </div>
+
+    <div class="live-area">
+      <div class="live-label">Transcript / Intent</div>
+      <div class="interim-text" id="rhino-interim">—</div>
+      <div class="final-text"   id="rhino-final"></div>
+    </div>
+
+    <div class="parsed-area">
+      <div class="parsed-cmd" id="rhino-parsed">—</div>
+      <div class="latency-badge" id="rhino-latency">—</div>
+    </div>
+
+    <div class="history-header">
+      History (last 20)
+      <button class="history-clear-btn" data-engine="rhino">Clear</button>
+    </div>
+    <div class="history-list" id="rhino-history"></div>
+
+    <!-- Rhino Context Reference -->
+    <div class="rhino-ref">
+      <button class="setup-toggle" id="rhino-ref-toggle">Rhino Context Reference</button>
+      <div class="rhino-ref-body" id="rhino-ref-body">
+        Create a context at <strong style="color:var(--rhino)">console.picovoice.ai</strong> with intents matching the tailor commands below. Download the <code style="display:inline;background:none;padding:0;color:inherit;font-size:inherit">.rhn</code> file for your platform (Chrome/WASM) and upload it above.
+        <code># Tailor measurement context
+# Intents:
+
+recordMeasurement:
+  - ($number)
+  - ($number) centimeters
+
+relativeMeasurement:
+  - plus ($number)
+  - minus ($number)
+  - add ($number)
+  - subtract ($number)
+
+acceptStandard:
+  - standard
+  - ok
+  - good
+  - perfect
+
+skipPom:
+  - next
+  - skip
+
+prevPom:
+  - previous
+  - back
+
+clearPom:
+  - clear
+  - delete
+
+goToPom:
+  - go to $pom_name
+  - jump to $pom_name
+
+fillNamedPom:
+  - $pom_name ($number)
+
+# Slots:
+$pom_name: chest, waist, hip, shoulder, sleeve,
+  jacket, neck, inseam, outseam, thigh, knee,
+  trouser, bust, front, back, armhole, dress,
+  side seam, shirt, cuff, width, length, rise,
+  leg opening, crotch depth
+
+$number: zero through two hundred (spoken digits)</code>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .cols -->
+
+<script type="module">
+"use strict";
+
+/* ============================================================
+   SHARED COMMAND PARSER  (mirrors index.html logic)
+============================================================ */
+const WORD_NUM = {
+  zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9,
+  ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16,
+  seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40, fourty:40,
+  fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100,
+};
+const ACCEPT_WORDS = ["ok","okay","good","standard","perfect","yes","correct","fine","default","accept"];
+const SKIP_WORDS   = ["next","skip","pass","later"];
+const PREV_WORDS   = ["previous","prev","go back","back"];
+const CLEAR_WORDS  = ["clear","delete","remove","erase"];
+const POM_NAMES    = [
+  "chest","waist","hip","shoulder","sleeve","jacket","neck","inseam","outseam",
+  "thigh","knee","trouser","bust","front","back","armhole","dress",
+  "side seam","shirt","cuff","width","length","rise","leg opening","crotch depth",
+];
+
+function round2(n) { return Math.round(n * 100) / 100; }
+
+function parseWordNumber(text) {
+  const tokens = text.split(/[^a-z]+/).filter(Boolean);
+  let total = 0, current = 0, found = false;
+  for (const tok of tokens) {
+    if (tok in WORD_NUM) {
+      found = true;
+      const v = WORD_NUM[tok];
+      if (v === 100) { current = (current === 0 ? 1 : current) * 100; }
+      else { current += v; }
+    } else if (found && current > 0) { total += current; current = 0; }
+  }
+  total += current;
+  return found ? total : null;
+}
+
+function parseNumber(text) {
+  if (!text) return null;
+  let t = " " + text.toLowerCase().trim() + " ";
+  let frac = 0;
+  if (/\band a half\b|\band half\b|\bpoint five\b/.test(t)) frac = 0.5;
+  else if (/\band a quarter\b/.test(t)) frac = 0.25;
+  else if (/\band three quarters?\b/.test(t)) frac = 0.75;
+  t = t.replace(/\band a half\b|\band half\b|\band a quarter\b|\band three quarters?\b|\bpoint five\b/g, " ");
+  const decMatch = t.match(/(\d+(?:\.\d+)?)/);
+  if (decMatch) return round2(parseFloat(decMatch[1]) + frac);
+  const wv = parseWordNumber(t);
+  if (wv != null) return round2(wv + frac);
+  return null;
+}
+
+function parseSign(text) {
+  if (/\b(plus|add|positive)\b/.test(text) || /[+]\s*\d/.test(text)) return 1;
+  if (/\b(minus|negative|subtract)\b/.test(text) || /[-−]\s*\d/.test(text)) return -1;
+  return 0;
+}
+
+function matchPomName(text) {
+  const t = text.toLowerCase();
+  // Try longest match first
+  const sorted = [...POM_NAMES].sort((a,b) => b.length - a.length);
+  for (const p of sorted) {
+    if (p.length >= 3 && t.includes(p)) return p;
+  }
+  return null;
+}
+
+const hasWord = (text, words) => words.some(w => new RegExp(`\\b${w.replace(/ /g,"\\s+")}\\b`).test(text));
+
+/**
+ * parseCommand(rawText) -> { action, value?, pom?, relative?, display }
+ * Actions: "record", "relative", "accept", "skip", "previous", "clear", "goTo", "fill"
+ */
+function parseCommand(rawText) {
+  if (!rawText) return null;
+  const text = rawText.toLowerCase().trim();
+  if (!text) return null;
+
+  const num  = parseNumber(text);
+  const sign = parseSign(text);
+
+  // 1) go to
+  const gotoMatch = text.match(/\b(?:go\s*to|goto|jump\s*to)\b(.*)/);
+  if (gotoMatch) {
+    const rest = gotoMatch[1].trim();
+    const n = parseNumber(rest);
+    if (n != null && Number.isInteger(n) && n >= 1 && n <= 50) {
+      return { action:"goTo", value:n, display:`go to #${n}` };
+    }
+    const pom = matchPomName(rest || text);
+    if (pom) return { action:"goTo", pom, display:`go to ${pom}` };
+    return { action:"goTo", display:"go to ?" };
+  }
+
+  // 2) previous
+  if (num == null && hasWord(text, PREV_WORDS)) {
+    return { action:"previous", display:"previous" };
+  }
+
+  // 3) clear
+  if (num == null && hasWord(text, CLEAR_WORDS)) {
+    const pom = matchPomName(text);
+    return { action:"clear", pom: pom || "(current)", display:`clear${pom ? " "+pom : ""}` };
+  }
+
+  // 4) pom name + number  -> named fill
+  const pom = matchPomName(text);
+  if (pom && num != null) {
+    if (sign !== 0) {
+      return { action:"fill", pom, value:num, relative:sign, display:`fill ${pom}: ${sign>0?"+":"−"}${num} cm` };
+    }
+    return { action:"fill", pom, value:num, display:`fill ${pom}: ${num} cm` };
+  }
+
+  // 5) skip
+  if (num == null && hasWord(text, SKIP_WORDS)) {
+    return { action:"skip", display:"skip" };
+  }
+
+  // 6) plain number
+  if (num != null) {
+    if (sign !== 0) {
+      return { action:"relative", value:num, relative:sign, display:`${sign>0?"+":"−"}${num} cm (relative)` };
+    }
+    return { action:"record", value:num, display:`record ${num} cm` };
+  }
+
+  // 7) accept
+  if (hasWord(text, ACCEPT_WORDS)) {
+    return { action:"accept", display:"accept standard" };
+  }
+
+  return null;
+}
+
+/* ============================================================
+   TAILOR VOCABULARY  (for Vosk grammar constraint)
+============================================================ */
+const TAILOR_VOCAB = [
+  // number words
+  "zero","one","two","three","four","five","six","seven","eight","nine","ten",
+  "eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen",
+  "twenty","thirty","forty","fourty","fifty","sixty","seventy","eighty","ninety","hundred",
+  "and","a","point","half","quarter","three","quarters",
+  // commands
+  "ok","okay","good","standard","perfect","yes","correct","fine","default","accept",
+  "next","skip","pass","later","previous","prev","back","clear","delete","remove","erase",
+  "go","to","goto","jump","plus","add","positive","minus","negative","subtract",
+  // POM names
+  "chest","waist","hip","shoulder","sleeve","jacket","neck","inseam","outseam",
+  "thigh","knee","trouser","bust","front","back","armhole","dress",
+  "side","seam","shirt","cuff","width","length","rise","leg","opening","crotch","depth",
+  "centimeters","centimeter","cm",
+  "[unk]"
+];
+
+/* ============================================================
+   LATENCY HELPERS
+============================================================ */
+function latencyClass(ms) {
+  if (ms < 200) return "fast";
+  if (ms < 500) return "mid";
+  return "slow";
+}
+
+function setLatency(engine, ms) {
+  const el = document.getElementById(`${engine}-latency`);
+  if (ms == null) { el.textContent = "—"; el.className = "latency-badge"; return; }
+  const cls = latencyClass(ms);
+  el.textContent = `${ms} ms`;
+  el.className = `latency-badge ${cls}`;
+}
+
+/* ============================================================
+   HISTORY MANAGEMENT
+============================================================ */
+const historyData = { web: [], vosk: [], rhino: [] };
+
+function addHistoryItem(engine, text, cmd, ms) {
+  const data = historyData[engine];
+  data.unshift({ text, cmd, ms });
+  if (data.length > 20) data.pop();
+  renderHistory(engine);
+}
+
+function renderHistory(engine) {
+  const host = document.getElementById(`${engine}-history`);
+  host.innerHTML = historyData[engine].map(item => {
+    const msClass = item.ms != null ? latencyClass(item.ms) : "";
+    const cmdHtml = item.cmd
+      ? `<span class="hi-cmd ok">${escHtml(item.cmd.display)}</span>`
+      : `<span class="hi-cmd">—</span>`;
+    const msHtml = item.ms != null
+      ? `<span class="hi-ms ${msClass}">${item.ms} ms</span>`
+      : `<span class="hi-ms">—</span>`;
+    return `<div class="history-item">
+      <div class="hi-text">${escHtml(item.text)}</div>
+      <div class="hi-row">${cmdHtml}${msHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function clearHistory(engine) {
+  historyData[engine] = [];
+  renderHistory(engine);
+  document.getElementById(`${engine}-parsed`).textContent = "—";
+  document.getElementById(`${engine}-parsed`).className = "parsed-cmd";
+  setLatency(engine, null);
+}
+
+/* ============================================================
+   STATUS HELPER
+============================================================ */
+function setStatus(engine, dotState, labelText) {
+  const dot = document.getElementById(`${engine}-dot`);
+  const lbl = document.getElementById(`${engine}-status`);
+  dot.className = `status-dot ${dotState}`;
+  lbl.textContent = labelText;
+}
+
+function setParsed(engine, cmd) {
+  const el = document.getElementById(`${engine}-parsed`);
+  if (!cmd) { el.textContent = "—"; el.className = "parsed-cmd"; return; }
+  el.textContent = cmd.display;
+  el.className = "parsed-cmd has-cmd";
+}
+
+function setInterim(engine, text) {
+  const el = document.getElementById(`${engine}-interim`);
+  el.textContent = text || "—";
+  el.classList.toggle("active", !!text);
+}
+
+function setFinal(engine, text) {
+  document.getElementById(`${engine}-final`).textContent = text || "";
+}
+
+/* ============================================================
+   COLLAPSIBLE TOGGLES
+============================================================ */
+function wireToggle(toggleId, bodyId) {
+  const btn = document.getElementById(toggleId);
+  const body = document.getElementById(bodyId);
+  if (!btn || !body) return;
+  btn.addEventListener("click", () => {
+    const open = body.classList.toggle("open");
+    btn.classList.toggle("open", open);
+  });
+}
+wireToggle("vosk-setup-toggle", "vosk-setup-body");
+wireToggle("rhino-setup-toggle", "rhino-setup-body");
+wireToggle("rhino-ref-toggle", "rhino-ref-body");
+
+/* Clear history buttons */
+document.querySelectorAll(".history-clear-btn").forEach(btn => {
+  btn.addEventListener("click", () => clearHistory(btn.dataset.engine));
+});
+
+/* ============================================================
+   ENGINE 1 — WEB SPEECH API
+============================================================ */
+const WebEngine = (() => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let running = false;
+  let speechStartTime = null;
+
+  function init() {
+    if (!SpeechRecognition) {
+      setStatus("web", "error", "Not supported");
+      document.getElementById("web-toggle").disabled = true;
+      return false;
+    }
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onspeechstart = () => {
+      speechStartTime = Date.now();
+      setStatus("web", "live", "Listening");
+    };
+
+    recognition.onresult = (ev) => {
+      let interim = "", finalText = "";
+      for (let i = 0; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript + " ";
+        else interim += ev.results[i][0].transcript;
+      }
+      if (interim) setInterim("web", interim.trim());
+      if (finalText.trim()) {
+        const text = finalText.trim();
+        const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
+        speechStartTime = null;
+        const cmd = parseCommand(text);
+        setInterim("web", "");
+        setFinal("web", `"${text}"`);
+        setParsed("web", cmd);
+        setLatency("web", ms);
+        addHistoryItem("web", text, cmd, ms);
+      }
+    };
+
+    recognition.onerror = (ev) => {
+      if (ev.error === "no-speech") return;
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        setStatus("web", "error", "Mic denied");
+      } else if (ev.error === "aborted") {
+        // intentional
+      } else {
+        setStatus("web", "error", ev.error);
+      }
+    };
+
+    recognition.onend = () => {
+      if (running) {
+        try { recognition.start(); } catch (e) {}
+      } else {
+        setStatus("web", "ready", "Stopped");
+      }
+    };
+    return true;
+  }
+
+  function start() {
+    if (!recognition && !init()) return;
+    running = true;
+    setStatus("web", "live", "Listening");
+    document.getElementById("web-toggle").textContent = "Stop";
+    document.getElementById("web-toggle").classList.add("running");
+    try { recognition.start(); } catch (e) {}
+  }
+
+  function stop() {
+    running = false;
+    if (recognition) { try { recognition.stop(); } catch (e) {} }
+    setInterim("web", "");
+    setStatus("web", "ready", "Stopped");
+    document.getElementById("web-toggle").textContent = "Start";
+    document.getElementById("web-toggle").classList.remove("running");
+  }
+
+  function isRunning() { return running; }
+
+  // Init status immediately
+  if (SpeechRecognition) setStatus("web", "ready", "Ready");
+  else setStatus("web", "error", "Not supported");
+
+  return { start, stop, isRunning };
+})();
+
+document.getElementById("web-toggle").addEventListener("click", () => {
+  if (WebEngine.isRunning()) WebEngine.stop(); else WebEngine.start();
+});
+
+/* ============================================================
+   ENGINE 2 — VOSK (vosk-browser)
+============================================================ */
+const VoskEngine = (() => {
+  let model = null;
+  let recognizer = null;
+  let audioCtx = null;
+  let stream = null;
+  let processor = null;
+  let sourceNode = null;
+  let running = false;
+  let speechStartTime = null;
+  let isSpeaking = false;
+  const RMS_THRESHOLD = 0.008;
+
+  async function loadModel() {
+    const urlInput = document.getElementById("vosk-url");
+    const fileInput = document.getElementById("vosk-file");
+    const msgEl    = document.getElementById("vosk-msg");
+    const progressWrap = document.getElementById("vosk-progress-wrap");
+    const progressFill = document.getElementById("vosk-progress-fill");
+
+    msgEl.className = "setup-msg";
+    msgEl.textContent = "Importing vosk-browser module…";
+    setStatus("vosk", "loading", "Importing…");
+
+    let createModel;
+    const cdnCandidates = [
+      "https://esm.sh/vosk-browser@0.0.8",
+      "https://cdn.skypack.dev/vosk-browser@0.0.8",
+      "https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js",
+    ];
+    for (const cdn of cdnCandidates) {
+      try {
+        msgEl.textContent = `Importing from ${new URL(cdn).hostname}…`;
+        const m = await import(cdn);
+        // Handle named export, default.createModel, or bare default
+        createModel = m.createModel ?? m.default?.createModel ?? m.default;
+        if (typeof createModel === "function") break;
+        createModel = null;
+      } catch (_) {}
+    }
+    if (typeof createModel !== "function") {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Could not load vosk-browser from any CDN. Try uploading the model file instead, or check the browser console.";
+      setStatus("vosk", "error", "Import failed");
+      return;
+    }
+
+    let modelSource;
+    if (fileInput.files && fileInput.files[0]) {
+      modelSource = URL.createObjectURL(fileInput.files[0]);
+    } else {
+      modelSource = urlInput.value.trim();
+    }
+    if (!modelSource) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Provide a URL or upload a model file.";
+      return;
+    }
+
+    progressWrap.classList.add("show");
+    progressFill.style.width = "0%";
+    msgEl.className = "setup-msg";
+    msgEl.textContent = "Downloading model… 0%";
+    setStatus("vosk", "loading", "Loading…");
+
+    try {
+      model = await createModel(modelSource, (pct) => {
+        progressFill.style.width = pct + "%";
+        msgEl.textContent = `Downloading model… ${Math.round(pct)}%`;
+      });
+      progressFill.style.width = "100%";
+      msgEl.className = "setup-msg ok";
+      msgEl.textContent = "Model loaded.";
+      setStatus("vosk", "ready", "Ready");
+      document.getElementById("vosk-toggle").disabled = false;
+
+      // Collapse setup once loaded
+      const body = document.getElementById("vosk-setup-body");
+      const toggle = document.getElementById("vosk-setup-toggle");
+      body.classList.remove("open");
+      toggle.classList.remove("open");
+    } catch (e) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Model load failed: " + e.message;
+      setStatus("vosk", "error", "Load failed");
+    }
+  }
+
+  async function start() {
+    if (!model) { setStatus("vosk", "error", "Model not loaded"); return; }
+    running = true;
+    setStatus("vosk", "loading", "Starting…");
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (e) {
+      setStatus("vosk", "error", "Mic denied");
+      running = false;
+      return;
+    }
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    recognizer = new model.KaldiRecognizer(audioCtx.sampleRate);
+
+    try { recognizer.setGrammar(TAILOR_VOCAB); } catch (e) { /* grammar not supported */ }
+
+    recognizer.on("result", (msg) => {
+      const text = (msg.result && msg.result.text) ? msg.result.text.trim() : "";
+      if (!text) return;
+      const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
+      speechStartTime = null;
+      isSpeaking = false;
+      const cmd = parseCommand(text);
+      setInterim("vosk", "");
+      setFinal("vosk", `"${text}"`);
+      setParsed("vosk", cmd);
+      setLatency("vosk", ms);
+      addHistoryItem("vosk", text, cmd, ms);
+    });
+
+    recognizer.on("partialresult", (msg) => {
+      const partial = (msg.result && msg.result.partial) ? msg.result.partial.trim() : "";
+      setInterim("vosk", partial || "");
+    });
+
+    sourceNode = audioCtx.createMediaStreamSource(stream);
+    processor  = audioCtx.createScriptProcessor(4096, 1, 1);
+
+    processor.onaudioprocess = (e) => {
+      // Use Float32Array only for RMS amplitude detection
+      const channelData = e.inputBuffer.getChannelData(0);
+      let rms = 0;
+      for (let i = 0; i < channelData.length; i++) rms += channelData[i] * channelData[i];
+      rms = Math.sqrt(rms / channelData.length);
+      if (rms > RMS_THRESHOLD && !isSpeaking) {
+        isSpeaking = true;
+        speechStartTime = Date.now();
+      }
+
+      // Pass the full AudioBuffer — vosk-browser needs it for sample-rate metadata
+      recognizer.acceptWaveform(e.inputBuffer);
+    };
+
+    sourceNode.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    setStatus("vosk", "live", "Listening");
+    document.getElementById("vosk-toggle").textContent = "Stop";
+    document.getElementById("vosk-toggle").classList.add("running");
+  }
+
+  function stop() {
+    running = false;
+    if (processor)   { try { processor.disconnect(); }   catch(e){} processor = null; }
+    if (sourceNode)  { try { sourceNode.disconnect(); }  catch(e){} sourceNode = null; }
+    if (stream)      { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    if (audioCtx)    { try { audioCtx.close(); }         catch(e){} audioCtx = null; }
+    recognizer = null;
+    isSpeaking = false;
+    speechStartTime = null;
+    setInterim("vosk", "");
+    setStatus("vosk", "ready", "Stopped");
+    document.getElementById("vosk-toggle").textContent = "Start";
+    document.getElementById("vosk-toggle").classList.remove("running");
+  }
+
+  function isRunning() { return running; }
+
+  document.getElementById("vosk-load").addEventListener("click", loadModel);
+
+  return { start, stop, isRunning };
+})();
+
+document.getElementById("vosk-toggle").addEventListener("click", () => {
+  if (VoskEngine.isRunning()) VoskEngine.stop(); else VoskEngine.start();
+});
+
+/* ============================================================
+   ENGINE 3 — PICOVOICE RHINO
+============================================================ */
+const RhinoEngine = (() => {
+  let rhinoInstance = null;
+  let audioCtx = null;
+  let stream = null;
+  let processor = null;
+  let sourceNode = null;
+  let running = false;
+  let speechStartTime = null;
+  let isSpeaking = false;
+  const RMS_THRESHOLD = 0.008;
+  const SDK_URL = "https://cdn.jsdelivr.net/npm/@picovoice/rhino-web/dist/umd/picovoice_rhino.js";
+
+  async function loadSDK() {
+    return new Promise((resolve, reject) => {
+      if (window.RhinoWorker || window.Rhino) { resolve(); return; }
+      const s = document.createElement("script");
+      s.src = SDK_URL;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Failed to load Rhino SDK"));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function loadEngine() {
+    const keyInput  = document.getElementById("rhino-key");
+    const fileInput = document.getElementById("rhino-file");
+    const msgEl     = document.getElementById("rhino-msg");
+
+    const accessKey = keyInput.value.trim();
+    if (!accessKey) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Paste your Picovoice AccessKey above.";
+      return;
+    }
+    if (!fileInput.files || !fileInput.files[0]) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Upload a .rhn context file.";
+      return;
+    }
+
+    msgEl.className = "setup-msg";
+    msgEl.textContent = "Loading Rhino SDK…";
+    setStatus("rhino", "loading", "Loading…");
+
+    try { await loadSDK(); } catch (e) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = e.message;
+      setStatus("rhino", "error", "SDK failed");
+      return;
+    }
+
+    // Read .rhn file as base64
+    const arrayBuf = await fileInput.files[0].arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const contextBase64 = btoa(binary);
+
+    const RhinoClass = window.Rhino || (window.RhinoWeb && window.RhinoWeb.Rhino);
+    if (!RhinoClass) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Could not find Rhino class in loaded SDK.";
+      setStatus("rhino", "error", "SDK error");
+      return;
+    }
+
+    msgEl.textContent = "Initializing Rhino…";
+
+    try {
+      rhinoInstance = await RhinoClass.create(
+        accessKey,
+        inferenceCallback,
+        { base64: contextBase64 }
+      );
+      msgEl.className = "setup-msg ok";
+      msgEl.textContent = "Rhino ready.";
+      setStatus("rhino", "ready", "Ready");
+      document.getElementById("rhino-toggle").disabled = false;
+
+      // Collapse setup
+      const body = document.getElementById("rhino-setup-body");
+      const toggle = document.getElementById("rhino-setup-toggle");
+      body.classList.remove("open");
+      toggle.classList.remove("open");
+    } catch (e) {
+      msgEl.className = "setup-msg err";
+      msgEl.textContent = "Rhino init failed: " + e.message;
+      setStatus("rhino", "error", "Init failed");
+    }
+  }
+
+  function inferenceCallback(inference) {
+    const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
+    speechStartTime = null;
+    isSpeaking = false;
+
+    if (!inference.isUnderstood) {
+      const text = "Not understood";
+      setInterim("rhino", "");
+      setFinal("rhino", text);
+      setParsed("rhino", null);
+      setLatency("rhino", ms);
+      addHistoryItem("rhino", text, null, ms);
+      return;
+    }
+
+    // Build a human-readable text and parse back to command
+    const intent = inference.intent || "";
+    const slots  = inference.slots || {};
+    const parts  = [intent];
+    Object.entries(slots).forEach(([k,v]) => parts.push(`${k}=${v}`));
+    const displayText = parts.join(", ");
+
+    // Map intent + slots to a synthetic text for parseCommand
+    let syntheticText = "";
+    switch (intent) {
+      case "recordMeasurement":
+        syntheticText = slots.number || "unknown";
+        break;
+      case "relativeMeasurement": {
+        const sign = (intent === "relativeMeasurement" && /minus|subtract/i.test(Object.values(slots).join(" "))) ? "minus" : "plus";
+        syntheticText = `${sign} ${slots.number || ""}`;
+        break;
+      }
+      case "acceptStandard":
+        syntheticText = "standard";
+        break;
+      case "skipPom":
+        syntheticText = "next";
+        break;
+      case "prevPom":
+        syntheticText = "previous";
+        break;
+      case "clearPom":
+        syntheticText = "clear";
+        break;
+      case "goToPom":
+        syntheticText = `go to ${slots.pom_name || ""}`;
+        break;
+      case "fillNamedPom":
+        syntheticText = `${slots.pom_name || ""} ${slots.number || ""}`;
+        break;
+      default:
+        syntheticText = displayText;
+    }
+
+    const cmd = parseCommand(syntheticText) || { display: `${intent}: ${JSON.stringify(slots)}` };
+
+    setInterim("rhino", "");
+    setFinal("rhino", displayText);
+    setParsed("rhino", cmd);
+    setLatency("rhino", ms);
+    addHistoryItem("rhino", displayText, cmd, ms);
+  }
+
+  async function start() {
+    if (!rhinoInstance) { setStatus("rhino", "error", "Not loaded"); return; }
+    running = true;
+    setStatus("rhino", "loading", "Starting…");
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (e) {
+      setStatus("rhino", "error", "Mic denied");
+      running = false;
+      return;
+    }
+
+    audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    sourceNode = audioCtx.createMediaStreamSource(stream);
+    processor  = audioCtx.createScriptProcessor(512, 1, 1);
+
+    processor.onaudioprocess = (e) => {
+      const float32 = e.inputBuffer.getChannelData(0);
+
+      // Amplitude-based speech start detection
+      let rms = 0;
+      for (let i = 0; i < float32.length; i++) rms += float32[i] * float32[i];
+      rms = Math.sqrt(rms / float32.length);
+      if (rms > RMS_THRESHOLD && !isSpeaking) {
+        isSpeaking = true;
+        speechStartTime = Date.now();
+      }
+
+      // Convert Float32 -> Int16 PCM
+      const pcm = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]));
+        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+
+      try { rhinoInstance.process(pcm); } catch (e) {}
+    };
+
+    sourceNode.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    setStatus("rhino", "live", "Listening");
+    document.getElementById("rhino-toggle").textContent = "Stop";
+    document.getElementById("rhino-toggle").classList.add("running");
+  }
+
+  function stop() {
+    running = false;
+    if (processor)   { try { processor.disconnect(); }   catch(e){} processor = null; }
+    if (sourceNode)  { try { sourceNode.disconnect(); }  catch(e){} sourceNode = null; }
+    if (stream)      { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    if (audioCtx)    { try { audioCtx.close(); }         catch(e){} audioCtx = null; }
+    isSpeaking = false;
+    speechStartTime = null;
+    setInterim("rhino", "");
+    setStatus("rhino", "ready", "Stopped");
+    document.getElementById("rhino-toggle").textContent = "Start";
+    document.getElementById("rhino-toggle").classList.remove("running");
+  }
+
+  function isRunning() { return running; }
+
+  document.getElementById("rhino-load").addEventListener("click", loadEngine);
+
+  return { start, stop, isRunning };
+})();
+
+document.getElementById("rhino-toggle").addEventListener("click", () => {
+  if (RhinoEngine.isRunning()) RhinoEngine.stop(); else RhinoEngine.start();
+});
+
+/* ============================================================
+   GLOBAL CONTROLS
+============================================================ */
+document.getElementById("btnStartAll").addEventListener("click", () => {
+  if (!WebEngine.isRunning())  WebEngine.start();
+  if (!VoskEngine.isRunning()  && document.getElementById("vosk-toggle").disabled === false)  VoskEngine.start();
+  if (!RhinoEngine.isRunning() && document.getElementById("rhino-toggle").disabled === false) RhinoEngine.start();
+});
+
+document.getElementById("btnStopAll").addEventListener("click", () => {
+  if (WebEngine.isRunning())  WebEngine.stop();
+  if (VoskEngine.isRunning()) VoskEngine.stop();
+  if (RhinoEngine.isRunning()) RhinoEngine.stop();
+});
+
+</script>
+</body>
+</html>
