@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,21 +8,47 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
+  :root, [data-theme="dark"] {
+    --accent-rgb: 201 168 76;              /* gold */
+    --ink-rgb: 236 228 214;
+    --surface-tint: 255 255 255;           /* faint overlay tint */
+    --gold: rgb(var(--accent-rgb));
+    --gold-soft: rgb(var(--accent-rgb) / 0.14);
+    --gold-strong: #d9bb63;                /* accent hover */
+    --on-accent: #1a160f;                  /* text on an accent fill */
     --bg: #14110e;
     --bg-elev: #1d1916;
     --bg-card: #221d18;
-    --ink: #ece4d6;
+    --ink: rgb(var(--ink-rgb));
     --ink-dim: #8a8073;
     --ink-faint: #5a5247;
-    --gold: #c9a84c;
-    --gold-soft: rgba(201, 168, 76, 0.14);
     --green: #6fae6a;
     --green-soft: rgba(111, 174, 106, 0.16);
     --line: #2f2922;
     --danger: #c96a4c;
+    --card-grad-1: #2a2318;
+    --card-grad-2: #221d16;
     --serif: 'Playfair Display', Georgia, serif;
     --mono: 'DM Mono', ui-monospace, monospace;
+  }
+
+  [data-theme="light"] {
+    --accent-rgb: 124 58 237;              /* violet */
+    --ink-rgb: 40 33 56;
+    --surface-tint: 40 33 56;
+    --gold-strong: #8b5cf6;
+    --on-accent: #ffffff;
+    --bg: #f3eefb;
+    --bg-elev: #ffffff;
+    --bg-card: #ffffff;
+    --ink-dim: #6b6480;
+    --ink-faint: #a39ab5;
+    --green: #3f9a47;
+    --green-soft: rgba(63, 154, 71, 0.16);
+    --line: #e4ddf3;
+    --danger: #c0492f;
+    --card-grad-1: #efe7fb;
+    --card-grad-2: #e6daf8;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -40,7 +66,7 @@
     flex-direction: column;
     min-height: 100dvh;
     background:
-      radial-gradient(1200px 600px at 50% -10%, rgba(201,168,76,0.06), transparent 60%),
+      radial-gradient(1200px 600px at 50% -10%, rgb(var(--accent-rgb) / 0.06), transparent 60%),
       var(--bg);
   }
 
@@ -69,6 +95,28 @@
 
   /* ---------- Template select ---------- */
   #screen-select { padding: 0; }
+  .select-top { display: flex; justify-content: flex-end; padding: 16px 18px 0; }
+  .theme-switch {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 3px;
+    background: var(--bg-elev);
+  }
+  .theme-opt {
+    border: none;
+    background: transparent;
+    padding: 7px 16px;
+    border-radius: 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+  .theme-opt.active { background: var(--gold); color: var(--on-accent); }
   .select-hero {
     padding: 40px 24px 22px;
     text-align: center;
@@ -114,7 +162,7 @@
     transition: border-color .18s ease, transform .12s ease, background .18s ease;
   }
   .template-card:active { transform: scale(0.985); }
-  .template-card:hover { border-color: var(--gold); background: #251f19; }
+  .template-card:hover { border-color: var(--gold); background: rgb(var(--accent-rgb) / 0.07); }
   .template-card .tc-name {
     font-family: var(--serif);
     font-size: 22px;
@@ -175,7 +223,7 @@
   .seg.q-mid  { background: var(--gold); }
   .seg.q-far  { background: var(--danger); }
   .seg.current { height: 11px; box-shadow: 0 0 0 1px var(--gold), 0 0 8px -1px var(--gold); }
-  .seg.current:not(.filled) { background: rgba(201, 168, 76, 0.55); }
+  .seg.current:not(.filled) { background: rgb(var(--accent-rgb) / 0.55); }
 
   .pom-scroll {
     flex: 1;
@@ -247,9 +295,9 @@
   /* ============ LEFT BORDER = STATUS (position in the flow) ============ */
   .prow.pending { opacity: 0.45; }
   .prow.filled  { opacity: 1; border-left-color: var(--ink-dim); }      /* recorded / done */
-  .prow.next    { opacity: 1; border-color: rgba(201,168,76,0.32); }
+  .prow.next    { opacity: 1; border-color: rgb(var(--accent-rgb) / 0.32); }
   .prow.next .prow-chip { display: inline-block; background: transparent; border: 1px solid var(--gold); color: var(--gold); }
-  .prow.just    { opacity: 1; border-left-color: var(--ink); box-shadow: 0 0 0 1px rgba(236,228,214,0.10), 0 0 22px -10px rgba(236,228,214,0.45); }
+  .prow.just    { opacity: 1; border-left-color: var(--ink); box-shadow: 0 0 0 1px rgb(var(--ink-rgb) / 0.10), 0 0 22px -10px rgb(var(--ink-rgb) / 0.45); }
   .prow.just .prow-chip { display: inline-block; background: var(--gold-soft); color: var(--gold); }
 
   /* ============ RIGHT BORDER = QUALITY (gap to standard) ============ */
@@ -269,26 +317,26 @@
     padding: 13px 2px;
     border: 1px solid var(--line);
     border-radius: 9px;
-    background: rgba(255,255,255,0.03);
+    background: rgb(var(--surface-tint) / 0.05);
     color: var(--ink);
     font-family: var(--mono);
     font-size: 13px;
     cursor: pointer;
     transition: background .12s ease, transform .08s ease, border-color .12s ease;
   }
-  .eb-btn:hover { border-color: var(--ink-dim); background: rgba(255,255,255,0.06); }
+  .eb-btn:hover { border-color: var(--ink-dim); background: rgb(var(--surface-tint) / 0.09); }
   .eb-btn:active { transform: scale(0.92); }
   .eb-std {
     flex: 1.5;
     background: var(--gold);
-    color: #1a160f;
+    color: var(--on-accent);
     border-color: var(--gold);
     font-size: 11px;
     letter-spacing: .1em;
     text-transform: uppercase;
     font-weight: 500;
   }
-  .eb-std:hover { background: #d9bb63; border-color: #d9bb63; }
+  .eb-std:hover { background: var(--gold-strong); border-color: var(--gold-strong); }
 
   /* one-shot flash when a value lands */
   @keyframes rowflash {
@@ -301,23 +349,23 @@
   /* CURRENT — big glowing row */
   .prow.current {
     opacity: 1;
-    background: linear-gradient(180deg, #2a2318, #221d16);
+    background: linear-gradient(180deg, var(--card-grad-1), var(--card-grad-2));
     border-color: var(--gold);
     border-left: 4px solid var(--gold);
     padding: 24px 16px;
     min-height: 112px;
-    box-shadow: 0 0 0 1px rgba(201,168,76,0.28), 0 0 40px -8px rgba(201,168,76,0.4);
+    box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.28), 0 0 40px -8px rgb(var(--accent-rgb) / 0.4);
     animation: glow 2.6s ease-in-out infinite;
   }
   .prow.current .prow-idx { color: var(--gold); font-size: 16px; }
   .prow.current .prow-name { font-size: 36px; font-weight: 600; }
-  .prow.current .prow-chip { display: inline-block; background: var(--gold); color: #1a160f; }
+  .prow.current .prow-chip { display: inline-block; background: var(--gold); color: var(--on-accent); }
   .prow.current .prow-std { font-size: 17px; }
   .prow.current .prow-rec { font-size: 46px; }
   .prow.current .prow-rec.empty { color: var(--ink-faint); }
   @keyframes glow {
-    0%,100% { box-shadow: 0 0 0 1px rgba(201,168,76,0.25), 0 0 32px -8px rgba(201,168,76,0.28); }
-    50%     { box-shadow: 0 0 0 1px rgba(201,168,76,0.42), 0 0 48px -4px rgba(201,168,76,0.45); }
+    0%,100% { box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.25), 0 0 32px -8px rgb(var(--accent-rgb) / 0.28); }
+    50%     { box-shadow: 0 0 0 1px rgb(var(--accent-rgb) / 0.42), 0 0 48px -4px rgb(var(--accent-rgb) / 0.45); }
   }
 
   /* status line under the POM name: the chip + (when listening) the footer-style dot */
@@ -455,11 +503,11 @@
   .btn.ghost:hover { border-color: var(--ink-dim); }
   .btn.primary {
     background: var(--gold);
-    color: #1a160f;
+    color: var(--on-accent);
     border-color: var(--gold);
     font-weight: 500;
   }
-  .btn.primary:hover { background: #d9bb63; }
+  .btn.primary:hover { background: var(--gold-strong); }
 
   /* ---------- Summary ---------- */
   #screen-summary { padding: 0; }
@@ -601,6 +649,12 @@
 
 <!-- ============ TEMPLATE SELECT ============ -->
 <section id="screen-select" class="screen active">
+  <div class="select-top">
+    <div class="theme-switch" id="themeSwitch" role="group" aria-label="Theme">
+      <button class="theme-opt" type="button" data-theme="dark">Dark</button>
+      <button class="theme-opt" type="button" data-theme="light">Light</button>
+    </div>
+  </div>
   <div class="select-hero">
     <div class="kicker">Atelier</div>
     <h1>Voice Measurement<br>Assistant</h1>
@@ -1601,7 +1655,22 @@ $("ttsToggle").addEventListener("click", () => {
   }
 });
 
+/* ============================================================
+   THEME
+============================================================ */
+function setTheme(name) {
+  document.documentElement.setAttribute("data-theme", name);
+  document.querySelectorAll("#themeSwitch .theme-opt").forEach((b) => {
+    b.classList.toggle("active", b.dataset.theme === name);
+  });
+}
+$("themeSwitch").addEventListener("click", (e) => {
+  const opt = e.target.closest(".theme-opt");
+  if (opt) setTheme(opt.dataset.theme);
+});
+
 // initial render
+setTheme("dark");
 renderTemplateList();
 </script>
 </body>
