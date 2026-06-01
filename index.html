@@ -915,6 +915,7 @@ let speakUntil = 0;         // ignore recognition until this time (anti-feedback
 let lastSpokenIndex = -1;   // which POM index we last announced
 let audioCtx = null;
 let speakFallback = null;   // force-releases the mic guard if TTS onend never fires
+let suppressRestart = false; // don't auto-restart recognition while we're reading a POM aloud
 
 // quick-edit bar visibility
 let editVisible = false;
@@ -1539,9 +1540,11 @@ function initRecognition() {
   recognition.onend = () => {
     listening = false;
     clearTimeout(interimTimer);
-    reflectListening();
     $("interim").textContent = "";
-    // auto-restart if we still want to listen
+    // paused on purpose to read a POM aloud — keep the UI as "listening"; resume after the
+    // utterance finishes (resumeListeningAfterSpeech), don't auto-restart or show "Mic off"
+    if (suppressRestart) return;
+    reflectListening();
     if (wantListening && !micPermDenied) {
       try { recognition.start(); }
       catch (e) { /* may already be starting; ignore */ }
@@ -1700,23 +1703,46 @@ function speakPom(pom) {
   // entirely — speaking would produce no audio yet still block the mic.
   if (!voice && code !== "en-US") return;
 
+  speaking = true;
+  // STOP the mic while reading, so the announced POM name can't leak into speech-to-text
+  // (it was corrupting the running transcript and the next command). It resumes on release.
+  if (recognition && listening) {
+    suppressRestart = true;
+    try { recognition.abort(); } catch (e) {}
+  }
+
   synth.cancel();
   const u = new SpeechSynthesisUtterance(pomLabel(pom));
   u.rate = 1.05; u.pitch = 1; u.lang = code;
   if (voice) u.voice = voice;
-  speaking = true;
-  // guard recognition against hearing our own voice (some labels contain "back" etc.)
-  const release = () => { clearTimeout(speakFallback); speaking = false; speakUntil = Date.now() + 350; };
+
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    clearTimeout(speakFallback);
+    speaking = false;
+    speakUntil = Date.now() + 250;
+    resumeListeningAfterSpeech();
+  };
   u.onend = release;
   u.onerror = release;
-  // SAFETY: if onend never fires, force-release so the mic guard can never get stuck
+  // SAFETY: if onend never fires, force-release so the mic never stays paused
   clearTimeout(speakFallback);
   speakFallback = setTimeout(release, 1000 + pomLabel(pom).length * 70);
   synth.speak(u);
 }
 
+function resumeListeningAfterSpeech() {
+  suppressRestart = false;
+  if (wantListening && !micPermDenied && recognition && !listening) {
+    try { recognition.start(); } catch (e) {}
+  }
+}
+
 function stopSpeaking() {
   clearTimeout(speakFallback);
+  suppressRestart = false;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   speaking = false;
 }
