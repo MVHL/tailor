@@ -9,13 +9,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root, [data-theme="dark"] {
-    --accent-rgb: 201 168 76;              /* gold */
+    --accent-rgb: 155 127 232;             /* purple */
     --ink-rgb: 236 228 214;
     --surface-tint: 255 255 255;           /* faint overlay tint */
     --gold: rgb(var(--accent-rgb));
     --gold-soft: rgb(var(--accent-rgb) / 0.14);
-    --gold-strong: #d9bb63;                /* accent hover */
+    --gold-strong: #b39ff0;                /* accent hover */
     --on-accent: #1a160f;                  /* text on an accent fill */
+    --q-mid: #c9a84c;                      /* lightly off standard — warm gold */
+    --q-mid-soft: rgba(201, 168, 76, 0.14);
     --bg: #14110e;
     --bg-elev: #1d1916;
     --bg-card: #221d18;
@@ -26,8 +28,8 @@
     --green-soft: rgba(111, 174, 106, 0.16);
     --line: #2f2922;
     --danger: #c96a4c;
-    --card-grad-1: #2a2318;
-    --card-grad-2: #221d16;
+    --card-grad-1: #1e1a2e;
+    --card-grad-2: #18152a;
     --serif: 'Playfair Display', Georgia, serif;
     --mono: 'DM Mono', ui-monospace, monospace;
   }
@@ -38,6 +40,8 @@
     --surface-tint: 33 33 38;
     --gold-strong: #8b5cf6;
     --on-accent: #ffffff;
+    --q-mid: #a06800;                      /* lightly off standard — dark amber */
+    --q-mid-soft: rgba(160, 104, 0, 0.12);
     --bg: #f4f4f5;
     --bg-elev: #ffffff;
     --bg-card: #ffffff;
@@ -220,7 +224,7 @@
   }
   .seg:hover { background: var(--ink-faint); }
   .seg.q-exact, .seg.q-near { background: var(--green); }
-  .seg.q-mid  { background: var(--gold); }
+  .seg.q-mid  { background: var(--q-mid); }
   .seg.q-far  { background: var(--danger); }
   .seg.current { height: 11px; box-shadow: 0 0 0 1px var(--gold), 0 0 8px -1px var(--gold); }
   .seg.current:not(.filled) { background: rgb(var(--accent-rgb) / 0.55); }
@@ -303,10 +307,10 @@
   /* ============ RIGHT BORDER = QUALITY (gap to standard) ============ */
   .prow.has-rec { border-right-width: 4px; border-right-style: solid; }
   .prow.q-exact, .prow.q-near { border-right-color: var(--green); }
-  .prow.q-mid  { border-right-color: var(--gold); }
+  .prow.q-mid  { border-right-color: var(--q-mid); }
   .prow.q-far  { border-right-color: var(--danger); }
   .prow.q-exact .prow-rec, .prow.q-near .prow-rec { color: var(--green); }
-  .prow.q-mid  .prow-rec { color: var(--gold); }
+  .prow.q-mid  .prow-rec { color: var(--q-mid); }
   .prow.q-far  .prow-rec { color: var(--danger); }
 
   /* ============ QUICK-INPUT EDIT BAR (current card only) ============ */
@@ -571,7 +575,7 @@
   table.sum tbody td.std { font-family: var(--mono); color: var(--ink-dim); }
   table.sum tbody td.rec { font-family: var(--mono); font-size: 16px; }
   .rec.custom { color: var(--green); }
-  .rec.standard { color: var(--gold); }
+  .rec.standard { color: var(--q-mid); }
   .rec.none { color: var(--ink-faint); }
   .rec .unit { font-size: 0.6em; color: var(--ink-faint); margin-left: 2px; }
   .rec-tag {
@@ -585,7 +589,7 @@
     vertical-align: middle;
   }
   .rec-tag.custom { background: var(--green-soft); color: var(--green); }
-  .rec-tag.standard { background: var(--gold-soft); color: var(--gold); }
+  .rec-tag.standard { background: var(--q-mid-soft); color: var(--q-mid); }
 
   /* ---------- Toast ---------- */
   .toast-host {
@@ -623,7 +627,7 @@
     margin-top: 2px;
     color: var(--green);
   }
-  .toast .t-val.gold { color: var(--gold); }
+  .toast .t-val.gold { color: var(--q-mid); }
   .toast .t-sub {
     font-size: 9px;
     letter-spacing: 0.2em;
