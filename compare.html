@@ -183,37 +183,28 @@ html, body {
 .col-vosk  .eng-btn.running { border-color: var(--vosk);  color: var(--vosk);  }
 .col-rhino .eng-btn.running { border-color: var(--rhino); color: var(--rhino); }
 
-/* ---- Setup section ---- */
-.setup-section {
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
-}
+/* ---- Setup section — lives inside .col-header ---- */
 .setup-toggle {
-  width: 100%;
-  padding: 8px 16px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
   background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
   color: var(--ink-dim);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  transition: color .15s;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
 }
-.setup-toggle:hover { color: var(--ink); }
-.setup-toggle::before { content: "▸"; transition: transform .2s; }
-.setup-toggle.open::before { transform: rotate(90deg); }
+.setup-toggle:hover { color: var(--ink); border-color: var(--ink-dim); }
+.setup-toggle.open  { color: var(--ink); border-color: var(--ink-dim); }
 .setup-body {
   display: none;
-  padding: 12px 16px 14px;
-  background: var(--surface);
+  padding: 12px 0 4px;
   border-top: 1px solid var(--line);
+  margin-top: 10px;
 }
 .setup-body.open { display: block; }
 .setup-row { margin-bottom: 10px; }
@@ -459,12 +450,28 @@ html, body {
   <div class="col col-web" id="col-web">
     <div class="col-header">
       <div class="col-header-row">
-        <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
           <span class="status-dot" id="web-dot"></span>
           <span class="engine-name">Web Speech API</span>
           <span class="status-label" id="web-status">Idle</span>
         </div>
-        <button class="eng-btn" id="web-toggle">Start</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="setup-toggle" id="web-setup-toggle">Setup ▾</button>
+          <button class="eng-btn" id="web-toggle">Start</button>
+        </div>
+      </div>
+      <div class="setup-body" id="web-setup-body">
+        <div class="setup-row">
+          <label class="setup-label">Language</label>
+          <select class="setup-input" id="web-lang">
+            <option value="en-US">English (US)</option>
+            <option value="en-GB">English (UK)</option>
+            <option value="vi-VN">Vietnamese</option>
+            <option value="zh-CN">Mandarin (CN)</option>
+            <option value="ja-JP">Japanese</option>
+          </select>
+        </div>
+        <div class="setup-msg">No model download needed — works immediately in Chrome. Recognition is routed to Google's servers.</div>
       </div>
     </div>
 
@@ -490,17 +497,16 @@ html, body {
   <div class="col col-vosk" id="col-vosk">
     <div class="col-header">
       <div class="col-header-row">
-        <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
           <span class="status-dot" id="vosk-dot"></span>
           <span class="engine-name">Vosk</span>
           <span class="status-label" id="vosk-status">Not loaded</span>
         </div>
-        <button class="eng-btn" id="vosk-toggle" disabled>Start</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="setup-toggle open" id="vosk-setup-toggle">Setup ▾</button>
+          <button class="eng-btn" id="vosk-toggle" disabled>Start</button>
+        </div>
       </div>
-    </div>
-
-    <div class="setup-section" id="vosk-setup-section">
-      <button class="setup-toggle open" id="vosk-setup-toggle">Setup</button>
       <div class="setup-body open" id="vosk-setup-body">
         <div class="setup-row">
           <label class="setup-label" for="vosk-url">Model URL</label>
@@ -542,17 +548,16 @@ html, body {
   <div class="col col-rhino" id="col-rhino">
     <div class="col-header">
       <div class="col-header-row">
-        <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
           <span class="status-dot" id="rhino-dot"></span>
           <span class="engine-name">Picovoice Rhino</span>
           <span class="status-label" id="rhino-status">Not loaded</span>
         </div>
-        <button class="eng-btn" id="rhino-toggle" disabled>Start</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="setup-toggle open" id="rhino-setup-toggle">Setup ▾</button>
+          <button class="eng-btn" id="rhino-toggle" disabled>Start</button>
+        </div>
       </div>
-    </div>
-
-    <div class="setup-section" id="rhino-setup-section">
-      <button class="setup-toggle open" id="rhino-setup-toggle">Setup</button>
       <div class="setup-body open" id="rhino-setup-body">
         <div class="setup-row">
           <label class="setup-label" for="rhino-key">Picovoice Access Key</label>
@@ -898,6 +903,7 @@ function wireToggle(toggleId, bodyId) {
     btn.classList.toggle("open", open);
   });
 }
+wireToggle("web-setup-toggle",  "web-setup-body");
 wireToggle("vosk-setup-toggle", "vosk-setup-body");
 wireToggle("rhino-setup-toggle", "rhino-setup-body");
 wireToggle("rhino-ref-toggle", "rhino-ref-body");
@@ -925,7 +931,7 @@ const WebEngine = (() => {
     recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    recognition.lang = document.getElementById("web-lang").value || "en-US";
 
     recognition.onspeechstart = () => {
       speechStartTime = Date.now();
@@ -933,23 +939,28 @@ const WebEngine = (() => {
     };
 
     recognition.onresult = (ev) => {
-      let interim = "", finalText = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript + " ";
-        else interim += ev.results[i][0].transcript;
+      let interim = "";
+      // Start at resultIndex — ev.results accumulates the entire session history,
+      // so iterating from 0 would re-process already-handled finals on every event.
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) {
+          // Dispatch each final utterance individually — never concatenate across
+          // results, otherwise two quick phrases produce one unparseable string.
+          const text = ev.results[i][0].transcript.trim();
+          if (!text) continue;
+          const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
+          speechStartTime = null;
+          const cmd = parseCommand(text);
+          setInterim("web", "");
+          setFinal("web", `"${text}"`);
+          setParsed("web", cmd);
+          setLatency("web", ms);
+          addHistoryItem("web", text, cmd, ms);
+        } else {
+          interim += ev.results[i][0].transcript;
+        }
       }
       if (interim) setInterim("web", interim.trim());
-      if (finalText.trim()) {
-        const text = finalText.trim();
-        const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
-        speechStartTime = null;
-        const cmd = parseCommand(text);
-        setInterim("web", "");
-        setFinal("web", `"${text}"`);
-        setParsed("web", cmd);
-        setLatency("web", ms);
-        addHistoryItem("web", text, cmd, ms);
-      }
     };
 
     recognition.onerror = (ev) => {
