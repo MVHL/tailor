@@ -973,6 +973,7 @@ function startSession(templateId) {
   $("measureTitle").textContent = tplName(templateId);
   ensureAudio();          // template tap is a user gesture — unlocks audio
   lastEditIndex = -1;
+  consumed = "";          // new session — start with a blank transcript
   showScreen("measure");
   startListening();              // set listening state before first render (edit-bar default)
   lastSpokenIndex = state.index; // suppress the synchronous announce (avoids TTS/mic start race)
@@ -1497,7 +1498,6 @@ function initRecognition() {
 
   recognition.onstart = () => {
     listening = true;
-    consumed = "";   // fresh transcript for this recognition session
     clearMicError();
     setMicStatus("live", t("micListening"));
     reflectListening();
@@ -1599,6 +1599,8 @@ function handleFinal(full) {
 function startListening() {
   micPermDenied = false;
   wantListening = true;
+  suppressRestart = false;   // defensive: never carry a stuck "paused for speech" flag in
+  speaking = false;
   clearMicError();
   $("micToggle").classList.add("on");
   $("micToggle").setAttribute("aria-pressed", "true");
@@ -1712,6 +1714,7 @@ function speakPom(pom) {
   // (it was corrupting the running transcript and the next command). It resumes on release.
   if (recognition && listening) {
     suppressRestart = true;
+    listening = false;            // mark stopped now; abort() doesn't always fire onend
     try { recognition.abort(); } catch (e) {}
   }
 
@@ -1739,8 +1742,9 @@ function speakPom(pom) {
 
 function resumeListeningAfterSpeech() {
   suppressRestart = false;
-  if (wantListening && !micPermDenied && recognition && !listening) {
-    try { recognition.start(); } catch (e) {}
+  if (wantListening && !micPermDenied && recognition) {
+    // start unconditionally; if it's somehow already running, the throw is harmless
+    try { recognition.start(); } catch (e) { /* already started — fine */ }
   }
 }
 
