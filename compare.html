@@ -920,7 +920,7 @@ const WebEngine = (() => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let running = false;
-  let speechStartTime = null;
+  let speechEndTime = null;   // set when user stops talking; latency = result − this
 
   function init() {
     if (!SpeechRecognition) {
@@ -933,23 +933,27 @@ const WebEngine = (() => {
     recognition.interimResults = true;
     recognition.lang = document.getElementById("web-lang").value || "en-US";
 
+    // onspeechstart / onspeechend fire when the browser's VAD detects
+    // voice activity starting and stopping — independent of recognition results.
     recognition.onspeechstart = () => {
-      speechStartTime = Date.now();
+      speechEndTime = null;
       setStatus("web", "live", "Listening");
+    };
+    recognition.onspeechend = () => {
+      // User has stopped speaking. Record this moment — the gap between
+      // here and the final result is the pure API processing delay.
+      speechEndTime = Date.now();
     };
 
     recognition.onresult = (ev) => {
       let interim = "";
-      // Start at resultIndex — ev.results accumulates the entire session history,
-      // so iterating from 0 would re-process already-handled finals on every event.
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         if (ev.results[i].isFinal) {
-          // Dispatch each final utterance individually — never concatenate across
-          // results, otherwise two quick phrases produce one unparseable string.
           const text = ev.results[i][0].transcript.trim();
           if (!text) continue;
-          const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
-          speechStartTime = null;
+          // ms = time from "stopped speaking" to "result received"
+          const ms = speechEndTime != null ? Date.now() - speechEndTime : null;
+          speechEndTime = null;
           const cmd = parseCommand(text);
           setInterim("web", "");
           setFinal("web", `"${text}"`);
@@ -1026,7 +1030,7 @@ const VoskEngine = (() => {
   let processor = null;
   let sourceNode = null;
   let running = false;
-  let speechStartTime = null;
+  let speechEndTime = null;   // set when RMS drops; latency = result − this
   let isSpeaking = false;
   const RMS_THRESHOLD = 0.008;
 
@@ -1126,8 +1130,9 @@ const VoskEngine = (() => {
     recognizer.on("result", (msg) => {
       const text = (msg.result && msg.result.text) ? msg.result.text.trim() : "";
       if (!text) return;
-      const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
-      speechStartTime = null;
+      // ms = time from last detected silence (speech end) to result arriving
+      const ms = speechEndTime != null ? Date.now() - speechEndTime : null;
+      speechEndTime = null;
       isSpeaking = false;
       const cmd = parseCommand(text);
       setInterim("vosk", "");
@@ -1146,14 +1151,19 @@ const VoskEngine = (() => {
     processor  = audioCtx.createScriptProcessor(4096, 1, 1);
 
     processor.onaudioprocess = (e) => {
-      // Use Float32Array only for RMS amplitude detection
       const channelData = e.inputBuffer.getChannelData(0);
       let rms = 0;
       for (let i = 0; i < channelData.length; i++) rms += channelData[i] * channelData[i];
       rms = Math.sqrt(rms / channelData.length);
+
       if (rms > RMS_THRESHOLD && !isSpeaking) {
+        // Speech started — clear any stale end-time from the previous utterance
         isSpeaking = true;
-        speechStartTime = Date.now();
+        speechEndTime = null;
+      } else if (rms < RMS_THRESHOLD * 0.4 && isSpeaking) {
+        // Speech ended — record this moment; latency = result − speechEndTime
+        isSpeaking = false;
+        speechEndTime = Date.now();
       }
 
       // Pass the full AudioBuffer — vosk-browser needs it for sample-rate metadata
@@ -1176,7 +1186,7 @@ const VoskEngine = (() => {
     if (audioCtx)    { try { audioCtx.close(); }         catch(e){} audioCtx = null; }
     recognizer = null;
     isSpeaking = false;
-    speechStartTime = null;
+    speechEndTime = null;
     setInterim("vosk", "");
     setStatus("vosk", "ready", "Stopped");
     document.getElementById("vosk-toggle").textContent = "Start";
@@ -1204,7 +1214,7 @@ const RhinoEngine = (() => {
   let processor = null;
   let sourceNode = null;
   let running = false;
-  let speechStartTime = null;
+  let speechEndTime = null;   // set when RMS drops; latency = result − this
   let isSpeaking = false;
   const RMS_THRESHOLD = 0.008;
   const SDK_URL = "https://cdn.jsdelivr.net/npm/@picovoice/rhino-web/dist/umd/picovoice_rhino.js";
@@ -1289,8 +1299,8 @@ const RhinoEngine = (() => {
   }
 
   function inferenceCallback(inference) {
-    const ms = speechStartTime != null ? Date.now() - speechStartTime : null;
-    speechStartTime = null;
+    const ms = speechEndTime != null ? Date.now() - speechEndTime : null;
+    speechEndTime = null;
     isSpeaking = false;
 
     if (!inference.isUnderstood) {
@@ -1372,13 +1382,16 @@ const RhinoEngine = (() => {
     processor.onaudioprocess = (e) => {
       const float32 = e.inputBuffer.getChannelData(0);
 
-      // Amplitude-based speech start detection
+      // Track speech end via RMS — latency = inference result − speechEndTime
       let rms = 0;
       for (let i = 0; i < float32.length; i++) rms += float32[i] * float32[i];
       rms = Math.sqrt(rms / float32.length);
       if (rms > RMS_THRESHOLD && !isSpeaking) {
         isSpeaking = true;
-        speechStartTime = Date.now();
+        speechEndTime = null;           // reset on speech start
+      } else if (rms < RMS_THRESHOLD * 0.4 && isSpeaking) {
+        isSpeaking = false;
+        speechEndTime = Date.now();     // record silence onset
       }
 
       // Convert Float32 -> Int16 PCM
@@ -1406,7 +1419,7 @@ const RhinoEngine = (() => {
     if (stream)      { stream.getTracks().forEach(t => t.stop()); stream = null; }
     if (audioCtx)    { try { audioCtx.close(); }         catch(e){} audioCtx = null; }
     isSpeaking = false;
-    speechStartTime = null;
+    speechEndTime = null;
     setInterim("rhino", "");
     setStatus("rhino", "ready", "Stopped");
     document.getElementById("rhino-toggle").textContent = "Start";
