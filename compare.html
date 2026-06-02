@@ -920,7 +920,11 @@ const WebEngine = (() => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recognition = null;
   let running = false;
-  let speechEndTime = null;   // set when user stops talking; latency = result − this
+  // Chrome fires onspeechend AFTER the final onresult in continuous mode, so we
+  // cannot use it for timing. Instead we track the last interim result — interims
+  // stream while the user talks, so the last one is a reliable proxy for
+  // "user just finished speaking". Gap = last interim → final = processing delay.
+  let lastInterimTime = null;
 
   function init() {
     if (!SpeechRecognition) {
@@ -933,16 +937,9 @@ const WebEngine = (() => {
     recognition.interimResults = true;
     recognition.lang = document.getElementById("web-lang").value || "en-US";
 
-    // onspeechstart / onspeechend fire when the browser's VAD detects
-    // voice activity starting and stopping — independent of recognition results.
     recognition.onspeechstart = () => {
-      speechEndTime = null;
+      lastInterimTime = null;
       setStatus("web", "live", "Listening");
-    };
-    recognition.onspeechend = () => {
-      // User has stopped speaking. Record this moment — the gap between
-      // here and the final result is the pure API processing delay.
-      speechEndTime = Date.now();
     };
 
     recognition.onresult = (ev) => {
@@ -951,9 +948,9 @@ const WebEngine = (() => {
         if (ev.results[i].isFinal) {
           const text = ev.results[i][0].transcript.trim();
           if (!text) continue;
-          // ms = time from "stopped speaking" to "result received"
-          const ms = speechEndTime != null ? Date.now() - speechEndTime : null;
-          speechEndTime = null;
+          // ms = last interim timestamp → final result = processing delay after speech ended
+          const ms = lastInterimTime != null ? Date.now() - lastInterimTime : null;
+          lastInterimTime = null;
           const cmd = parseCommand(text);
           setInterim("web", "");
           setFinal("web", `"${text}"`);
@@ -962,6 +959,7 @@ const WebEngine = (() => {
           addHistoryItem("web", text, cmd, ms);
         } else {
           interim += ev.results[i][0].transcript;
+          lastInterimTime = Date.now(); // update every interim — last one ≈ speech end
         }
       }
       if (interim) setInterim("web", interim.trim());
