@@ -976,6 +976,29 @@ wireToggle("web-setup-toggle",  "web-setup-body");
 wireToggle("vosk-setup-toggle", "vosk-setup-body");
 wireToggle("rhino-setup-toggle", "rhino-setup-body");
 
+/* ---- Setup button labels ---- */
+function updateSetupLabels() {
+  // Web Speech API toggle: show the currently selected speech language
+  const webLangEl = document.getElementById("web-lang");
+  const webToggle = document.getElementById("web-setup-toggle");
+  if (webLangEl && webToggle) {
+    const langVal = webLangEl.value || "en-US";           // e.g. "vi-VN"
+    const parts   = langVal.split("-");                   // ["vi","VN"]
+    const label   = parts[0].toUpperCase() +              // "VI"
+                    (parts[1] ? " · " + parts[1] : "");   // " · VN"
+    webToggle.textContent = label + " ▾";
+  }
+}
+
+function updateVoskLabel(loadedLang) {
+  // Vosk toggle: show which language model is loaded, or "Setup" if none
+  const voskToggle = document.getElementById("vosk-setup-toggle");
+  if (!voskToggle) return;
+  voskToggle.textContent = loadedLang
+    ? loadedLang.toUpperCase() + " model ▾"
+    : "Setup ▾";
+}
+
 /* ---- Language switcher ---- */
 function applyLang(lang) {
   currentLang = lang;
@@ -986,9 +1009,12 @@ function applyLang(lang) {
     btn.classList.toggle("active", btn.dataset.lang === lang);
   });
 
-  // Update Web Speech API language dropdown
+  // Update Web Speech API language dropdown + its button label
   const webLangEl = document.getElementById("web-lang");
-  if (webLangEl) webLangEl.value = LANG_CONFIG[lang].speechLang;
+  if (webLangEl) {
+    webLangEl.value = LANG_CONFIG[lang].speechLang;
+    updateSetupLabels();
+  }
 
   // Update Vosk model URL
   const voskUrlEl = document.getElementById("vosk-url");
@@ -999,7 +1025,8 @@ function applyLang(lang) {
   if (voskMsg && window._voskModelLoaded) {
     voskMsg.className = "setup-msg err";
     voskMsg.textContent = `Language changed to ${lang.toUpperCase()} — reload the model to apply.`;
-    // Re-open setup so user sees the new URL and warning
+    window._voskModelLoaded = false;
+    updateVoskLabel(null);            // clear model label until reloaded
     const body   = document.getElementById("vosk-setup-body");
     const toggle = document.getElementById("vosk-setup-toggle");
     if (body && !body.classList.contains("open")) {
@@ -1009,10 +1036,16 @@ function applyLang(lang) {
   }
 }
 
+// Also update web label when the dropdown itself is changed manually
+document.getElementById("web-lang").addEventListener("change", updateSetupLabels);
+
 document.getElementById("langSwitch").addEventListener("click", (e) => {
   const btn = e.target.closest(".lang-opt");
   if (btn && btn.dataset.lang !== currentLang) applyLang(btn.dataset.lang);
 });
+
+// Set initial label
+updateSetupLabels();
 wireToggle("rhino-ref-toggle", "rhino-ref-body");
 
 /* Clear history buttons */
@@ -1025,13 +1058,33 @@ document.querySelectorAll(".history-clear-btn").forEach(btn => {
 ============================================================ */
 const WebEngine = (() => {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
-  let running = false;
-  // Chrome fires onspeechend AFTER the final onresult in continuous mode, so we
-  // cannot use it for timing. Instead we track the last interim result — interims
-  // stream while the user talks, so the last one is a reliable proxy for
-  // "user just finished speaking". Gap = last interim → final = processing delay.
+  let recognition    = null;
+  let running        = false;
   let lastInterimTime = null;
+  let pendingInterim  = "";   // latest non-final text
+  let silenceTimer    = null; // auto-commit when no new result for SILENCE_MS
+  const SILENCE_MS    = 1000; // ms of no new result before treating interim as final
+
+  function commitInterim() {
+    const text = pendingInterim.trim();
+    pendingInterim = "";
+    if (!text) return;
+    const ms = lastInterimTime != null ? Date.now() - lastInterimTime : null;
+    lastInterimTime = null;
+    const cmd = parseCommand(text);
+    setInterim("web", "");
+    setFinal("web", `"${text}"`);
+    setParsed("web", cmd);
+    setLatency("web", ms);
+    addHistoryItem("web", text, cmd, ms);
+    // The Web Speech API accumulates all results in ev.results across the session.
+    // After an auto-commit the next onresult still contains the just-committed text,
+    // causing it to be re-processed. Restarting the session clears the buffer.
+    // onend restarts automatically because running === true.
+    if (running && recognition) {
+      try { recognition.stop(); } catch (_) {}
+    }
+  }
 
   function init() {
     if (!SpeechRecognition) {
@@ -1050,12 +1103,15 @@ const WebEngine = (() => {
     };
 
     recognition.onresult = (ev) => {
-      let interim = "";
+      clearTimeout(silenceTimer);
+
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         if (ev.results[i].isFinal) {
+          // API committed this itself — cancel auto-commit and process immediately
+          clearTimeout(silenceTimer);
+          pendingInterim = "";
           const text = ev.results[i][0].transcript.trim();
           if (!text) continue;
-          // ms = last interim timestamp → final result = processing delay after speech ended
           const ms = lastInterimTime != null ? Date.now() - lastInterimTime : null;
           lastInterimTime = null;
           const cmd = parseCommand(text);
@@ -1065,11 +1121,20 @@ const WebEngine = (() => {
           setLatency("web", ms);
           addHistoryItem("web", text, cmd, ms);
         } else {
-          interim += ev.results[i][0].transcript;
-          lastInterimTime = Date.now(); // update every interim — last one ≈ speech end
+          // Show only the LATEST non-final — never concat across results,
+          // otherwise Vietnamese piles up all pending results into one giant string.
+          pendingInterim = ev.results[i][0].transcript;
+          lastInterimTime = Date.now();
         }
       }
-      if (interim) setInterim("web", interim.trim());
+
+      if (pendingInterim) {
+        setInterim("web", pendingInterim.trim());
+        // Auto-commit: some languages (Vietnamese) hold everything as non-final
+        // for much longer. If no new result arrives within SILENCE_MS, treat
+        // the current interim as a completed utterance.
+        silenceTimer = setTimeout(commitInterim, SILENCE_MS);
+      }
     };
 
     recognition.onerror = (ev) => {
@@ -1094,7 +1159,10 @@ const WebEngine = (() => {
   }
 
   function start() {
-    if (!recognition && !init()) return;
+    // Always re-init so recognition.lang picks up the current dropdown value.
+    // Reusing a previous recognition object silently ignores language changes.
+    if (recognition) { try { recognition.stop(); } catch (_) {} recognition = null; }
+    if (!init()) return;
     running = true;
     setStatus("web", "live", "Listening");
     document.getElementById("web-toggle").textContent = "Stop";
@@ -1104,6 +1172,8 @@ const WebEngine = (() => {
 
   function stop() {
     running = false;
+    clearTimeout(silenceTimer);
+    pendingInterim = "";
     if (recognition) { try { recognition.stop(); } catch (e) {} }
     setInterim("web", "");
     setStatus("web", "ready", "Stopped");
@@ -1202,6 +1272,7 @@ const VoskEngine = (() => {
       setStatus("vosk", "ready", "Ready");
       document.getElementById("vosk-toggle").disabled = false;
       window._voskModelLoaded = true;
+      updateVoskLabel(currentLang);
 
       // Collapse setup once loaded
       const body = document.getElementById("vosk-setup-body");
@@ -1228,15 +1299,38 @@ const VoskEngine = (() => {
       return;
     }
 
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    recognizer = new model.KaldiRecognizer(audioCtx.sampleRate);
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      recognizer = new model.KaldiRecognizer(audioCtx.sampleRate);
+    } catch (e) {
+      setStatus("vosk", "error", "Init failed: " + e.message.slice(0, 40));
+      running = false;
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
 
-    try { recognizer.setGrammar(TAILOR_VOCAB); } catch (e) { /* grammar not supported */ }
+    // NOTE: setGrammar is async (posts to Web Worker). Calling it without await
+    // then immediately feeding audio corrupts the recognizer state → no output.
+    // Vocabulary constraint is omitted here; accuracy is still good without it.
+
+    // vosk-browser result messages can arrive as a parsed object OR a JSON string
+    // depending on version — handle both shapes.
+    function extractText(msg) {
+      const r = msg.result;
+      if (!r) return "";
+      if (typeof r === "string") { try { return JSON.parse(r).text || ""; } catch(_){ return ""; } }
+      return r.text || "";
+    }
+    function extractPartial(msg) {
+      const r = msg.result;
+      if (!r) return "";
+      if (typeof r === "string") { try { return JSON.parse(r).partial || ""; } catch(_){ return ""; } }
+      return r.partial || "";
+    }
 
     recognizer.on("result", (msg) => {
-      const text = (msg.result && msg.result.text) ? msg.result.text.trim() : "";
+      const text = extractText(msg).trim();
       if (!text) return;
-      // ms = time from last detected silence (speech end) to result arriving
       const ms = speechEndTime != null ? Date.now() - speechEndTime : null;
       speechEndTime = null;
       isSpeaking = false;
@@ -1249,8 +1343,7 @@ const VoskEngine = (() => {
     });
 
     recognizer.on("partialresult", (msg) => {
-      const partial = (msg.result && msg.result.partial) ? msg.result.partial.trim() : "";
-      setInterim("vosk", partial || "");
+      setInterim("vosk", extractPartial(msg).trim());
     });
 
     sourceNode = audioCtx.createMediaStreamSource(stream);
@@ -1263,17 +1356,14 @@ const VoskEngine = (() => {
       rms = Math.sqrt(rms / channelData.length);
 
       if (rms > RMS_THRESHOLD && !isSpeaking) {
-        // Speech started — clear any stale end-time from the previous utterance
         isSpeaking = true;
         speechEndTime = null;
       } else if (rms < RMS_THRESHOLD * 0.4 && isSpeaking) {
-        // Speech ended — record this moment; latency = result − speechEndTime
         isSpeaking = false;
         speechEndTime = Date.now();
       }
 
-      // Pass the full AudioBuffer — vosk-browser needs it for sample-rate metadata
-      recognizer.acceptWaveform(e.inputBuffer);
+      try { recognizer.acceptWaveform(e.inputBuffer); } catch(_) {}
     };
 
     sourceNode.connect(processor);
