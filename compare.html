@@ -68,9 +68,35 @@ html, body {
   color: var(--ink-dim);
   margin-bottom: 4px;
 }
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 3px;
+  background: var(--card);
+  gap: 2px;
+}
+.lang-opt {
+  border: none;
+  background: transparent;
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.lang-opt.active {
+  background: var(--ink);
+  color: var(--bg);
+}
 .global-controls {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
 }
 .gbtn {
@@ -439,6 +465,10 @@ html, body {
     <h1 class="page-title">Speech Engine Comparison</h1>
   </div>
   <div class="global-controls">
+    <div class="lang-switch" id="langSwitch">
+      <button class="lang-opt active" data-lang="en">EN</button>
+      <button class="lang-opt"        data-lang="vi">VI</button>
+    </div>
     <button class="gbtn start" id="btnStartAll">&#9654; Start All</button>
     <button class="gbtn stop"  id="btnStopAll">&#9632; Stop All</button>
   </div>
@@ -788,7 +818,7 @@ function parseCommand(rawText) {
 /* ============================================================
    TAILOR VOCABULARY  (for Vosk grammar constraint)
 ============================================================ */
-const TAILOR_VOCAB = [
+const TAILOR_VOCAB_EN = [
   // number words
   "zero","one","two","three","four","five","six","seven","eight","nine","ten",
   "eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen",
@@ -805,6 +835,45 @@ const TAILOR_VOCAB = [
   "centimeters","centimeter","cm",
   "[unk]"
 ];
+
+const TAILOR_VOCAB_VI = [
+  // digits and number words
+  "không","một","hai","ba","bốn","năm","sáu","bảy","tám","chín",
+  "mười","mười một","mười hai","mười ba","mười bốn","mười lăm",
+  "mười sáu","mười bảy","mười tám","mười chín",
+  "hai mươi","ba mươi","bốn mươi","năm mươi",
+  "sáu mươi","bảy mươi","tám mươi","chín mươi",
+  "một trăm","hai trăm","phẩy","rưỡi",
+  // commands
+  "chuẩn","tiếp","trước","xóa","đến","bỏ qua",
+  "cộng","trừ","ok","được","tốt","đúng",
+  // POM names (Vietnamese)
+  "vòng ngực","vòng eo","vòng mông","rộng vai","dài tay",
+  "dài áo","vòng cổ","dài dọc trong","dài dọc ngoài",
+  "vòng đùi","vòng gối","gấu quần","vòng nách",
+  "dài thân trước","dài thân sau","dài váy","dài sườn",
+  "dài áo sơ mi","cửa tay","rộng lưng","rộng thân trước",
+  "dài tổng thể","cao xẻ tà","cao đáy","rộng ống","sâu đáy",
+  "[unk]"
+];
+
+const LANG_CONFIG = {
+  en: {
+    speechLang: "en-US",
+    voskModelUrl: "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz",
+    vocab: TAILOR_VOCAB_EN,
+  },
+  vi: {
+    speechLang: "vi-VN",
+    voskModelUrl: "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip",
+    vocab: TAILOR_VOCAB_VI,
+  },
+};
+
+let currentLang = "en";
+
+// Kept as a live reference — Vosk reads this at start time
+let TAILOR_VOCAB = TAILOR_VOCAB_EN;
 
 /* ============================================================
    LATENCY HELPERS
@@ -906,6 +975,44 @@ function wireToggle(toggleId, bodyId) {
 wireToggle("web-setup-toggle",  "web-setup-body");
 wireToggle("vosk-setup-toggle", "vosk-setup-body");
 wireToggle("rhino-setup-toggle", "rhino-setup-body");
+
+/* ---- Language switcher ---- */
+function applyLang(lang) {
+  currentLang = lang;
+  TAILOR_VOCAB = LANG_CONFIG[lang].vocab;
+
+  // Update lang-switch pill
+  document.querySelectorAll(".lang-opt").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.lang === lang);
+  });
+
+  // Update Web Speech API language dropdown
+  const webLangEl = document.getElementById("web-lang");
+  if (webLangEl) webLangEl.value = LANG_CONFIG[lang].speechLang;
+
+  // Update Vosk model URL
+  const voskUrlEl = document.getElementById("vosk-url");
+  if (voskUrlEl) voskUrlEl.value = LANG_CONFIG[lang].voskModelUrl;
+
+  // Warn if Vosk model already loaded (it was trained on the previous language)
+  const voskMsg = document.getElementById("vosk-msg");
+  if (voskMsg && window._voskModelLoaded) {
+    voskMsg.className = "setup-msg err";
+    voskMsg.textContent = `Language changed to ${lang.toUpperCase()} — reload the model to apply.`;
+    // Re-open setup so user sees the new URL and warning
+    const body   = document.getElementById("vosk-setup-body");
+    const toggle = document.getElementById("vosk-setup-toggle");
+    if (body && !body.classList.contains("open")) {
+      body.classList.add("open");
+      toggle && toggle.classList.add("open");
+    }
+  }
+}
+
+document.getElementById("langSwitch").addEventListener("click", (e) => {
+  const btn = e.target.closest(".lang-opt");
+  if (btn && btn.dataset.lang !== currentLang) applyLang(btn.dataset.lang);
+});
 wireToggle("rhino-ref-toggle", "rhino-ref-body");
 
 /* Clear history buttons */
@@ -1091,9 +1198,10 @@ const VoskEngine = (() => {
       });
       progressFill.style.width = "100%";
       msgEl.className = "setup-msg ok";
-      msgEl.textContent = "Model loaded.";
+      msgEl.textContent = `Model loaded (${currentLang.toUpperCase()}).`;
       setStatus("vosk", "ready", "Ready");
       document.getElementById("vosk-toggle").disabled = false;
+      window._voskModelLoaded = true;
 
       // Collapse setup once loaded
       const body = document.getElementById("vosk-setup-body");
