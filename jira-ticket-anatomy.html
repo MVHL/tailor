@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Problem Framing</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --problem: #DC2626;
+      --req:     #2563EB;
+      --ac:      #059669;
+      --test:    #7C3AED;
+      --impl:    #D97706;
+      --code:    #0369A1;
+      --review:  #BE185D;
+      --text:    #1E293B;
+      --muted:   #64748B;
+      --bg:      #F1F5F9;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.6;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* ── HEADER ── */
+    .page-header { text-align: center; margin-bottom: 0.75rem; }
+    .page-header h1 { font-size: 1.85rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; }
+
+    /* ── HINT ── */
+    .sel-hint { text-align: center; font-size: 0.72rem; color: var(--muted); margin-bottom: 1.75rem; }
+
+    /* ── SHARED CARD ── */
+    .s-card { border-radius: 12px; padding: 1.35rem 1.4rem; border: 2px solid transparent; }
+    .s-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
+    .s-tag { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 8px; border-radius: 5px; }
+    .s-title { font-size: 1rem; font-weight: 700; }
+    .s-desc { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.9rem; }
+
+    .s-problem { background: #FEF2F2; border-color: #FECACA; }
+    .s-problem .s-tag { background: #FEE2E2; color: #DC2626; }
+    .s-problem .s-title { color: #991B1B; }
+    .s-problem .ex { border-left-color: #F87171; }
+
+    .s-req { background: #EFF6FF; border-color: #BFDBFE; }
+    .s-req .s-tag { background: #DBEAFE; color: #1D4ED8; }
+    .s-req .s-title { color: #1D4ED8; }
+    .s-req .ex { border-left-color: #60A5FA; }
+
+    .s-oos { background: #F9FAFB; border-color: #D1D5DB; border-style: dashed; }
+    .s-oos .s-tag { background: #F3F4F6; color: #6B7280; }
+    .s-oos .s-title { color: #374151; }
+    .s-oos .ex { border-left-color: #D1D5DB; }
+
+    .s-ac { background: #F0FDF4; border-color: #BBF7D0; }
+    .s-ac .s-tag { background: #DCFCE7; color: #059669; }
+    .s-ac .s-title { color: #047857; }
+    .s-ac .ex { border-left-color: #34D399; }
+
+    .s-test { background: #FAF5FF; border-color: #E9D5FF; }
+    .s-test .s-tag { background: #EDE9FE; color: #7C3AED; }
+    .s-test .s-title { color: #6D28D9; }
+    .s-test .ex { border-left-color: #A78BFA; }
+
+    .s-impl { background: #FFFBEB; border-color: #FDE68A; }
+    .s-impl .s-tag { background: #FEF3C7; color: #D97706; }
+    .s-impl .s-title { color: #B45309; }
+    .s-impl .ex { border-left-color: #FBBF24; }
+
+    .s-code { background: #F0F9FF; border-color: #BAE6FD; }
+    .s-code .s-tag { background: #E0F2FE; color: #0369A1; }
+    .s-code .s-title { color: #0369A1; }
+
+    .s-review { background: #FFF1F2; border-color: #FECDD3; }
+    .s-review .s-tag { background: #FFE4E6; color: #BE185D; }
+    .s-review .s-title { color: #9D174D; }
+
+    /* ── EXAMPLE BOX ── */
+    .ex { background: rgba(255,255,255,0.7); border-left: 4px solid; border-radius: 0 8px 8px 0; padding: 0.8rem 1rem; }
+    .ex-label { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.45; margin-bottom: 0.45rem; }
+
+    /* ── ITEM LIST ── */
+    .il { list-style: none; }
+    .il li {
+      display: flex; align-items: flex-start; gap: 0.5rem;
+      padding: 0.42rem 0; border-bottom: 1px solid rgba(0,0,0,0.05);
+      font-size: 0.83rem; line-height: 1.5;
+    }
+    .il li:last-child { border-bottom: none; padding-bottom: 0; }
+    .il li:first-child { padding-top: 0; }
+    .li-text { min-width: 0; overflow-wrap: break-word; flex: 1; }
+
+    .pill { flex-shrink: 0; font-size: 0.63rem; font-weight: 800; padding: 2px 7px; border-radius: 5px; margin-top: 2px; line-height: 1.4; }
+    .pill-p  { background: #FEE2E2; color: #DC2626; }
+    .pill-r  { background: #DBEAFE; color: #1D4ED8; }
+    .pill-ac { background: #DCFCE7; color: #059669; }
+    .pill-t  { background: #EDE9FE; color: #7C3AED; }
+    .pill-im { background: #FEF3C7; color: #D97706; }
+    .pill-x  { background: #F3F4F6; color: #6B7280; }
+
+    .rtag { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
+    .rtag-p  { background: #FEE2E2; color: #DC2626; }
+    .rtag-r  { background: #DBEAFE; color: #1D4ED8; }
+    .rtag-ac { background: #DCFCE7; color: #059669; }
+
+    .refs { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+    .ref-label { font-size: 0.6rem; color: var(--muted); margin-right: 2px; }
+
+    code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8em; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px; }
+
+    /* ── LAYOUT ── */
+    .two-col { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1rem; }
+
+    /* ── TICKET BOUNDARY ── */
+    .ticket-wrapper { max-width: 860px; margin: 0 auto 1.5rem; }
+    .ticket-boundary { border: 3px dashed #3B82F6; border-radius: 18px; padding: 2rem 1.75rem; background: #F8FAFF; position: relative; }
+    .boundary-badge { position: absolute; top: -13px; left: 20px; background: #3B82F6; color: white; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 14px; border-radius: 100px; }
+
+    /* ── ARROWS ── */
+    /* base unit */
+    .c-shaft { width: 2px; height: 14px; background: #CBD5E1; }
+    .c-arrow { color: #94A3B8; font-size: 14px; line-height: 1; margin-top: -3px; }
+
+    /* simple single arrow */
+    .simple-arrow { display: flex; flex-direction: column; align-items: center; padding: 0.2rem 0; }
+    .simple-arrow .c-shaft { height: 18px; }
+    .simple-arrow .c-arrow { font-size: 16px; }
+
+    /* fork: one line → splits into two (used before parallel section) */
+    .fork-arr { display: flex; flex-direction: column; align-items: center; padding: 0.15rem 0 0.1rem; }
+    .fork-arr .fork-top { width: 2px; height: 14px; background: #CBD5E1; }
+    .fork-arr .fork-bar { height: 2px; background: #CBD5E1; width: 54%; }
+    .fork-arr .fork-legs { width: 54%; display: flex; justify-content: space-between; }
+    .fork-arr .fork-leg  { width: 2px; height: 14px; background: #CBD5E1; }
+    .fork-arr .fork-tips { width: 54%; display: flex; justify-content: space-between; color: #94A3B8; font-size: 14px; line-height: 1; margin-top: -3px; }
+
+    /* merge: two lines → join into one (used after parallel section) */
+    .merge-arr { display: flex; flex-direction: column; align-items: center; padding: 0.1rem 0 0.15rem; }
+    .merge-arr .merge-legs { width: 54%; display: flex; justify-content: space-between; }
+    .merge-arr .merge-leg  { width: 2px; height: 14px; background: #CBD5E1; }
+    .merge-arr .merge-bar  { height: 2px; background: #CBD5E1; width: 54%; }
+    .merge-arr .merge-stem { width: 2px; height: 14px; background: #CBD5E1; }
+    .merge-arr .merge-tip  { color: #94A3B8; font-size: 14px; line-height: 1; margin-top: -3px; }
+
+    /* ── DEV BOUNDARY ── */
+    .dev-wrapper { max-width: 860px; margin: 0 auto 2.5rem; }
+    .dev-boundary { border: 2.5px dashed #D97706; border-radius: 18px; padding: 2rem 1.75rem; background: #FDFAF2; position: relative; }
+    .dev-badge { position: absolute; top: -13px; left: 20px; background: #D97706; color: white; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 14px; border-radius: 100px; }
+
+    /* ── PARALLEL LAYOUT ── */
+    .parallel-wrap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: stretch; }
+    .parallel-divider { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 1rem; gap: 0.4rem; }
+    .parallel-line { width: 2px; flex: 1; background: repeating-linear-gradient(to bottom, #D97706 0, #D97706 6px, transparent 6px, transparent 12px); }
+    .parallel-label { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #D97706; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 0.5rem 0; }
+
+    /* ── CONVERGENCE (final "done" node) ── */
+    .convergence { margin-top: 1rem; display: flex; flex-direction: column; align-items: center; }
+    .conv-stem { width: 2px; height: 14px; background: #CBD5E1; }
+    .conv-node { background: #1E293B; color: white; font-size: 0.72rem; font-weight: 700; padding: 6px 18px; border-radius: 100px; }
+
+    /* ── OUTSIDE BOX ── */
+    .outside-wrapper { max-width: 860px; margin: 0 auto; }
+    .outside-boundary { border: 2px dashed #CBD5E1; border-radius: 18px; padding: 1.75rem; background: white; position: relative; }
+    .outside-badge { position: absolute; top: -13px; left: 20px; background: #9CA3AF; color: white; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 14px; border-radius: 100px; }
+    .outside-sub { font-size: 0.78rem; color: #9CA3AF; margin-bottom: 1.25rem; margin-top: 0.3rem; }
+    .outside-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr)); gap: 0.85rem; }
+    .o-card { background: #F9FAFB; border: 1.5px dashed #E5E7EB; border-radius: 10px; padding: 0.85rem; }
+    .o-card-title { font-size: 0.78rem; font-weight: 700; color: #9CA3AF; margin-bottom: 0.3rem; }
+    .o-card-body { font-size: 0.75rem; color: #9CA3AF; line-height: 1.55; }
+
+    /* ── SIMPLE BLOCK (Code / Review) ── */
+    .simple-block { padding: 0.85rem 1.4rem; display: flex; align-items: center; }
+    .simple-block .s-title { font-size: 0.95rem; }
+
+    /* ── ITEM INTERACTION ── */
+    .il li[data-id] {
+      cursor: pointer;
+      border-radius: 6px;
+      padding-left: 0.4rem; padding-right: 0.4rem;
+      margin-left: -0.4rem; margin-right: -0.4rem;
+      transition: opacity 0.18s, background 0.12s;
+    }
+    .il li[data-id]:hover { background: rgba(0,0,0,0.05); }
+    .il li.lit { background: rgba(0,0,0,0.06); }
+    .il li.dim { opacity: 0.15; pointer-events: none; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 620px) {
+      .two-col, .parallel-wrap { grid-template-columns: 1fr; }
+      .parallel-divider { flex-direction: row; padding: 0.5rem 0; }
+      .parallel-line { width: 100%; height: 2px; flex: 1; }
+      .parallel-label { writing-mode: horizontal-tb; transform: none; }
+      body { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1>Problem Framing</h1>
+</header>
+<p class="sel-hint">Click any item (P1, R2, AC3…) to trace its dependency chain — click again to clear</p>
+
+<!-- ═══════════ TICKET (PROBLEM FRAMING) ═══════════ -->
+<div class="ticket-wrapper">
+  <div class="ticket-boundary">
+    <div class="boundary-badge">Problem Framing</div>
+
+    <!-- PROBLEMS -->
+    <div class="s-card s-problem">
+      <div class="s-header"><span class="s-tag">WHY</span><span class="s-title">Problem Statement(s)</span></div>
+      <p class="s-desc">One or more pain points or opportunities. Each states who is affected and what the impact is. Every requirement must trace back to a problem here — problems with no matching requirement go in Out of Scope.</p>
+      <div class="ex">
+        <div class="ex-label">Example</div>
+        <ul class="il">
+          <li data-id="p1"><span class="pill pill-p">P1</span><div class="li-text">Customers can't apply more than one discount code — 12% of orders are abandoned at checkout; support receives ~80 tickets/week.</div></li>
+          <li data-id="p2"><span class="pill pill-p">P2</span><div class="li-text">When a discount code fails, the error is generic ("Invalid code") — users can't tell if it's expired, incompatible, or mistyped.</div></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- CONNECTOR: P → R (aligned with Requirements column, not full width) -->
+    <div class="two-col" style="padding:0.2rem 0;">
+      <div class="simple-arrow"><div class="c-shaft"></div><div class="c-arrow">▼</div></div>
+      <div></div>
+    </div>
+
+    <!-- REQUIREMENTS + OUT OF SCOPE -->
+    <div class="two-col">
+      <div class="s-card s-req">
+        <div class="s-header"><span class="s-tag">WHAT</span><span class="s-title">Requirements</span></div>
+        <p class="s-desc">User-facing outcomes. Each traces to one or more Problems. One requirement can address multiple problems simultaneously.</p>
+        <div class="ex">
+          <div class="ex-label">Example</div>
+          <ul class="il">
+            <li data-id="r1"><span class="pill pill-r">R1</span><div class="li-text">Users can enter and apply up to 3 discount codes per order<div class="refs"><span class="ref-label">solves</span><span class="rtag rtag-p">P1</span></div></div></li>
+            <li data-id="r2"><span class="pill pill-r">R2</span><div class="li-text">Each code is validated in real-time (&lt;1 s) before checkout proceeds<div class="refs"><span class="ref-label">solves</span><span class="rtag rtag-p">P1</span></div></div></li>
+            <li data-id="r3"><span class="pill pill-r">R3</span><div class="li-text">Incompatible codes show a specific conflict message<div class="refs"><span class="ref-label">solves</span><span class="rtag rtag-p">P1</span><span class="rtag rtag-p">P2</span></div></div></li>
+            <li data-id="r4"><span class="pill pill-r">R4</span><div class="li-text">Expired codes display the expiry date in the error<div class="refs"><span class="ref-label">solves</span><span class="rtag rtag-p">P2</span></div></div></li>
+          </ul>
+        </div>
+      </div>
+      <div class="s-card s-oos">
+        <div class="s-header"><span class="s-tag">Out of Scope</span></div>
+        <p class="s-desc">Parts of the problem acknowledged but not solved here. Naming them explicitly prevents scope creep.</p>
+        <div class="ex">
+          <div class="ex-label">Example</div>
+          <ul class="il">
+            <li><span class="pill pill-x">✕</span><div class="li-text">Admin UI for creating or managing discount codes</div></li>
+            <li><span class="pill pill-x">✕</span><div class="li-text">Stacking logic for %-off + $-off combinations (next sprint)</div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTOR: R → AC (aligned with Requirements column) -->
+    <div class="two-col" style="padding:0.2rem 0;">
+      <div class="simple-arrow"><div class="c-shaft"></div><div class="c-arrow">▼</div></div>
+      <div></div>
+    </div>
+
+    <!-- ACCEPTANCE CRITERIA -->
+    <div class="s-card s-ac">
+      <div class="s-header"><span class="s-tag">Done Means</span><span class="s-title">Acceptance Criteria</span></div>
+      <p class="s-desc">Observable, testable conditions. Each AC traces to one or more Requirements — together they must cover every requirement with no gaps.</p>
+      <div class="ex">
+        <div class="ex-label">Example</div>
+        <ul class="il">
+          <li data-id="ac1"><span class="pill pill-ac">AC1</span><div class="li-text">Up to 3 valid codes applied; total reflects combined discounts.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-r">R1</span></div></div></li>
+          <li data-id="ac2"><span class="pill pill-ac">AC2</span><div class="li-text">A 4th code is blocked; UI shows "Maximum 3 codes reached."<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-r">R1</span></div></div></li>
+          <li data-id="ac3"><span class="pill pill-ac">AC3</span><div class="li-text">Single-code validation completes in under 1 s under normal load.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-r">R1</span><span class="rtag rtag-r">R2</span></div></div></li>
+          <li data-id="ac4"><span class="pill pill-ac">AC4</span><div class="li-text">Incompatible codes show: "Code X cannot be combined with Code Y."<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-r">R3</span></div></div></li>
+          <li data-id="ac5"><span class="pill pill-ac">AC5</span><div class="li-text">Expired code shows: "This code expired on [date]."<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-r">R4</span></div></div></li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CONNECTOR: ticket zone → implementation zone -->
+<div class="simple-arrow" style="margin:0 auto; max-width:860px;">
+  <div class="c-shaft"></div><div class="c-arrow">▼</div>
+</div>
+
+<!-- ═══════════ IMPLEMENTATION ═══════════ -->
+<div class="dev-wrapper">
+  <div class="dev-boundary">
+    <div class="dev-badge">Implementation</div>
+
+    <!-- FORK: AC → (Test Plan ∥ Impl Plan) -->
+    <div class="fork-arr">
+      <div class="fork-top"></div>
+      <div class="fork-bar"></div>
+      <div class="fork-legs"><div class="fork-leg"></div><div class="fork-leg"></div></div>
+      <div class="fork-tips"><span>▼</span><span>▼</span></div>
+    </div>
+
+    <!-- PARALLEL: Test Plan + Impl Plan -->
+    <div class="parallel-wrap">
+      <!-- TEST PLAN -->
+      <div class="s-card s-test">
+        <div class="s-header"><span class="s-title">Test Plan</span></div>
+        <p class="s-desc">Written by QA or developer from the AC directly. Specific scenarios covering happy paths, edge cases, failure modes. Can start as soon as AC is final — no code needed yet.</p>
+        <div class="ex">
+          <div class="ex-label">Example</div>
+          <ul class="il">
+            <li data-id="t1"><span class="pill pill-t">T1</span><div class="li-text">[Happy] 3 valid codes → all applied, total correct.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-ac">AC1</span></div></div></li>
+            <li data-id="t2"><span class="pill pill-t">T2</span><div class="li-text">[Limit] 4th code attempted → blocked, message shown.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-ac">AC2</span></div></div></li>
+            <li data-id="t3"><span class="pill pill-t">T3</span><div class="li-text">[Perf] Validation under load → under 1 s.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-ac">AC3</span></div></div></li>
+            <li data-id="t4"><span class="pill pill-t">T4</span><div class="li-text">[Error] Two incompatible codes → specific conflict message.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-ac">AC4</span></div></div></li>
+            <li data-id="t5"><span class="pill pill-t">T5</span><div class="li-text">[Error] Expired code → expiry date in error.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-ac">AC5</span></div></div></li>
+            <li data-id="t6"><span class="pill pill-t">T6</span><div class="li-text">[Edge] Invalid code → clear error, no crash.<div class="refs"><span class="ref-label">covers</span><span class="rtag rtag-ac">AC1</span><span class="rtag rtag-ac">AC3</span></div></div></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- PARALLEL DIVIDER -->
+      <div class="parallel-divider">
+        <div class="parallel-line"></div>
+        <div class="parallel-label">run in parallel</div>
+        <div class="parallel-line"></div>
+      </div>
+
+      <!-- IMPLEMENTATION PLAN -->
+      <div class="s-card s-impl">
+        <div class="s-header"><span class="s-title">Implementation Plan</span></div>
+        <p class="s-desc">How the engineer intends to solve this — enough to spot blockers early. Detailed decisions stay in code and the PR. Runs in parallel with writing test cases.</p>
+        <div class="ex">
+          <div class="ex-label">Example</div>
+          <ul class="il">
+            <li data-id="im1"><span class="pill pill-im">1</span><div class="li-text">Extend <code>CartService</code> to accept an array of codes (max 3); validate each via <code>DiscountCodeRepository</code><div class="refs"><span class="ref-label">implements</span><span class="rtag rtag-ac">AC1</span><span class="rtag rtag-ac">AC2</span><span class="rtag rtag-ac">AC3</span></div></div></li>
+            <li data-id="im2"><span class="pill pill-im">2</span><div class="li-text">Add <code>validateCompatibility(codes[])</code> to detect conflicts and surface details in the error response<div class="refs"><span class="ref-label">implements</span><span class="rtag rtag-ac">AC4</span></div></div></li>
+            <li data-id="im3"><span class="pill pill-im">3</span><div class="li-text">Update error response schema to include expiry date for expired codes<div class="refs"><span class="ref-label">implements</span><span class="rtag rtag-ac">AC5</span></div></div></li>
+            <li data-id="im4"><span class="pill pill-im">4</span><div class="li-text">Update <code>CheckoutForm</code> — multi-code input UI, real-time validation via debounced API call<div class="refs"><span class="ref-label">implements</span><span class="rtag rtag-ac">AC1</span><span class="rtag rtag-ac">AC2</span><span class="rtag rtag-ac">AC3</span></div></div></li>
+          </ul>
+        </div>
+      </div>
+    </div><!-- end parallel-wrap -->
+
+    <!-- MERGE: (Test Plan ∥ Impl Plan) → Code -->
+    <div class="merge-arr">
+      <div class="merge-legs"><div class="merge-leg"></div><div class="merge-leg"></div></div>
+      <div class="merge-bar"></div>
+      <div class="merge-stem"></div>
+      <div class="merge-tip">▼</div>
+    </div>
+
+    <!-- CODE -->
+    <div class="s-card s-code simple-block">
+      <div class="s-header"><span class="s-tag">Code</span><span class="s-title">Code &amp; Tests</span></div>
+    </div>
+
+    <div class="simple-arrow" style="margin:0.25rem 0;">
+      <div class="c-shaft"></div><div class="c-arrow">▼</div>
+    </div>
+
+    <!-- REVIEW -->
+    <div class="s-card s-review simple-block">
+      <div class="s-header"><span class="s-tag">Review</span><span class="s-title">Review</span></div>
+    </div>
+
+    <!-- DONE -->
+    <div class="convergence">
+      <div class="conv-stem"></div>
+      <div class="conv-node">✓ All tests pass, review approved → Ticket closed</div>
+    </div>
+
+  </div><!-- end dev-boundary -->
+</div>
+
+<!-- ═══════════ OUTSIDE TICKET ═══════════ -->
+<div class="outside-wrapper">
+  <div class="outside-boundary">
+    <div class="outside-badge">✕ Don't Put These in the Ticket Body</div>
+    <p class="outside-sub">These either belong in a different artifact or shouldn't be written at all.</p>
+    <div class="outside-grid">
+      <div class="o-card">
+        <div class="o-card-title">🗣 Raw Slack / meeting notes</div>
+        <div class="o-card-body">Distill decisions into ticket sections. If the source matters, link to it — don't paste transcripts. Discussion is noise that buries the signal.</div>
+      </div>
+      <div class="o-card">
+        <div class="o-card-title">🔮 Future enhancement ideas</div>
+        <div class="o-card-body">Anything not in this sprint's scope. Create a separate ticket. "Maybe later" mixed with "must have" causes scope creep and confuses reviewers.</div>
+      </div>
+      <div class="o-card">
+        <div class="o-card-title">⚙️ Micro implementation details</div>
+        <div class="o-card-body">Exact library choices, variable names, SQL syntax. The Implementation Plan says <em>what</em> to build — the detailed <em>how</em> lives in code and the PR.</div>
+      </div>
+      <div class="o-card">
+        <div class="o-card-title">📋 Deployment & rollback steps</div>
+        <div class="o-card-body">Runbook content belongs in a runbook doc or the deployment PR description, not the story body.</div>
+      </div>
+      <div class="o-card">
+        <div class="o-card-title">📈 Post-launch monitoring</div>
+        <div class="o-card-body">Dashboards, alerts, and SLOs belong in a follow-on ops ticket or runbook. Include a success metric in the Problem Statement only if it defines "done."</div>
+      </div>
+      <div class="o-card">
+        <div class="o-card-title">🔗 PR links & commit hashes</div>
+        <div class="o-card-body">Add these as comments after the fact, or let CI/CD link them automatically. Transient references in the ticket body rot quickly.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Full bidirectional dependency chains — includes impl plan items.
+  // im1/im4 implement AC1-AC3 (multi-code + validation);
+  // im2 implements AC4 (conflict); im3 implements AC5 (expiry).
+  var REL = {
+    p1:  ['r1','r2','r3','ac1','ac2','ac3','ac4','t1','t2','t3','t4','t6','im1','im2','im4'],
+    p2:  ['r3','r4','ac4','ac5','t4','t5','im2','im3'],
+    r1:  ['p1','ac1','ac2','ac3','t1','t2','t3','t6','im1','im4'],
+    r2:  ['p1','ac3','t3','t6','im1','im4'],
+    r3:  ['p1','p2','ac4','t4','im2'],
+    r4:  ['p2','ac5','t5','im3'],
+    ac1: ['p1','r1','t1','t6','im1','im4'],
+    ac2: ['p1','r1','t2','im1','im4'],
+    ac3: ['p1','r1','r2','t3','t6','im1','im4'],
+    ac4: ['p1','p2','r3','t4','im2'],
+    ac5: ['p2','r4','t5','im3'],
+    t1:  ['p1','r1','ac1','im1','im4'],
+    t2:  ['p1','r1','ac2','im1','im4'],
+    t3:  ['p1','r1','r2','ac3','im1','im4'],
+    t4:  ['p1','p2','r3','ac4','im2'],
+    t5:  ['p2','r4','ac5','im3'],
+    t6:  ['p1','r1','r2','ac1','ac3','im1','im4'],
+    im1: ['p1','r1','r2','ac1','ac2','ac3','t1','t2','t3','t6','im4'],
+    im2: ['p1','p2','r3','ac4','t4'],
+    im3: ['p2','r4','ac5','t5'],
+    im4: ['p1','r1','r2','ac1','ac2','ac3','t1','t2','t3','t6','im1'],
+  };
+
+  var cur = null;
+  var allItems = document.querySelectorAll('.il li[data-id]');
+
+  allItems.forEach(function(li) {
+    li.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var id = li.dataset.id;
+      if (cur === id) { clearSel(); return; }
+      cur = id;
+      var lit = new Set([id].concat(REL[id] || []));
+      allItems.forEach(function(el) {
+        el.classList.remove('lit', 'dim');
+        if (lit.has(el.dataset.id)) el.classList.add('lit');
+        else el.classList.add('dim');
+      });
+    });
+  });
+
+  document.addEventListener('click', clearSel);
+
+  function clearSel() {
+    cur = null;
+    allItems.forEach(function(el) { el.classList.remove('lit', 'dim'); });
+  }
+</script>
+</body>
+</html>
