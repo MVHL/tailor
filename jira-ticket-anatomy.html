@@ -98,11 +98,13 @@
     .pill-t  { background: #EDE9FE; color: #7C3AED; }
     .pill-im { background: #FEF3C7; color: #D97706; }
     .pill-x  { background: #F3F4F6; color: #6B7280; }
+    .pill-ng { background: #F3F4F6; color: #6B7280; }
 
     .rtag { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-left: 4px; vertical-align: middle; }
     .rtag-p  { background: #FEE2E2; color: #DC2626; }
     .rtag-r  { background: #DBEAFE; color: #1D4ED8; }
     .rtag-ac { background: #DCFCE7; color: #059669; }
+    .rtag-ng { background: #F3F4F6; color: #6B7280; }
 
     .refs { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
     .ref-label { font-size: 0.6rem; color: var(--muted); margin-right: 2px; }
@@ -212,7 +214,7 @@
     <!-- PROBLEMS -->
     <div class="s-card s-problem">
       <div class="s-header"><span class="s-tag">WHY</span><span class="s-title">Problem Statement(s)</span></div>
-      <p class="s-desc">One or more pain points or opportunities. Each states who is affected and what the impact is. Every requirement must trace back to a problem here — problems with no matching requirement go in Out of Scope.</p>
+      <p class="s-desc">One or more pain points or opportunities. Each states who is affected and what the impact is. Every requirement must trace back to a problem here — problems with no matching requirement go in Non-Goals.</p>
       <div class="ex">
         <div class="ex-label">Example</div>
         <ul class="il">
@@ -244,13 +246,13 @@
         </div>
       </div>
       <div class="s-card s-oos">
-        <div class="s-header"><span class="s-tag">Out of Scope</span></div>
-        <p class="s-desc">Parts of the problem acknowledged but not solved here. Naming them explicitly prevents scope creep.</p>
+        <div class="s-header"><span class="s-tag">Won't Do</span><span class="s-title">Non-Goals</span></div>
+        <p class="s-desc">Work acknowledged but explicitly excluded here. Naming it prevents scope creep; deferred work links forward to a follow-up ticket. Non-goals sit outside the trace — nothing below depends on them.</p>
         <div class="ex">
           <div class="ex-label">Example</div>
           <ul class="il">
-            <li><span class="pill pill-x">✕</span><div class="li-text">Admin UI for creating or managing discount codes</div></li>
-            <li><span class="pill pill-x">✕</span><div class="li-text">Stacking logic for %-off + $-off combinations (next sprint)</div></li>
+            <li><span class="pill pill-ng">NG1</span><div class="li-text">Admin UI for creating or managing discount codes</div></li>
+            <li><span class="pill pill-ng">NG2</span><div class="li-text">Stacking logic for %-off + $-off combinations<div class="refs"><span class="ref-label">deferred to</span><span class="rtag rtag-ng">→ SHOP-241</span></div></div></li>
           </ul>
         </div>
       </div>
