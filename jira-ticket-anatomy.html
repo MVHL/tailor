@@ -189,7 +189,25 @@
     .il li.lit { background: rgba(0,0,0,0.06); }
     .il li.dim { opacity: 0.15; pointer-events: none; }
 
+    /* ── PAGE LAYOUT (timeline + diagram) ── */
+    .page-layout { display: flex; gap: 0.85rem; justify-content: center; align-items: flex-start; margin: 0 auto; }
+    .main-col { flex: 0 1 auto; width: 100%; max-width: 860px; min-width: 0; }
+
+    /* ── TIMELINE (vertical bar, segments aligned to the cards) ── */
+    .timeline-rail { position: relative; width: 130px; flex-shrink: 0; }
+    .tl-seg { position: absolute; left: 7px; width: 4px; border-radius: 3px; }
+    .tl-seg.draft { opacity: 0.3; }
+    .tl-mark { position: absolute; left: 0; display: flex; align-items: center; gap: 0.5rem; transform: translateY(-50%); }
+    .tl-dot { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #94A3B8; box-sizing: border-box; flex-shrink: 0; }
+    .tl-lab { display: flex; flex-direction: column; }
+    .tl-stage-name { font-size: 0.8rem; font-weight: 800; line-height: 1.15; color: var(--text); }
+    .tl-stage-note { font-size: 0.58rem; color: var(--muted); line-height: 1.25; margin-top: 1px; }
+
     /* ── RESPONSIVE ── */
+    @media (max-width: 980px) {
+      .page-layout { flex-direction: column; align-items: center; }
+      .timeline-rail { display: none; }
+    }
     @media (max-width: 620px) {
       .two-col, .parallel-wrap { grid-template-columns: 1fr; }
       .parallel-divider { flex-direction: row; padding: 0.5rem 0; }
@@ -205,6 +223,13 @@
   <h1>Problem Framing</h1>
 </header>
 <p class="sel-hint">Click any item (P1, R2, AC3…) to trace its dependency chain — click again to clear</p>
+
+<div class="page-layout">
+
+<!-- ═══════════ TIMELINE RAIL: vertical bar, segments aligned to cards ═══════════ -->
+<aside class="timeline-rail" id="timeline"></aside>
+
+<div class="main-col">
 
 <!-- ═══════════ TICKET (PROBLEM FRAMING) ═══════════ -->
 <div class="ticket-wrapper">
@@ -231,7 +256,7 @@
     </div>
 
     <!-- REQUIREMENTS + OUT OF SCOPE -->
-    <div class="two-col">
+    <div class="two-col" id="row-req">
       <div class="s-card s-req">
         <div class="s-header"><span class="s-tag">WHAT</span><span class="s-title">Requirements</span></div>
         <p class="s-desc">User-facing outcomes. Each traces to one or more Problems. One requirement can address multiple problems simultaneously.</p>
@@ -414,6 +439,9 @@
   </div>
 </div>
 
+</div><!-- end main-col -->
+</div><!-- end page-layout -->
+
 <script>
   // Full bidirectional dependency chains — includes impl plan items.
   // im1/im4 implement AC1-AC3 (multi-code + validation);
@@ -466,6 +494,53 @@
     cur = null;
     allItems.forEach(function(el) { el.classList.remove('lit', 'dim'); });
   }
+
+  // ── Timeline: vertical bar whose segments align to the cards on the right ──
+  (function () {
+    var rail = document.getElementById('timeline');
+    if (!rail) return;
+    var STAGES = [
+      { name: 'PRP',         note: 'Problem Statement(s)',          color: '#DC2626', members: ['.s-problem'] },
+      { name: 'Triage',      note: 'Requirements · Non-Goals',      color: '#2563EB', members: ['#row-req'] },
+      { name: 'PRD',         note: 'Acceptance Criteria',           color: '#059669', members: ['.s-ac'] },
+      { name: 'Refinement',  note: 'Test Plan · Impl Plan',         color: '#7C3AED', members: ['.parallel-wrap'] },
+      { name: 'Implementation', note: 'Code & Tests built',         color: '#0369A1', members: ['.s-code'] },
+      { name: 'QA',          note: 'Review sign-off',               color: '#BE185D', members: ['.s-review'] },
+      { name: 'Release',     note: 'Ticket closed · metric watch',  color: '#1E293B', members: ['.convergence'] },
+    ];
+    function place() {
+      rail.querySelectorAll('.tl-seg, .tl-mark').forEach(function (n) { n.remove(); });
+      var railTop = rail.getBoundingClientRect().top;
+      STAGES.forEach(function (s) {
+        var top = Infinity, bot = -Infinity;
+        s.members.forEach(function (sel) {
+          var el = document.querySelector(sel);
+          if (!el) return;
+          var r = el.getBoundingClientRect();
+          top = Math.min(top, r.top - railTop);
+          bot = Math.max(bot, r.bottom - railTop);
+        });
+        if (top === Infinity) return;
+        var seg = document.createElement('div');
+        seg.className = 'tl-seg';
+        seg.style.top = top + 'px';
+        seg.style.height = (bot - top) + 'px';
+        seg.style.background = s.color;
+        rail.appendChild(seg);
+        var mark = document.createElement('div');
+        mark.className = 'tl-mark';
+        mark.style.top = ((top + bot) / 2) + 'px';
+        mark.innerHTML =
+          '<div class="tl-dot" style="border-color:' + s.color +
+            (s.name === 'Release' ? ';background:' + s.color : '') + '"></div>' +
+          '<div class="tl-lab"><span class="tl-stage-name">' + s.name + '</span></div>';
+        rail.appendChild(mark);
+      });
+    }
+    place();
+    window.addEventListener('load', place);
+    window.addEventListener('resize', place);
+  })();
 </script>
 </body>
 </html>
