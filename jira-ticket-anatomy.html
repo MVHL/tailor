@@ -203,6 +203,10 @@
     .tl-stage-name { font-size: 0.8rem; font-weight: 800; line-height: 1.15; color: var(--text); }
     .tl-stage-note { font-size: 0.58rem; color: var(--muted); line-height: 1.25; margin-top: 1px; }
 
+    /* ── LIVES-IN TAG (where the artifact's canonical copy lives) ── */
+    .home-tag { margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.01em; color: #475569; background: #fff; border: 1px solid #CBD5E1; border-radius: 100px; padding: 2px 9px 2px 7px; white-space: nowrap; }
+    .home-tag::before { content: "📍"; font-size: 0.6rem; line-height: 1; }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 980px) {
       .page-layout { flex-direction: column; align-items: center; }
@@ -238,7 +242,7 @@
 
     <!-- PROBLEMS -->
     <div class="s-card s-problem">
-      <div class="s-header"><span class="s-tag">WHY</span><span class="s-title">Problem Statement(s)</span></div>
+      <div class="s-header"><span class="s-tag">WHY</span><span class="s-title">Problem Statement(s)</span><span class="home-tag">PRP → PRD</span></div>
       <p class="s-desc">One or more pain points or opportunities. Each states who is affected and what the impact is. Every requirement must trace back to a problem here — problems with no matching requirement go in Non-Goals.</p>
       <div class="ex">
         <div class="ex-label">Example</div>
@@ -258,7 +262,7 @@
     <!-- REQUIREMENTS + OUT OF SCOPE -->
     <div class="two-col" id="row-req">
       <div class="s-card s-req">
-        <div class="s-header"><span class="s-tag">WHAT</span><span class="s-title">Requirements</span></div>
+        <div class="s-header"><span class="s-tag">WHAT</span><span class="s-title">Requirements</span><span class="home-tag">PRD → Story</span></div>
         <p class="s-desc">User-facing outcomes. Each traces to one or more Problems. One requirement can address multiple problems simultaneously.</p>
         <div class="ex">
           <div class="ex-label">Example</div>
@@ -271,7 +275,7 @@
         </div>
       </div>
       <div class="s-card s-oos">
-        <div class="s-header"><span class="s-tag">Won't Do</span><span class="s-title">Non-Goals</span></div>
+        <div class="s-header"><span class="s-tag">Won't Do</span><span class="s-title">Non-Goals</span><span class="home-tag">PRD / Story</span></div>
         <p class="s-desc">Work acknowledged but explicitly excluded here. Naming it prevents scope creep; deferred work links forward to a follow-up ticket. Non-goals sit outside the trace — nothing below depends on them.</p>
         <div class="ex">
           <div class="ex-label">Example</div>
@@ -291,7 +295,7 @@
 
     <!-- ACCEPTANCE CRITERIA -->
     <div class="s-card s-ac">
-      <div class="s-header"><span class="s-tag">Done Means</span><span class="s-title">Acceptance Criteria</span></div>
+      <div class="s-header"><span class="s-tag">Done Means</span><span class="s-title">Acceptance Criteria</span><span class="home-tag">Story</span></div>
       <p class="s-desc">Observable, testable conditions. Each AC traces to one or more Requirements — together they must cover every requirement with no gaps.</p>
       <div class="ex">
         <div class="ex-label">Example</div>
@@ -330,7 +334,7 @@
     <div class="parallel-wrap">
       <!-- TEST PLAN -->
       <div class="s-card s-test">
-        <div class="s-header"><span class="s-title">Test Plan</span></div>
+        <div class="s-header"><span class="s-title">Test Plan</span><span class="home-tag">Story</span></div>
         <p class="s-desc">Written by QA or developer from the AC directly. Specific scenarios covering happy paths, edge cases, failure modes. Can start as soon as AC is final — no code needed yet.</p>
         <div class="ex">
           <div class="ex-label">Example</div>
@@ -354,7 +358,7 @@
 
       <!-- IMPLEMENTATION PLAN -->
       <div class="s-card s-impl">
-        <div class="s-header"><span class="s-title">Implementation Plan</span></div>
+        <div class="s-header"><span class="s-title">Implementation Plan</span><span class="home-tag">Story / Tech ticket</span></div>
         <p class="s-desc">How the engineer intends to solve this — enough to spot blockers early. Detailed decisions stay in code and the PR. Runs in parallel with writing test cases.</p>
         <div class="ex">
           <div class="ex-label">Example</div>
@@ -378,7 +382,7 @@
 
     <!-- CODE -->
     <div class="s-card s-code simple-block">
-      <div class="s-header"><span class="s-tag">Code</span><span class="s-title">Code &amp; Tests</span></div>
+      <div class="s-header"><span class="s-tag">Code</span><span class="s-title">Code &amp; Tests</span><span class="home-tag">Repo / PR</span></div>
     </div>
 
     <div class="simple-arrow" style="margin:0.25rem 0;">
@@ -387,7 +391,7 @@
 
     <!-- REVIEW -->
     <div class="s-card s-review simple-block">
-      <div class="s-header"><span class="s-tag">Review</span><span class="s-title">Review</span></div>
+      <div class="s-header"><span class="s-tag">Review</span><span class="s-title">Review</span><span class="home-tag">PR</span></div>
     </div>
 
     <!-- DONE -->
