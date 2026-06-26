@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ways of Working — Current vs Proposed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --text:   #1E293B;
+      --muted:  #64748B;
+      --bg:     #F1F5F9;
+      --old:    #DC2626;
+      --new:    #059669;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.6;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* ── HEADER ── */
+    .page-header { text-align: center; margin-bottom: 0.4rem; }
+    .page-header h1 { font-size: 1.85rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; }
+    .sub { text-align: center; font-size: 0.82rem; color: var(--muted); margin-bottom: 2rem; max-width: 640px; margin-left: auto; margin-right: auto; }
+
+    /* ── COMPARE GRID ── */
+    .compare { max-width: 1040px; margin: 0 auto 2.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    .col { border-radius: 16px; padding: 1.4rem 1.35rem 1.6rem; border: 2px solid transparent; }
+    .col-old { background: #FEF2F2; border-color: #FECACA; }
+    .col-new { background: #F0FDF4; border-color: #BBF7D0; }
+    .col-head { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.25rem; }
+    .col-badge { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; color: #fff; }
+    .col-old .col-badge { background: var(--old); }
+    .col-new .col-badge { background: var(--new); }
+    .col-title { font-size: 1.1rem; font-weight: 800; }
+    .col-old .col-title { color: #991B1B; }
+    .col-new .col-title { color: #047857; }
+    .col-tag { font-size: 0.72rem; color: var(--muted); margin-bottom: 1.15rem; }
+
+    /* ── STEP FLOW ── */
+    .flow { list-style: none; position: relative; }
+    .step { position: relative; padding-left: 2.1rem; padding-bottom: 0.95rem; }
+    .step:last-child { padding-bottom: 0; }
+    .step::before { /* connector line */
+      content: ""; position: absolute; left: 10px; top: 20px; bottom: -2px; width: 2px; background: rgba(0,0,0,0.1);
+    }
+    .step:last-child::before { display: none; }
+    .step-dot { position: absolute; left: 0; top: 1px; width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: #fff; }
+    .col-old .step-dot { background: #EF4444; }
+    .col-new .step-dot { background: #10B981; }
+    .step-title { font-size: 0.88rem; font-weight: 700; }
+    .step-desc { font-size: 0.78rem; color: var(--muted); margin-top: 1px; }
+    .step-who { display: inline-block; font-size: 0.62rem; font-weight: 700; color: var(--muted); background: rgba(0,0,0,0.05); border-radius: 5px; padding: 1px 7px; margin-top: 5px; }
+
+    /* ── PAIN / GAIN FLAGS ── */
+    .flags { list-style: none; margin-top: 1.15rem; border-top: 1px dashed rgba(0,0,0,0.12); padding-top: 0.9rem; }
+    .flag { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.78rem; padding: 0.28rem 0; }
+    .flag .ico { flex-shrink: 0; font-size: 0.8rem; line-height: 1.5; }
+    .flag-label { font-weight: 700; }
+    .col-old .flag-label { color: #B91C1C; }
+    .col-new .flag-label { color: #047857; }
+
+    /* ── BENEFITS ── */
+    .benefits { max-width: 1040px; margin: 0 auto 2.25rem; }
+    .benefits h2 { font-size: 1.15rem; font-weight: 800; color: #0F172A; margin-bottom: 0.3rem; }
+    .benefits .lead { font-size: 0.8rem; color: var(--muted); margin-bottom: 1.1rem; }
+    .b-table { width: 100%; border-collapse: separate; border-spacing: 0 0.5rem; }
+    .b-table th { text-align: left; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 0.85rem 0.2rem; }
+    .b-row td { background: #fff; padding: 0.85rem; vertical-align: top; font-size: 0.8rem; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+    .b-row td:first-child { border-left: 1px solid #E2E8F0; border-radius: 10px 0 0 10px; }
+    .b-row td:last-child { border-right: 1px solid #E2E8F0; border-radius: 0 10px 10px 0; }
+    .b-pain { color: #B91C1C; font-weight: 600; width: 23%; }
+    .b-fix { width: 30%; }
+    .b-gain { width: 27%; font-weight: 600; color: #047857; }
+    .b-signal { width: 20%; color: var(--muted); font-size: 0.74rem; }
+    .b-signal code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.92em; background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 4px; }
+
+    /* ── CAVEATS ── */
+    .caveats { max-width: 1040px; margin: 0 auto; background: #FFFBEB; border: 1.5px solid #FDE68A; border-radius: 14px; padding: 1.2rem 1.35rem; }
+    .caveats h3 { font-size: 0.82rem; font-weight: 800; color: #92400E; margin-bottom: 0.55rem; display: flex; align-items: center; gap: 0.4rem; }
+    .caveats ul { list-style: none; }
+    .caveats li { font-size: 0.78rem; color: #78350F; padding: 0.22rem 0 0.22rem 1.1rem; position: relative; }
+    .caveats li::before { content: "•"; position: absolute; left: 0.2rem; color: #D97706; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 760px) {
+      .compare { grid-template-columns: 1fr; }
+      .b-table, .b-table tbody, .b-row { display: block; }
+      .b-table thead { display: none; }
+      .b-row td { display: block; border: none; border-radius: 0; }
+      .b-row td:first-child { border-radius: 10px 10px 0 0; border-top: 1px solid #E2E8F0; border-left: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; }
+      .b-row td:last-child { border-radius: 0 0 10px 10px; border-bottom: 1px solid #E2E8F0; border-left: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; }
+      .b-row td { border-left: 1px solid #E2E8F0; border-right: 1px solid #E2E8F0; }
+      .b-pain, .b-fix, .b-gain, .b-signal { width: auto; }
+      body { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1>Ways of Working — Current vs Proposed</h1>
+</header>
+<p class="sub">How an epic travels from idea to "ready" today, versus the proposed problem-framed pipeline. The current flow and its pain points are taken from the refinement proposal; the proposed flow adds traceable artifacts and distributes the work off the squad lead.</p>
+
+<!-- ═══════════ SIDE-BY-SIDE ═══════════ -->
+<div class="compare">
+
+  <!-- CURRENT -->
+  <div class="col col-old">
+    <div class="col-head">
+      <span class="col-badge">Today</span>
+      <span class="col-title">Current WoW</span>
+    </div>
+    <p class="col-tag">Scrum intake, serial &amp; lead-centric</p>
+    <ol class="flow">
+      <li class="step">
+        <span class="step-dot">1</span>
+        <div class="step-title">Feature intake</div>
+        <div class="step-desc">BA discusses the new feature one-on-one with the squad lead.</div>
+        <span class="step-who">BA + Lead</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">2</span>
+        <div class="step-title">Exploration &amp; feasibility</div>
+        <div class="step-desc">Squad lead alone explores current app behavior and gives feedback.</div>
+        <span class="step-who">Lead only</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">3</span>
+        <div class="step-title">PRD written</div>
+        <div class="step-desc">BA wraps the solution into a PRD (prose) and presents it to the team for feedback.</div>
+        <span class="step-who">BA</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">4</span>
+        <div class="step-title">One big refinement meeting</div>
+        <div class="step-desc">Team estimates <em>every</em> ticket in one sitting → epic marked "ready" for the sprint.</div>
+        <span class="step-who">Whole team</span>
+      </li>
+    </ol>
+    <ul class="flags">
+      <li class="flag"><span class="ico">🔴</span><div><span class="flag-label">Single point of failure.</span> Exploration, feasibility &amp; estimation all wait on the lead.</div></li>
+      <li class="flag"><span class="ico">🔴</span><div><span class="flag-label">Serial &amp; meeting-heavy.</span> Each stage waits for the last; gaps surface late as rework.</div></li>
+      <li class="flag"><span class="ico">🔴</span><div><span class="flag-label">One big batch.</span> Breadth over depth → nominal estimates with no shared understanding.</div></li>
+      <li class="flag"><span class="ico">🔴</span><div><span class="flag-label">Unstructured tickets.</span> PRD prose; no explicit Problem → Requirement → AC trace.</div></li>
+    </ul>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="col col-new">
+    <div class="col-head">
+      <span class="col-badge">Proposed</span>
+      <span class="col-title">New WoW</span>
+    </div>
+    <p class="col-tag">Problem-framed, parallel &amp; distributed</p>
+    <ol class="flow">
+      <li class="step">
+        <span class="step-dot">1</span>
+        <div class="step-title">PRP — frame the problem</div>
+        <div class="step-desc">Capture the problem(s) up front: who's affected, impact, success metric.</div>
+        <span class="step-who">BA + Lead</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">2</span>
+        <div class="step-title">Three Amigos triage</div>
+        <div class="step-desc">BA + 1 dev + 1 tester (30–45 min) draft requirements and check feasibility — early, without the lead.</div>
+        <span class="step-who">3 Amigos</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">3</span>
+        <div class="step-title">PRD — sharpened &amp; traceable</div>
+        <div class="step-desc">Canonical, IDed Problem → Requirements → Non-Goals.</div>
+        <span class="step-who">BA</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">4</span>
+        <div class="step-title">Split into Stories + Tech tickets</div>
+        <div class="step-desc">Each story owns a requirement slice with testable AC that traces upward.</div>
+        <span class="step-who">Team</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">5</span>
+        <div class="step-title">Continuous refinement</div>
+        <div class="step-desc">~10% capacity ongoing; async estimation; live meeting short &amp; decision-only. Lead = escalation, not default path.</div>
+        <span class="step-who">Team (async)</span>
+      </li>
+      <li class="step">
+        <span class="step-dot">6</span>
+        <div class="step-title">Implementation</div>
+        <div class="step-desc">Test Plan ∥ Implementation Plan written from AC, in parallel → Code → QA → Release.</div>
+        <span class="step-who">Dev + Tester</span>
+      </li>
+    </ol>
+    <ul class="flags">
+      <li class="flag"><span class="ico">🟢</span><div><span class="flag-label">No single channel.</span> Triage + rotation spread the work; the lead is freed for delivery.</div></li>
+      <li class="flag"><span class="ico">🟢</span><div><span class="flag-label">Parallel &amp; early.</span> Feasibility caught in triage; tests start before code.</div></li>
+      <li class="flag"><span class="ico">🟢</span><div><span class="flag-label">Depth, continuously.</span> Per-ticket framing + async estimates build shared understanding.</div></li>
+      <li class="flag"><span class="ico">🟢</span><div><span class="flag-label">Traceable.</span> Every requirement traces to a problem; every AC covers a requirement — no orphans, no gaps.</div></li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- ═══════════ BENEFITS ═══════════ -->
+<div class="benefits">
+  <h2>What the change buys you</h2>
+  <p class="lead">Each structural problem in today's flow maps to a specific mechanism in the new one — with a metric to confirm it's actually working.</p>
+  <table class="b-table">
+    <thead>
+      <tr>
+        <th>Today's problem</th>
+        <th>What changes</th>
+        <th>Benefit</th>
+        <th>Signal it's working</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="b-row">
+        <td class="b-pain">Single point of failure — all refinement waits on the lead</td>
+        <td class="b-fix">Three Amigos triage + rotated exploration/facilitation; lead becomes an escalation point</td>
+        <td class="b-gain">Resilient intake that doesn't stall when the lead is heads-down on delivery</td>
+        <td class="b-signal"><code>lead's hours: facilitation vs development</code></td>
+      </tr>
+      <tr class="b-row">
+        <td class="b-pain">Serial &amp; meeting-heavy — gaps surface late as rework</td>
+        <td class="b-fix">Feasibility resolved early in triage; Test Plan ∥ Impl Plan from AC; traceability coverage check</td>
+        <td class="b-gain">Fewer late surprises; problems caught while they're cheap to fix</td>
+        <td class="b-signal"><code>% of items reworked after planning</code></td>
+      </tr>
+      <tr class="b-row">
+        <td class="b-pain">One big batch — nominal estimates, no shared understanding</td>
+        <td class="b-fix">Continuous refinement (~10% capacity) + async estimation + per-ticket framing</td>
+        <td class="b-gain">Estimates grounded in real understanding; the short live meeting is decision-only</td>
+        <td class="b-signal"><code>refinement meeting length</code></td>
+      </tr>
+      <tr class="b-row">
+        <td class="b-pain">Unstructured prose tickets — no traceable "why"</td>
+        <td class="b-fix">Problem → Requirement → Non-Goal → AC with up-links and one canonical home per artifact</td>
+        <td class="b-gain">Every ticket traces to a problem; coverage gaps and orphans are visible</td>
+        <td class="b-signal"><code>intake-to-sprint-ready lead time</code></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════ CAVEATS ═══════════ -->
+<div class="caveats">
+  <h3>⚠️ Honest caveats</h3>
+  <ul>
+    <li>Habit change takes 2–3 sprints to pay off — expect a temporary dip before the gains show.</li>
+    <li>T-shaped pairing reduces single-point risk but doesn't replace deep (e.g. Android) expertise overnight.</li>
+    <li>Moving exploration off the lead only works if Three Amigos triage genuinely covers feasibility.</li>
+    <li>Benefits here are projected from general industry practice — the ~40% defect-reduction figure cited in the proposal is indicative (secondary source) and was <strong>not</strong> validated against our own ticket/velocity data. Worth confirming the bottleneck quantitatively first.</li>
+  </ul>
+</div>
+
+</body>
+</html>

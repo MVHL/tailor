@@ -207,7 +207,31 @@
     .home-tag { margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.01em; color: #475569; background: #fff; border: 1px solid #CBD5E1; border-radius: 100px; padding: 2px 9px 2px 7px; white-space: nowrap; }
     .home-tag::before { content: "📍"; font-size: 0.6rem; line-height: 1; }
 
+    /* ── AGENT RAIL (right side: AI agents / skills that help build each artifact) ── */
+    .agent-rail { position: relative; width: 215px; flex-shrink: 0; }
+    .ag-box { position: absolute; left: 14px; right: 0; display: flex; flex-direction: column; justify-content: center; }
+    /* dotted connector from card → box */
+    .ag-box::before { content: ""; position: absolute; left: -14px; top: 50%; width: 14px; height: 0; border-top: 2px dotted #CBD5E1; }
+    .ag-inner { background: #fff; border: 1px solid #E2E8F0; border-left: 3px solid #94A3B8; border-radius: 8px; padding: 0.55rem 0.65rem; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .ag-group + .ag-group { margin-top: 0.6rem; padding-top: 0.55rem; border-top: 1px dashed #E2E8F0; }
+    .ag-title { font-size: 0.56rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94A3B8; margin-bottom: 0.4rem; }
+    .ag-op + .ag-op { margin-top: 0.55rem; padding-top: 0.5rem; border-top: 1px dotted #E2E8F0; }
+    .ag-skill { display: inline-block; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.62rem; font-weight: 700; border-radius: 5px; padding: 2px 7px; }
+    .ag-skill.build { color: #0F172A; background: #F1F5F9; border: 1px solid #E2E8F0; }
+    .ag-skill.build::before { content: "＋ "; color: #94A3B8; font-weight: 800; }
+    .ag-skill.check { color: #3730A3; background: #EEF2FF; border: 1px solid #C7D2FE; }
+    .ag-skill.check::before { content: "✓ "; color: #6366F1; font-weight: 800; }
+    .ag-trig { font-size: 0.58rem; color: var(--muted); line-height: 1.4; margin-top: 0.4rem; display: flex; gap: 4px; }
+    .ag-trig::before { content: "⚡"; flex-shrink: 0; }
+    .ag-trig b { color: #B45309; font-weight: 700; }
+    .ag-op.check .ag-trig b { color: #4338CA; }
+    .ag-note { font-size: 0.58rem; color: var(--muted); margin-top: 0.35rem; line-height: 1.4; }
+    .ag-head { position: absolute; left: 14px; right: 0; top: -1.6rem; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+
     /* ── RESPONSIVE ── */
+    @media (max-width: 1280px) {
+      .agent-rail { display: none; }
+    }
     @media (max-width: 980px) {
       .page-layout { flex-direction: column; align-items: center; }
       .timeline-rail { display: none; }
@@ -444,6 +468,10 @@
 </div>
 
 </div><!-- end main-col -->
+
+<!-- ═══════════ AGENT RAIL: AI agents / skills that help build each artifact ═══════════ -->
+<aside class="agent-rail" id="agents"></aside>
+
 </div><!-- end page-layout -->
 
 <script>
@@ -539,6 +567,108 @@
             (s.name === 'Release' ? ';background:' + s.color : '') + '"></div>' +
           '<div class="tl-lab"><span class="tl-stage-name">' + s.name + '</span></div>';
         rail.appendChild(mark);
+      });
+    }
+    place();
+    window.addEventListener('load', place);
+    window.addEventListener('resize', place);
+  })();
+
+  // ── Agent rail: AI agents / skills aligned to each artifact card ──
+  (function () {
+    var rail = document.getElementById('agents');
+    if (!rail) return;
+    // For each framing artifact: skills we'd build to AUTHOR it (+) and to CHECK it (✓),
+    // the trigger that auto-runs each, and what it does. Code & QA stages are intentionally
+    // out of scope for this WoW change — teams own how they implement.
+    var ROWS = [
+      {
+        members: ['.s-problem'], color: '#DC2626',
+        groups: [{ title: 'Problem Statement', ops: [
+          { kind: 'build', skill: 'problem-distiller', trig: 'on <b>ticket created w/ linked notes</b>',
+            note: 'Distills Slack / meeting / PRP into quantified P1·P2 pains — who is hit and the impact.' }
+        ] }]
+      },
+      {
+        members: ['#row-req'], color: '#2563EB',
+        groups: [{ title: 'Requirements · Non-Goals', ops: [
+          { kind: 'build', skill: 'requirement-slicer', trig: 'on <b>problems approved</b>',
+            note: 'Derives requirements traced to each problem; routes unmatched problems to Non-Goals + a follow-up ticket.' },
+          { kind: 'check', skill: 'scope-trace-check', trig: 'gates <b>story → Triage done</b>',
+            note: 'Flags requirements with no parent problem, and problems with neither a requirement nor a Non-Goal.' }
+        ] }]
+      },
+      {
+        members: ['.s-ac'], color: '#059669',
+        groups: [{ title: 'Acceptance Criteria', ops: [
+          { kind: 'build', skill: 'ac-generator', trig: 'on <b>requirements finalized</b>',
+            note: 'Writes observable, testable AC per requirement.' },
+          { kind: 'check', skill: 'ac-covers-reqs', trig: 'gates <b>story → Ready</b>',
+            note: 'Confirms every Requirement is covered by ≥1 AC and each AC is observable & testable — blocks Ready on gaps.' }
+        ] }]
+      },
+      {
+        members: ['.parallel-wrap'], color: '#7C3AED',
+        groups: [
+          { title: 'Test Plan', accent: '#7C3AED', ops: [
+            { kind: 'build', skill: 'test-plan-from-ac', trig: 'on <b>AC approved</b>',
+              note: 'Enumerates happy / edge / error scenarios, each mapped to an AC.' },
+            { kind: 'check', skill: 'test-covers-ac', trig: 'gates <b>plan complete</b>',
+              note: 'Flags any AC with no covering test scenario.' }
+          ] },
+          { title: 'Implementation Plan', accent: '#D97706', ops: [
+            { kind: 'build', skill: 'impl-planner', trig: 'on <b>ticket assigned to a dev</b>',
+              note: 'Scans the repo, drafts approach + files to touch, maps steps to AC, surfaces blockers early.' }
+          ] }
+        ]
+      }
+    ];
+
+    function opHtml(o) {
+      return '<div class="ag-op ' + o.kind + '">' +
+        '<span class="ag-skill ' + o.kind + '">' + o.skill + '</span>' +
+        '<div class="ag-trig">' + o.trig + '</div>' +
+        '<div class="ag-note">' + o.note + '</div></div>';
+    }
+    function groupHtml(g) {
+      var style = g.accent ? ' style="border-left:3px solid ' + g.accent + ';padding-left:7px;margin-left:-1px;"' : '';
+      return '<div class="ag-group"' + style + '>' +
+        '<div class="ag-title">' + g.title + '</div>' +
+        g.ops.map(opHtml).join('') + '</div>';
+    }
+
+    function place() {
+      rail.querySelectorAll('.ag-box, .ag-head').forEach(function (n) { n.remove(); });
+      var railTop = rail.getBoundingClientRect().top;
+
+      var head = document.createElement('div');
+      head.className = 'ag-head';
+      head.innerHTML = '🤖 Agent skills · ＋ build · ✓ check';
+      rail.appendChild(head);
+
+      var prevBottom = -Infinity;
+      ROWS.forEach(function (row) {
+        var top = Infinity, bot = -Infinity;
+        row.members.forEach(function (sel) {
+          var el = document.querySelector(sel);
+          if (!el) return;
+          var r = el.getBoundingClientRect();
+          top = Math.min(top, r.top - railTop);
+          bot = Math.max(bot, r.bottom - railTop);
+        });
+        if (top === Infinity) return;
+        var box = document.createElement('div');
+        box.className = 'ag-box';
+        // Boxes whose content is taller than their (short) card can collide with
+        // the next box — nudge down so adjacent boxes never overlap.
+        if (top < prevBottom + 12) top = prevBottom + 12;
+        box.style.top = top + 'px';
+        box.style.minHeight = (bot - top) + 'px';
+        box.innerHTML = '<div class="ag-inner" style="border-left-color:' + row.color + '">' +
+          row.groups.map(groupHtml).join('') +
+          '</div>';
+        rail.appendChild(box);
+        prevBottom = top + box.offsetHeight;
       });
     }
     place();

@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8756"],
       "port": 8756
+    },
+    {
+      "name": "tailor-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8761"],
+      "port": 8761
     }
   ]
 }
