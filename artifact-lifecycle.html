@@ -117,7 +117,7 @@ Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a hr
   <b>How to read it.</b> Follow a row left-to-right. Traceable artifacts end at Canonical (or one Consumed
   block after it); Build artifacts run their own course.
   <ul>
-    <li><b>AC forms in the PRD, canonical in the Story.</b> A draft AC is sketched per-requirement while the PRD is written (Design); it becomes final and testable once sliced into a Story (Refinement).</li>
+    <li><b>AC forms in the PRD, canonical in the Story.</b> A draft AC is sketched per-requirement while the PRD is written (Specification); it becomes final and testable once sliced into a Story (Refinement).</li>
     <li><b>Non-Goals now mirror Requirements.</b> Drafted in Triage alongside the requirements, canonical (epic-level) once the PRD is written, then simply sliced into the Story at Refinement — no separate "local" path.</li>
     <li><b>Planning still touches no Traceable artifact.</b> Cycle/sprint planning, task prioritization, resource allocation, timeline creation — none of it edits a Problem, Requirement, Non-Goal, or AC. But it's no longer blank for everything: the moment a ticket is pulled into a sprint, an AI agent can draft the Test Plan and Implementation Plan straight from the now-canonical AC.</li>
     <li><b>Solutioning is where that draft becomes canonical.</b> A dev/tester picks up the AI draft and finalizes it before code starts. Implementation then builds from the finalized plans — shown as Code's own "Forms" step, not a repeated marker on the plans' rows.</li>
@@ -131,7 +131,7 @@ Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a hr
   var STAGES = [
     { name: 'Ideation',       doc: 'PRP',       color: '#DC2626' },
     { name: 'Triage',         doc: 'Draft PRD', color: '#EA580C' },
-    { name: 'Design',         doc: 'PRD',       color: '#2563EB' },
+    { name: 'Specification',  doc: 'PRD',       color: '#2563EB' },
     { name: 'Refinement',     doc: 'Story',     color: '#059669' },
     { name: 'Planning',       doc: 'Sprint',    color: '#94A3B8', noArt: true },
     { name: 'Solutioning',    doc: 'Story',     color: '#7C3AED' },
