@@ -36,9 +36,9 @@
 
     /* ── CHART ── */
     .scroll { overflow-x: auto; padding-bottom: 0.5rem; }
-    .chart { min-width: 1080px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 0.5rem 0.75rem 1rem; }
+    .chart { min-width: 1200px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 0.5rem 0.75rem 1rem; }
 
-    .row { display: grid; grid-template-columns: 220px repeat(9, minmax(0, 1fr)); align-items: stretch; }
+    .row { display: grid; grid-template-columns: 220px repeat(10, minmax(0, 1fr)); align-items: stretch; }
     .row + .row { border-top: 1px solid var(--line); }
 
     /* header row */
@@ -53,7 +53,7 @@
     .head .lbl span { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
     /* group divider row */
-    .grp { display: grid; grid-template-columns: 220px repeat(9, minmax(0, 1fr)); }
+    .grp { display: grid; grid-template-columns: 220px repeat(10, minmax(0, 1fr)); }
     .grp-lbl { grid-column: 1 / -1; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #475569; background: #F8FAFC; padding: 0.4rem 0.7rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
     .grp-lbl small { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); margin-left: 0.4rem; }
 
@@ -93,9 +93,9 @@
 <div class="wrap">
 
 <header class="page-header"><h1>Artifact Lifecycle — Stages &amp; Their Documents</h1></header>
-<p class="sub">Each stage has one place it stores its outcome — <b>PRP → Draft PRD → PRD → Story</b> — and
+<p class="sub">Each stage has one place it stores its outcome — <b>PRP → Spike → Draft PRD → PRD → Story</b> — and
 the PRD/Story are <b>containers</b>, not artifacts themselves. The <b>Traceable artifacts</b> (Problem,
-Requirements, Non-Goals, AC) generally just <b>Form → Canonical</b>, sometimes with an in-between
+Dependency, Risk, Requirements, Non-Goals, AC) generally just <b>Form → Canonical</b>, sometimes with an in-between
 <b>Consumed</b> block marking where they get sliced into the next container. The <b>Build artifacts</b>
 (Test Plan, Impl Plan, Code, Review) aren't part of that trace and follow whatever shape fits them.
 Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a href="squad-playbook.html">the playbook</a>.</p>
@@ -117,19 +117,21 @@ Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a hr
   <b>How to read it.</b> Follow a row left-to-right. Traceable artifacts end at Canonical (or one Consumed
   block after it); Build artifacts run their own course.
   <ul>
+    <li><b>Spike is where Dependency and Risk are born.</b> Investigating a Problem before Requirements exist can surface external factors (Dependency) or things that could undermine a solution (Risk) — each traces to the specific Problem(s) it came from, not a freeform report. Three Amigos confirm both during Triage; by Specification they're factored into the PRD's scope — a Risk may justify a Non-Goal, a Dependency may constrain a Requirement.</li>
     <li><b>AC forms in the PRD, canonical in the Story.</b> A draft AC is sketched per-requirement while the PRD is written (Specification); it becomes final and testable once sliced into a Story (Refinement).</li>
     <li><b>Non-Goals now mirror Requirements.</b> Drafted in Triage alongside the requirements, canonical (epic-level) once the PRD is written, then simply sliced into the Story at Refinement — no separate "local" path.</li>
-    <li><b>Planning still touches no Traceable artifact.</b> Cycle/sprint planning, task prioritization, resource allocation, timeline creation — none of it edits a Problem, Requirement, Non-Goal, or AC. But it's no longer blank for everything: the moment a ticket is pulled into a sprint, an AI agent can draft the Test Plan and Implementation Plan straight from the now-canonical AC.</li>
+    <li><b>Planning edits no Traceable artifact — but it does read AC.</b> Cycle/sprint planning, task prioritization, resource allocation, timeline creation — none of it rewrites a Problem, Requirement, Non-Goal, or AC. But the moment a ticket is pulled into a sprint, an AI agent reads the now-canonical AC to draft the Test Plan and Implementation Plan — shown as AC's own Consumed step, not an edit.</li>
     <li><b>Solutioning is where that draft becomes canonical.</b> A dev/tester picks up the AI draft and finalizes it before code starts. Implementation then builds from the finalized plans — shown as Code's own "Forms" step, not a repeated marker on the plans' rows.</li>
   </ul>
-  <div class="assume"><b>Notes:</b> Build artifacts deliberately don't follow the Traceable pattern. Per spec-driven development, the Implementation Plan is kept alive alongside the code rather than discarded the moment it's written — it's updated through QA as review feedback changes the code, and only goes Done at Deployment, together with Code, not one stage earlier. Test Plan still closes at QA, once its scenarios are actually executed — that's a real, different closing event. Separately, the AI-draft-on-sprint-pull step assumes an agent capable of turning canonical AC into a draft plan — same caveat as the agent rail in the ticket anatomy: verify it exists (or get it built) before relying on it.</div>
+  <div class="assume"><b>Notes:</b> Spike is shown as a full stage here, but it's not mandatory for every ticket — most Problems are already well understood and skip straight to Triage; run it only when the Problem touches legacy or undocumented behavior. Whether every Risk must resolve into a Non-Goal, or can be explicitly accepted and proceeded on without one, is still an open call — this diagram shows the "factored into scope" outcome generically rather than forcing one answer. Build artifacts deliberately don't follow the Traceable pattern. Per spec-driven development, the Implementation Plan is kept alive alongside the code rather than discarded the moment it's written — it's updated through QA as review feedback changes the code, and only goes Done at Deployment, together with Code, not one stage earlier. Test Plan still closes at QA, once its scenarios are actually executed — that's a real, different closing event. Separately, the AI-draft-on-sprint-pull step assumes an agent capable of turning canonical AC into a draft plan — same caveat as the agent rail in the ticket anatomy: verify it exists (or get it built) before relying on it.</div>
 </div>
 
 </div>
 
 <script>
   var STAGES = [
-    { name: 'Ideation',       doc: 'PRP',       color: '#DC2626' },
+    { name: 'Ideation',       doc: 'PRP',         color: '#DC2626' },
+    { name: 'Spike',          doc: 'Spike ticket', color: '#0891B2' },
     { name: 'Triage',         doc: 'Draft PRD', color: '#EA580C' },
     { name: 'Specification',  doc: 'PRD',       color: '#2563EB' },
     { name: 'Refinement',     doc: 'Story',     color: '#059669' },
@@ -143,36 +145,42 @@ Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a hr
   // state per stage index: [state, note]. states: form | mature | canon | use | done
   var GROUPS = [
     {
-      title: 'Traceable artifacts', sub: '— Form → Canonical, contained in PRP / PRD / Story',
+      title: 'Traceable artifacts', sub: '— Form → Canonical, contained in PRP / Spike / PRD / Story',
       items: [
         { name: 'Problem Statement(s)', abbr: 'P', tag: 'who is affected · impact', hue: '#DC2626', home: 'PRP → PRD',
-          cells: { 0:['form','drafted'], 1:['mature','quantified'], 2:['canon','sharpened'] } },
+          cells: { 0:['form','drafted'], 2:['mature','quantified'], 3:['canon','sharpened'] } },
+
+        { name: 'Dependency', abbr: 'D', tag: 'external factor, affects: P#', hue: '#0891B2', home: 'Spike → PRD',
+          cells: { 1:['form','identified'], 2:['canon','confirmed by Three Amigos'], 3:['use','factored into R/NG'] } },
+
+        { name: 'Risk', abbr: 'RK', tag: 'could undermine, threatens: P#', hue: '#D97706', home: 'Spike → PRD',
+          cells: { 1:['form','identified'], 2:['canon','confirmed by Three Amigos'], 3:['use','factored into R/NG'] } },
 
         { name: 'Requirements', abbr: 'R', tag: 'user-facing outcome, solves: P#', hue: '#2563EB', home: 'PRD',
-          cells: { 1:['form','drafted'], 2:['canon','traced'], 3:['use','sliced into Story'] } },
+          cells: { 2:['form','drafted'], 3:['canon','traced'], 4:['use','sliced into Story'] } },
 
         { name: 'Non-Goals', abbr: 'NG', tag: 'excluded, deferred to →', hue: '#6B7280', home: 'PRD',
-          cells: { 1:['form','drafted'], 2:['canon','epic-level'], 3:['use','sliced into Story'] } },
+          cells: { 2:['form','drafted'], 3:['canon','epic-level'], 4:['use','sliced into Story'] } },
 
         { name: 'Acceptance Criteria', abbr: 'AC', tag: 'observable · testable, covers: R#', hue: '#059669', home: 'PRD → Story',
-          cells: { 2:['form','drafted per requirement'], 3:['canon','finalized, sliced to Story'] } },
+          cells: { 3:['form','drafted per requirement'], 4:['canon','finalized, sliced to Story'], 5:['use','read by AI on sprint pull'] } },
       ]
     },
     {
       title: 'Build artifacts', sub: '— AI-drafted in Planning once AC is canonical, finalized by the dev/tester in Solutioning',
       items: [
         { name: 'Test Plan', tag: 'scenarios, covers: AC#', hue: '#7C3AED', home: 'Story',
-          cells: { 4:['form','AI-drafted on sprint pull'], 5:['canon','finalized by dev/tester'], 6:['use','guides dev'], 7:['done','executed'] } },
+          cells: { 5:['form','AI-drafted on sprint pull'], 6:['canon','finalized by dev/tester'], 7:['use','guides dev'], 8:['done','executed'] } },
 
         { name: 'Implementation Plan', tag: 'approach · files · blockers', hue: '#7C3AED', home: 'Story / Tech ticket',
-          cells: { 4:['form','AI-drafted on sprint pull'], 5:['canon','finalized by dev'], 6:['use','guides build'],
-                   7:['mature','kept in sync with review fixes'], 8:['done','finalized'] } },
+          cells: { 5:['form','AI-drafted on sprint pull'], 6:['canon','finalized by dev'], 7:['use','guides build'],
+                   8:['mature','kept in sync with fixes'], 9:['done','finalized'] } },
 
         { name: 'Code', tag: 'built from Impl Plan, guided by Test Plan', hue: '#0369A1', home: 'Repo / PR',
-          cells: { 6:['form','written'], 7:['mature','fixes from review'], 8:['done','merged'] } },
+          cells: { 7:['form','written'], 8:['mature','fixes from review'], 9:['done','merged'] } },
 
         { name: 'Review', tag: 'sign-off on the PR', hue: '#BE185D', home: 'PR',
-          cells: { 7:['form','opened'], 8:['done','approved → closes ticket'] } },
+          cells: { 8:['form','opened'], 9:['done','approved → closes ticket'] } },
       ]
     }
   ];
