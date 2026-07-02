@@ -61,6 +61,7 @@
     .lbl { padding: 0.55rem 0.7rem 0.55rem 0.2rem; display: flex; flex-direction: column; justify-content: center; }
     .a-name { font-size: 0.85rem; font-weight: 800; display: flex; align-items: center; gap: 0.4rem; }
     .a-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .a-abbr { display: inline-flex; align-items: center; justify-content: center; min-width: 21px; height: 16px; padding: 0 3px; border-radius: 4px; font-size: 0.62rem; font-weight: 800; color: #fff; flex-shrink: 0; }
     .a-tag { font-size: 0.64rem; color: var(--muted); margin-top: 1px; }
     .a-home { font-size: 0.6rem; color: #475569; margin-top: 3px; }
     .a-home::before { content: "in "; color: var(--muted); }
@@ -144,16 +145,16 @@ Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a hr
     {
       title: 'Traceable artifacts', sub: '— Form → Canonical, contained in PRP / PRD / Story',
       items: [
-        { name: 'Problem Statement(s)', tag: 'who is affected · impact', hue: '#DC2626', home: 'PRP → PRD',
+        { name: 'Problem Statement(s)', abbr: 'P', tag: 'who is affected · impact', hue: '#DC2626', home: 'PRP → PRD',
           cells: { 0:['form','drafted'], 1:['mature','quantified'], 2:['canon','sharpened'] } },
 
-        { name: 'Requirements', tag: 'user-facing outcome, solves: P#', hue: '#2563EB', home: 'PRD',
+        { name: 'Requirements', abbr: 'R', tag: 'user-facing outcome, solves: P#', hue: '#2563EB', home: 'PRD',
           cells: { 1:['form','drafted'], 2:['canon','traced'], 3:['use','sliced into Story'] } },
 
-        { name: 'Non-Goals', tag: 'excluded, deferred to →', hue: '#6B7280', home: 'PRD',
+        { name: 'Non-Goals', abbr: 'NG', tag: 'excluded, deferred to →', hue: '#6B7280', home: 'PRD',
           cells: { 1:['form','drafted'], 2:['canon','epic-level'], 3:['use','sliced into Story'] } },
 
-        { name: 'Acceptance Criteria', tag: 'observable · testable, covers: R#', hue: '#059669', home: 'PRD → Story',
+        { name: 'Acceptance Criteria', abbr: 'AC', tag: 'observable · testable, covers: R#', hue: '#059669', home: 'PRD → Story',
           cells: { 2:['form','drafted per requirement'], 3:['canon','finalized, sliced to Story'] } },
       ]
     },
@@ -209,8 +210,11 @@ Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a hr
     var idxs = Object.keys(a.cells).map(Number);
     var min = Math.min.apply(null, idxs), max = Math.max.apply(null, idxs);
 
+    var marker = a.abbr
+      ? '<span class="a-abbr" style="background:' + a.hue + '">' + a.abbr + '</span>'
+      : '<span class="a-dot" style="background:' + a.hue + '"></span>';
     var row = '<div class="row"><div class="lbl">' +
-      '<div class="a-name"><span class="a-dot" style="background:' + a.hue + '"></span>' + a.name + '</div>' +
+      '<div class="a-name">' + marker + a.name + '</div>' +
       '<div class="a-tag">' + a.tag + '</div>' +
       '<div class="a-home">' + a.home + '</div></div>';
 
