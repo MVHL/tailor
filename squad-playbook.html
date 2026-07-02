@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Squad Playbook — Problem-Framed WoW</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --text:   #1E293B;
+      --muted:  #64748B;
+      --bg:     #F1F5F9;
+      --pm:     #2563EB;
+      --swe:    #D97706;
+      --ok:     #059669;
+      --warn:   #DC2626;
+      --line:   #E2E8F0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.6;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; }
+
+    /* ── HEADER ── */
+    .page-header { text-align: center; margin-bottom: 0.4rem; }
+    .page-header h1 { font-size: 1.85rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; }
+    .sub { text-align: center; font-size: 0.82rem; color: var(--muted); margin: 0 auto 2.25rem; max-width: 660px; }
+
+    /* ── ROLE LEGEND ── */
+    .legend { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem; }
+    .who { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border-radius: 100px; color: #fff; }
+    .who.pm  { background: var(--pm); }
+    .who.swe { background: var(--swe); }
+    .who.both{ background: #475569; }
+
+    /* ── SECTION ── */
+    section { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 1.5rem 1.6rem; margin-bottom: 1.5rem; }
+    section > h2 { font-size: 1.15rem; font-weight: 800; color: #0F172A; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.2rem; }
+    .num { width: 1.6rem; height: 1.6rem; flex-shrink: 0; border-radius: 50%; background: #0F172A; color: #fff; font-size: 0.82rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+    .lead { font-size: 0.82rem; color: var(--muted); margin: 0.15rem 0 1.1rem 2.15rem; }
+
+    /* ── TABLE ── */
+    table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8rem; }
+    th { text-align: left; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 0.7rem 0.5rem; }
+    td { padding: 0.6rem 0.7rem; border-top: 1px solid var(--line); vertical-align: top; }
+    tbody tr:first-child td { border-top: 1.5px solid #CBD5E1; }
+    .role-cell { font-weight: 700; white-space: nowrap; }
+    .tag { display: inline-block; font-size: 0.6rem; font-weight: 800; padding: 1px 7px; border-radius: 5px; }
+    .tag-r { background: #DCFCE7; color: #047857; }   /* responsible */
+    .tag-a { background: #DBEAFE; color: #1D4ED8; }   /* accountable */
+    .tag-c { background: #FEF3C7; color: #B45309; }   /* consulted */
+    .tag-i { background: #F1F5F9; color: #64748B; }   /* informed */
+    .raci-key { font-size: 0.7rem; color: var(--muted); margin-top: 0.7rem; }
+    .raci-key b { color: var(--text); }
+
+    /* ── CHECKLIST ── */
+    .gates { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .gate { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+    .gate.ready { background: #EFF6FF; border-color: #BFDBFE; }
+    .gate.done  { background: #F0FDF4; border-color: #BBF7D0; }
+    .gate h3 { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.6rem; }
+    .gate.ready h3 { color: #1D4ED8; }
+    .gate.done h3  { color: #047857; }
+    .check { list-style: none; }
+    .check li { font-size: 0.79rem; padding: 0.32rem 0 0.32rem 1.5rem; position: relative; line-height: 1.45; }
+    .check li::before { content: "☐"; position: absolute; left: 0; font-size: 0.95rem; opacity: 0.55; }
+
+    /* ── MATRIX ── */
+    .yes { color: var(--ok); font-weight: 800; }
+    .no  { color: #CBD5E1; font-weight: 800; }
+    .opt { color: var(--swe); font-weight: 700; font-size: 0.74rem; }
+
+    /* ── STEPS ── */
+    .steps { list-style: none; counter-reset: s; }
+    .steps li { position: relative; padding: 0.3rem 0 0.85rem 2rem; font-size: 0.82rem; }
+    .steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 0.15rem; width: 1.35rem; height: 1.35rem; border-radius: 50%; background: var(--pm); color: #fff; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+    .steps b { font-weight: 700; }
+
+    /* ── NOTE / CALLOUT ── */
+    .note { border-left: 3px solid var(--swe); background: #FFFBEB; border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.78rem; color: #78350F; margin-top: 0.4rem; }
+    .note b { color: #92400E; }
+    .note.info { border-left-color: var(--pm); background: #EFF6FF; color: #1E3A8A; }
+    .note.info b { color: #1D4ED8; }
+
+    code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8em; background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 4px; }
+    a { color: var(--pm); }
+
+    /* ── PILOT TIMELINE ── */
+    .timeline { list-style: none; }
+    .tl-item { display: flex; gap: 0.85rem; padding: 0.55rem 0; border-top: 1px solid var(--line); }
+    .tl-item:first-child { border-top: none; }
+    .tl-when { flex-shrink: 0; width: 6.5rem; font-size: 0.72rem; font-weight: 800; color: var(--pm); }
+    .tl-what { font-size: 0.8rem; }
+    .tl-what b { font-weight: 700; }
+
+    .signals { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.7rem; margin-top: 0.3rem; }
+    .signal { border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem 0.9rem; background: #F8FAFC; }
+    .signal .metric { font-size: 0.8rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .signal .base { font-size: 0.7rem; color: var(--muted); }
+    .signal .base code { font-size: 0.92em; }
+
+    @media (max-width: 720px) {
+      .gates { grid-template-columns: 1fr; }
+      body { padding: 1.5rem 1rem 3rem; }
+      .tbl-scroll { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page-header"><h1>Squad Playbook — Problem-Framed WoW</h1></header>
+<p class="sub">The operating manual for the new ways of working. Read alongside
+<a href="wow-comparison.html">wow-comparison.html</a> (why) and
+<a href="jira-ticket-anatomy.html">jira-ticket-anatomy.html</a> (what an artifact looks like).
+Templates: <a href="ticket-templates.md">ticket-templates.md</a> · Jira setup: <a href="jira-trace-mechanic.md">jira-trace-mechanic.md</a>.</p>
+
+<div class="legend">
+  <span class="who pm">PM / BA</span>
+  <span class="who swe">Dev / Tester</span>
+  <span class="who both">Whole squad</span>
+</div>
+
+<!-- ═══════════ 1. ROLES & ROTATION ═══════════ -->
+<section>
+  <h2><span class="num">1</span> Roles &amp; rotation</h2>
+  <p class="lead">Who owns each artifact, so the work spreads off the lead. The lead is an <b>escalation point, not the default path</b>.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Artifact / stage</th><th>PM/BA</th><th>Dev</th><th>Tester</th><th>Lead</th></tr></thead>
+    <tbody>
+      <tr><td>PRP — problem framing</td><td><span class="tag tag-a">A</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-c">C</span></td></tr>
+      <tr><td>Three Amigos triage</td><td><span class="tag tag-r">R</span></td><td><span class="tag tag-r">R</span></td><td><span class="tag tag-r">R</span></td><td><span class="tag tag-i">I</span></td></tr>
+      <tr><td>PRD — requirements &amp; non-goals</td><td><span class="tag tag-a">A</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-i">I</span></td></tr>
+      <tr><td>Story split + AC</td><td><span class="tag tag-a">A</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-r">R</span></td><td><span class="tag tag-i">I</span></td></tr>
+      <tr><td>Test Plan</td><td><span class="tag tag-i">I</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-a">A</span></td><td><span class="tag tag-i">I</span></td></tr>
+      <tr><td>Implementation Plan</td><td><span class="tag tag-i">I</span></td><td><span class="tag tag-a">A</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-c">C</span></td></tr>
+      <tr><td>Estimation</td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-r">R</span></td><td><span class="tag tag-r">R</span></td><td><span class="tag tag-i">I</span></td></tr>
+      <tr><td>Escalation (feasibility, conflict, priority)</td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-c">C</span></td><td><span class="tag tag-a">A</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="raci-key"><b>R</b> Responsible (does the work) · <b>A</b> Accountable (owns the outcome) · <b>C</b> Consulted · <b>I</b> Informed</p>
+  <div class="note info"><b>Rotation:</b> the Three Amigos dev + tester rotate each sprint (round-robin from a posted list), and facilitation rotates with them — so no single person becomes the new bottleneck. <b>Escalate to the lead only when</b> triage can't resolve feasibility, two artifacts conflict, or priority/scope is contested. Day-to-day framing does not route through the lead.</p>
+</section>
+
+<!-- ═══════════ 2. DEFINITION OF READY / DONE ═══════════ -->
+<section>
+  <h2><span class="num">2</span> Definition of Ready &amp; Done</h2>
+  <p class="lead">The human-runnable gates. These are checklists a person ticks — no tooling required (an agent can pre-check them, see §5).</p>
+  <div class="gates">
+    <div class="gate ready">
+      <h3>✓ Definition of Ready (story → sprint)</h3>
+      <ul class="check">
+        <li>Story links to its parent PRD/Epic requirement(s)</li>
+        <li>Every requirement it claims has a <code>solves:</code> to a problem</li>
+        <li>Every <code>AC</code> is observable &amp; testable</li>
+        <li>Every requirement slice is covered by ≥1 <code>AC</code> (no gaps)</li>
+        <li>Every <code>AC</code> has ≥1 test scenario in the Test Plan</li>
+        <li>Impl Plan exists; blockers/open questions surfaced</li>
+        <li>Estimated (async) by dev + tester</li>
+      </ul>
+    </div>
+    <div class="gate done">
+      <h3>✓ Definition of Done (story → closed)</h3>
+      <ul class="check">
+        <li>All AC demonstrably met</li>
+        <li>All Test Plan scenarios pass (incl. edge/error)</li>
+        <li>Code reviewed &amp; approved</li>
+        <li>No requirement left partially covered</li>
+        <li>Follow-ups / deferred items linked as tickets</li>
+        <li>Success metric instrumented if this story defines it</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 3. LIGHTWEIGHT PATH ═══════════ -->
+<section>
+  <h2><span class="num">3</span> Lightweight path — not every ticket gets full framing</h2>
+  <p class="lead">Full P→R→AC framing is for user-facing change. Forcing it onto a 1-pointer or a chore is how a process gets abandoned. Match the ceremony to the ticket.</p>
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr><th>Ticket type</th><th>Problem/Req</th><th>AC</th><th>Test Plan</th><th>Impl Plan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Epic / Feature</b></td><td class="yes">✔ full PRD</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+      <tr><td><b>Story</b></td><td class="yes">✔ slice + link</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+      <tr><td><b>Bug</b></td><td class="opt">problem only</td><td class="yes">✔ incl. regression</td><td class="opt">if non-trivial</td><td class="no">—</td></tr>
+      <tr><td><b>Spike</b></td><td class="opt">question + timebox</td><td class="opt">decision criteria</td><td class="no">—</td><td class="no">—</td></tr>
+      <tr><td><b>Tech ticket / debt</b></td><td class="opt">enabler reason</td><td class="yes">✔ DoD as AC</td><td class="opt">if risky</td><td class="yes">✔</td></tr>
+      <tr><td><b>Chore (≤1pt, no behavior change)</b></td><td class="no">—</td><td class="opt">one line</td><td class="no">—</td><td class="no">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="note"><b>Rule of thumb:</b> if a user could notice the change, it needs AC + a trace to a problem. If only the codebase notices, the enabler reason + a testable DoD is enough.</div>
+</section>
+
+<!-- ═══════════ 4. ASYNC ESTIMATION ═══════════ -->
+<section>
+  <h2><span class="num">4</span> Async estimation &amp; continuous refinement</h2>
+  <p class="lead">~10% of capacity, ongoing. The live meeting is short and decision-only — estimation happens before it, asynchronously.</p>
+  <ol class="steps">
+    <li><b>Refinement-ready tickets are queued</b> with a Jira label (e.g. <code>needs-estimate</code>) as soon as they pass §1 framing.</li>
+    <li><b>Dev + tester estimate independently &amp; async</b> — drop a point value in a Jira comment (or a poll tool) within the refinement window. No meeting needed for agreement.</li>
+    <li><b>Agreement → done.</b> If estimates match (or are within one step), the ticket is sized; move on.</li>
+    <li><b>Disagreement → the short live meeting.</b> Only tickets where estimates diverge, or that raise a real question, go to the weekly 15–30 min decision-only session.</li>
+    <li><b>Lead joins only on escalation</b> — not as the default estimator.</li>
+  </ol>
+  <div class="note info"><b>Why async first:</b> the old pain was one big batch meeting producing nominal estimates with no shared understanding. Per-ticket async estimation forces each estimator to actually read the framing — and shrinks the live meeting to the few items that genuinely need a conversation.</div>
+</section>
+
+<!-- ═══════════ 5. AGENTS AS ACCELERATORS ═══════════ -->
+<section>
+  <h2><span class="num">5</span> Agents are accelerators, not the process</h2>
+  <p class="lead">The agent rail in the anatomy shows skills that can author (＋) and check (✓) each artifact. Treat them as optional speed-ups layered on top of a process that already works by hand.</p>
+  <div class="note"><b>Adopt manual-first.</b> Every step in §1–4 is doable with the templates and the DoR/DoD checklists and <u>no AI at all</u>. That is deliberate: if a skill is missing, slow, or wrong, the squad is never blocked. Add agents one at a time, only after the manual step is a habit.</div>
+  <p style="font-size:0.8rem; margin-top:0.9rem;">Known-available today: the <code>jira-problem-framing</code> skill decomposes a ticket into P→R→AC and reports coverage gaps (orphan/bare requirements, untestable ACs) — i.e. it can run the §2 DoR coverage check for you. The other skills shown in the anatomy (<code>problem-distiller</code>, <code>requirement-slicer</code>, <code>impl-planner</code>…) are <b>aspirational until built</b> — confirm before relying on them.</p>
+</section>
+
+<!-- ═══════════ 6. BASELINE & PILOT ═══════════ -->
+<section>
+  <h2><span class="num">6</span> Baseline &amp; pilot plan</h2>
+  <p class="lead">The comparison's own caveat is that the bottleneck was never validated against your data. Fix that <b>before</b> changing anything: capture a baseline, then pilot on one squad/one epic, then decide on the evidence.</p>
+
+  <h3 style="font-size:0.8rem; font-weight:800; color:#475569; margin:0.4rem 0 0.6rem;">Capture the baseline first (2 weeks, no process change)</h3>
+  <div class="signals">
+    <div class="signal"><div class="metric">Lead's hours: facilitation vs delivery</div><div class="base">baseline: <code>__h / __h</code></div></div>
+    <div class="signal"><div class="metric">% of items reworked after planning</div><div class="base">baseline: <code>__%</code></div></div>
+    <div class="signal"><div class="metric">Refinement meeting length</div><div class="base">baseline: <code>__ min/wk</code></div></div>
+    <div class="signal"><div class="metric">Intake → sprint-ready lead time</div><div class="base">baseline: <code>__ days</code></div></div>
+  </div>
+
+  <h3 style="font-size:0.8rem; font-weight:800; color:#475569; margin:1.2rem 0 0.6rem;">Then run the pilot</h3>
+  <ul class="timeline">
+    <li class="tl-item"><span class="tl-when">Sprint 0</span><span class="tl-what"><b>Setup.</b> One squad, one upcoming epic. Configure Jira links (<a href="jira-trace-mechanic.md">trace mechanic</a>), import templates, 1 kickoff session walking the anatomy + this playbook.</span></li>
+    <li class="tl-item"><span class="tl-when">Sprints 1–2</span><span class="tl-what"><b>Run it.</b> Frame the epic the new way; Three Amigos triage; async estimation. Expect a temporary dip — habit change costs before it pays.</span></li>
+    <li class="tl-item"><span class="tl-when">Each retro</span><span class="tl-what"><b>Checkpoint.</b> What felt heavy? Which template fields were skipped and why? Adjust the lightweight-path matrix, not the principle.</span></li>
+    <li class="tl-item"><span class="tl-when">Sprint 3</span><span class="tl-what"><b>Decide on evidence.</b> Re-measure the four signals vs baseline. Roll out / adjust / stop — based on the numbers, not vibes.</span></li>
+  </ul>
+  <div class="note"><b>Honest caveats (carried from the comparison):</b> 2–3 sprints to pay off; T-shaped pairing reduces single-point risk but doesn't replace deep expertise overnight; moving exploration off the lead only works if triage genuinely covers feasibility; the ~40% defect-reduction figure is an indicative secondary source — your baseline is the real test.</div>
+</section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artifact Lifecycle — Stages &amp; Documents</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --text:  #1E293B;
+      --muted: #64748B;
+      --bg:    #F1F5F9;
+      --line:  #E2E8F0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.55;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+
+    .page-header { text-align: center; margin-bottom: 0.4rem; }
+    .page-header h1 { font-size: 1.85rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; }
+    .sub { text-align: center; font-size: 0.82rem; color: var(--muted); margin: 0 auto 1.4rem; max-width: 780px; }
+
+    /* ── LEGEND ── */
+    .legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; justify-content: center; align-items: center; margin-bottom: 1.6rem; font-size: 0.72rem; color: var(--muted); }
+    .lg { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .sw { width: 26px; height: 15px; border-radius: 4px; flex-shrink: 0; }
+    .sw-form  { background: rgba(100,116,139,0.20); border: 1.5px dashed #64748B; }
+    .sw-mat   { background: rgba(100,116,139,0.55); }
+    .sw-canon { background: #475569; }
+    .sw-use   { background: repeating-linear-gradient(45deg, rgba(100,116,139,0.16) 0 5px, rgba(100,116,139,0.05) 5px 10px); border: 1px solid rgba(100,116,139,0.3); }
+    .sw-done  { background: #475569; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68rem; font-weight: 800; }
+    .sw-empty { background: transparent; border: 1px dashed var(--line); }
+
+    /* ── CHART ── */
+    .scroll { overflow-x: auto; padding-bottom: 0.5rem; }
+    .chart { min-width: 1080px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 0.5rem 0.75rem 1rem; }
+
+    .row { display: grid; grid-template-columns: 220px repeat(9, minmax(0, 1fr)); align-items: stretch; }
+    .row + .row { border-top: 1px solid var(--line); }
+
+    /* header row */
+    .head .st { padding: 0.6rem 0.35rem 0.7rem; text-align: center; border-left: 1px solid var(--line); position: relative; }
+    .head .st:first-of-type { border-left: none; }
+    .head .st.no-art { background: #F8FAFC; }
+    .st-top { height: 4px; border-radius: 3px; margin: 0 auto 0.4rem; width: 70%; }
+    .st-name { font-size: 0.72rem; font-weight: 800; color: var(--text); line-height: 1.15; }
+    .st-doc { font-size: 0.62rem; color: var(--muted); margin-top: 3px; font-weight: 700; }
+    .st-doc::before { content: "📍 "; }
+    .head .lbl { padding: 0.6rem 0.5rem; display: flex; align-items: flex-end; }
+    .head .lbl span { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+    /* group divider row */
+    .grp { display: grid; grid-template-columns: 220px repeat(9, minmax(0, 1fr)); }
+    .grp-lbl { grid-column: 1 / -1; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #475569; background: #F8FAFC; padding: 0.4rem 0.7rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .grp-lbl small { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); margin-left: 0.4rem; }
+
+    /* artifact label cell */
+    .lbl { padding: 0.55rem 0.7rem 0.55rem 0.2rem; display: flex; flex-direction: column; justify-content: center; }
+    .a-name { font-size: 0.85rem; font-weight: 800; display: flex; align-items: center; gap: 0.4rem; }
+    .a-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .a-tag { font-size: 0.64rem; color: var(--muted); margin-top: 1px; }
+    .a-home { font-size: 0.6rem; color: #475569; margin-top: 3px; }
+    .a-home::before { content: "in "; color: var(--muted); }
+
+    /* stage cells (bar track) */
+    .cell { border-left: 1px solid var(--line); padding: 0.5rem 0.15rem; display: flex; align-items: center; }
+    .cell:first-of-type { border-left: none; }
+    .cell.no-art { background: #FAFBFC; }
+    .seg { width: 100%; min-height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 0.6rem; line-height: 1.2; padding: 3px 5px; }
+    .seg.empty { min-height: 38px; background: transparent; }
+    .seg.l { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+    .seg.r { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+
+    .seg .s-state { font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; font-size: 0.54rem; opacity: 0.85; }
+    .seg .s-note { font-weight: 600; margin-top: 1px; }
+
+    /* ── READING NOTE ── */
+    .note { max-width: 1200px; margin: 1.5rem auto 0; background: #fff; border: 1px solid var(--line); border-left: 3px solid #2563EB; border-radius: 0 12px 12px 0; padding: 1rem 1.2rem; font-size: 0.8rem; color: #334155; }
+    .note b { color: #0F172A; }
+    .note ul { margin: 0.5rem 0 0 1.1rem; }
+    .note li { margin: 0.2rem 0; }
+    .note .assume { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px dashed var(--line); font-size: 0.75rem; color: var(--muted); }
+    .note .assume b { color: #475569; }
+
+    @media (max-width: 720px) { body { padding: 1.5rem 0.8rem 3rem; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page-header"><h1>Artifact Lifecycle — Stages &amp; Their Documents</h1></header>
+<p class="sub">Each stage has one place it stores its outcome — <b>PRP → Draft PRD → PRD → Story</b> — and
+the PRD/Story are <b>containers</b>, not artifacts themselves. The <b>Traceable artifacts</b> (Problem,
+Requirements, Non-Goals, AC) generally just <b>Form → Canonical</b>, sometimes with an in-between
+<b>Consumed</b> block marking where they get sliced into the next container. The <b>Build artifacts</b>
+(Test Plan, Impl Plan, Code, Review) aren't part of that trace and follow whatever shape fits them.
+Companion to <a href="jira-ticket-anatomy.html">the ticket anatomy</a> and <a href="squad-playbook.html">the playbook</a>.</p>
+
+<div class="legend">
+  <span class="lg"><span class="sw sw-form"></span>Forms — draft</span>
+  <span class="lg"><span class="sw sw-mat"></span>Matures (optional)</span>
+  <span class="lg"><span class="sw sw-canon"></span>Canonical — source of truth</span>
+  <span class="lg"><span class="sw sw-use"></span>Consumed — sliced / guides downstream work</span>
+  <span class="lg"><span class="sw sw-done">✓</span>Done — closed / shipped</span>
+  <span class="lg"><span class="sw sw-empty"></span>Not touched at this stage</span>
+</div>
+
+<div class="scroll">
+  <div class="chart" id="chart"></div>
+</div>
+
+<div class="note">
+  <b>How to read it.</b> Follow a row left-to-right. Traceable artifacts end at Canonical (or one Consumed
+  block after it); Build artifacts run their own course.
+  <ul>
+    <li><b>AC forms in the PRD, canonical in the Story.</b> A draft AC is sketched per-requirement while the PRD is written (Design); it becomes final and testable once sliced into a Story (Refinement).</li>
+    <li><b>Non-Goals now mirror Requirements.</b> Drafted in Triage alongside the requirements, canonical (epic-level) once the PRD is written, then simply sliced into the Story at Refinement — no separate "local" path.</li>
+    <li><b>Planning still touches no Traceable artifact.</b> Cycle/sprint planning, task prioritization, resource allocation, timeline creation — none of it edits a Problem, Requirement, Non-Goal, or AC. But it's no longer blank for everything: the moment a ticket is pulled into a sprint, an AI agent can draft the Test Plan and Implementation Plan straight from the now-canonical AC.</li>
+    <li><b>Solutioning is where that draft becomes canonical.</b> A dev/tester picks up the AI draft and finalizes it before code starts. Implementation then builds from the finalized plans — shown as Code's own "Forms" step, not a repeated marker on the plans' rows.</li>
+  </ul>
+  <div class="assume"><b>Notes:</b> Build artifacts deliberately don't follow the Traceable pattern. Per spec-driven development, the Implementation Plan is kept alive alongside the code rather than discarded the moment it's written — it's updated through QA as review feedback changes the code, and only goes Done at Deployment, together with Code, not one stage earlier. Test Plan still closes at QA, once its scenarios are actually executed — that's a real, different closing event. Separately, the AI-draft-on-sprint-pull step assumes an agent capable of turning canonical AC into a draft plan — same caveat as the agent rail in the ticket anatomy: verify it exists (or get it built) before relying on it.</div>
+</div>
+
+</div>
+
+<script>
+  var STAGES = [
+    { name: 'Ideation',       doc: 'PRP',       color: '#DC2626' },
+    { name: 'Triage',         doc: 'Draft PRD', color: '#EA580C' },
+    { name: 'Design',         doc: 'PRD',       color: '#2563EB' },
+    { name: 'Refinement',     doc: 'Story',     color: '#059669' },
+    { name: 'Planning',       doc: 'Sprint',    color: '#94A3B8', noArt: true },
+    { name: 'Solutioning',    doc: 'Story',     color: '#7C3AED' },
+    { name: 'Implementation', doc: 'PR',        color: '#0369A1' },
+    { name: 'QA',             doc: 'PR',        color: '#BE185D' },
+    { name: 'Deployment',     doc: 'Release',   color: '#1E293B' },
+  ];
+
+  // state per stage index: [state, note]. states: form | mature | canon | use | done
+  var GROUPS = [
+    {
+      title: 'Traceable artifacts', sub: '— Form → Canonical, contained in PRP / PRD / Story',
+      items: [
+        { name: 'Problem Statement(s)', tag: 'who is affected · impact', hue: '#DC2626', home: 'PRP → PRD',
+          cells: { 0:['form','drafted'], 1:['mature','quantified'], 2:['canon','sharpened'] } },
+
+        { name: 'Requirements', tag: 'user-facing outcome, solves: P#', hue: '#2563EB', home: 'PRD',
+          cells: { 1:['form','drafted'], 2:['canon','traced'], 3:['use','sliced into Story'] } },
+
+        { name: 'Non-Goals', tag: 'excluded, deferred to →', hue: '#6B7280', home: 'PRD',
+          cells: { 1:['form','drafted'], 2:['canon','epic-level'], 3:['use','sliced into Story'] } },
+
+        { name: 'Acceptance Criteria', tag: 'observable · testable, covers: R#', hue: '#059669', home: 'PRD → Story',
+          cells: { 2:['form','drafted per requirement'], 3:['canon','finalized, sliced to Story'] } },
+      ]
+    },
+    {
+      title: 'Build artifacts', sub: '— AI-drafted in Planning once AC is canonical, finalized by the dev/tester in Solutioning',
+      items: [
+        { name: 'Test Plan', tag: 'scenarios, covers: AC#', hue: '#7C3AED', home: 'Story',
+          cells: { 4:['form','AI-drafted on sprint pull'], 5:['canon','finalized by dev/tester'], 6:['use','guides dev'], 7:['done','executed'] } },
+
+        { name: 'Implementation Plan', tag: 'approach · files · blockers', hue: '#7C3AED', home: 'Story / Tech ticket',
+          cells: { 4:['form','AI-drafted on sprint pull'], 5:['canon','finalized by dev'], 6:['use','guides build'],
+                   7:['mature','kept in sync with review fixes'], 8:['done','finalized'] } },
+
+        { name: 'Code', tag: 'built from Impl Plan, guided by Test Plan', hue: '#0369A1', home: 'Repo / PR',
+          cells: { 6:['form','written'], 7:['mature','fixes from review'], 8:['done','merged'] } },
+
+        { name: 'Review', tag: 'sign-off on the PR', hue: '#BE185D', home: 'PR',
+          cells: { 7:['form','opened'], 8:['done','approved → closes ticket'] } },
+      ]
+    }
+  ];
+
+  function hexA(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + [(n>>16)&255, (n>>8)&255, n&255].join(',') + ',' + a + ')';
+  }
+
+  function segStyle(state, hue) {
+    switch (state) {
+      case 'form':   return { bg: hexA(hue,0.16), border: '1.5px dashed ' + hue, color: hue, lead: '○ ' };
+      case 'mature': return { bg: hexA(hue,0.5), color: '#fff', lead: '' };
+      case 'canon':  return { bg: hue, color: '#fff', lead: '★ ' };
+      case 'use':    return { bg: 'repeating-linear-gradient(45deg,' + hexA(hue,0.15) + ' 0 5px,' + hexA(hue,0.04) + ' 5px 10px)', color: hexA(hue,0.95), lead: '' };
+      case 'done':   return { bg: hue, color: '#fff', lead: '✓ ' };
+    }
+    return {};
+  }
+  var LABELS = { form: 'Forms', mature: 'Matures', canon: 'Canonical', use: 'Consumed', done: 'Done' };
+
+  var chart = document.getElementById('chart');
+  var N = STAGES.length;
+
+  // ── header row ──
+  var html = '<div class="row head"><div class="lbl"><span>Artifact ↓ / Stage →</span></div>';
+  STAGES.forEach(function (s) {
+    html += '<div class="st' + (s.noArt ? ' no-art' : '') + '"><div class="st-top" style="background:' + s.color + '"></div>' +
+            '<div class="st-name">' + s.name + '</div>' +
+            '<div class="st-doc">' + s.doc + '</div></div>';
+  });
+  html += '</div>';
+
+  function rowHtml(a) {
+    var idxs = Object.keys(a.cells).map(Number);
+    var min = Math.min.apply(null, idxs), max = Math.max.apply(null, idxs);
+
+    var row = '<div class="row"><div class="lbl">' +
+      '<div class="a-name"><span class="a-dot" style="background:' + a.hue + '"></span>' + a.name + '</div>' +
+      '<div class="a-tag">' + a.tag + '</div>' +
+      '<div class="a-home">' + a.home + '</div></div>';
+
+    for (var i = 0; i < N; i++) {
+      var c = a.cells[i];
+      var noArt = STAGES[i].noArt;
+      if (!c) { row += '<div class="cell' + (noArt ? ' no-art' : '') + '"><div class="seg empty"></div></div>'; continue; }
+      var st = segStyle(c[0], a.hue);
+      var cls = 'seg' + (i === min ? ' l' : '') + (i === max ? ' r' : '');
+      row += '<div class="cell"><div class="' + cls + '" style="background:' + st.bg + ';color:' + st.color +
+             (st.border ? ';border:' + st.border : '') + '">' +
+             '<span class="s-state">' + st.lead + LABELS[c[0]] + '</span>' +
+             (c[1] ? '<span class="s-note">' + c[1] + '</span>' : '') +
+             '</div></div>';
+    }
+    row += '</div>';
+    return row;
+  }
+
+  GROUPS.forEach(function (g) {
+    html += '<div class="grp"><div class="grp-lbl">' + g.title + '<small>' + g.sub + '</small></div></div>';
+    g.items.forEach(function (a) { html += rowHtml(a); });
+  });
+
+  chart.innerHTML = html;
+</script>
+</body>
+</html>
