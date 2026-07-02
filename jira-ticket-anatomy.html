@@ -614,14 +614,14 @@
         members: ['.parallel-wrap'], color: '#7C3AED',
         groups: [
           { title: 'Test Plan', accent: '#7C3AED', ops: [
-            { kind: 'build', skill: 'test-plan-from-ac', trig: 'on <b>AC approved</b>',
-              note: 'Enumerates happy / edge / error scenarios, each mapped to an AC.' },
+            { kind: 'build', skill: 'test-plan-from-ac', trig: 'on <b>ticket pulled into sprint</b>',
+              note: 'Enumerates happy / edge / error scenarios from the now-canonical AC, each mapped to an AC. Finalized by a dev/tester before code starts.' },
             { kind: 'check', skill: 'test-covers-ac', trig: 'gates <b>plan complete</b>',
               note: 'Flags any AC with no covering test scenario.' }
           ] },
           { title: 'Implementation Plan', accent: '#D97706', ops: [
-            { kind: 'build', skill: 'impl-planner', trig: 'on <b>ticket assigned to a dev</b>',
-              note: 'Scans the repo, drafts approach + files to touch, maps steps to AC, surfaces blockers early.' }
+            { kind: 'build', skill: 'impl-planner', trig: 'on <b>ticket pulled into sprint</b>',
+              note: 'Scans the repo, drafts approach + files to touch, maps steps to AC, surfaces blockers early. Finalized by the assigned dev before code starts.' }
           ] }
         ]
       }
