@@ -251,6 +251,7 @@
   <h1>Problem Framing</h1>
 </header>
 <p class="sel-hint">Click any item (P1, R2, AC3…) to trace its dependency chain — click again to clear</p>
+<p class="sel-hint">The rail on the left shows where each piece <em>lives</em> (its document). For when each piece forms, matures, and goes canonical across process stages, see <a href="artifact-lifecycle.html">the artifact lifecycle</a>.</p>
 
 <div class="page-layout">
 
@@ -528,22 +529,24 @@
   }
 
   // ── Timeline: vertical bar whose segments align to the cards on the right ──
+  // Shows the canonical home DOCUMENT per section (matches each card's own home-tag) —
+  // process stages are a separate concern, covered in artifact-lifecycle.html.
   (function () {
     var rail = document.getElementById('timeline');
     if (!rail) return;
-    var STAGES = [
-      { name: 'PRP',         note: 'Problem Statement(s)',          color: '#DC2626', members: ['.s-problem'] },
-      { name: 'Triage',      note: 'Requirements · Non-Goals',      color: '#2563EB', members: ['#row-req'] },
-      { name: 'PRD',         note: 'Acceptance Criteria',           color: '#059669', members: ['.s-ac'] },
-      { name: 'Refinement',  note: 'Test Plan · Impl Plan',         color: '#7C3AED', members: ['.parallel-wrap'] },
-      { name: 'Implementation', note: 'Code & Tests built',         color: '#0369A1', members: ['.s-code'] },
-      { name: 'QA',          note: 'Review sign-off',               color: '#BE185D', members: ['.s-review'] },
-      { name: 'Release',     note: 'Ticket closed · metric watch',  color: '#1E293B', members: ['.convergence'] },
+    var DOCS = [
+      { name: 'PRP → PRD',  note: 'Problem Statement(s)',          color: '#DC2626', members: ['.s-problem'] },
+      { name: 'PRD → Story', note: 'Requirements · Non-Goals',     color: '#2563EB', members: ['#row-req'] },
+      { name: 'Story',      note: 'Acceptance Criteria',           color: '#059669', members: ['.s-ac'] },
+      { name: 'Story',      note: 'Test Plan · Impl Plan',         color: '#7C3AED', members: ['.parallel-wrap'] },
+      { name: 'Repo / PR',  note: 'Code & Tests built',            color: '#0369A1', members: ['.s-code'] },
+      { name: 'PR',         note: 'Review sign-off',               color: '#BE185D', members: ['.s-review'] },
+      { name: 'Release',    note: 'Ticket closed · metric watch',  color: '#1E293B', members: ['.convergence'] },
     ];
     function place() {
       rail.querySelectorAll('.tl-seg, .tl-mark').forEach(function (n) { n.remove(); });
       var railTop = rail.getBoundingClientRect().top;
-      STAGES.forEach(function (s) {
+      DOCS.forEach(function (s) {
         var top = Infinity, bot = -Infinity;
         s.members.forEach(function (sel) {
           var el = document.querySelector(sel);
