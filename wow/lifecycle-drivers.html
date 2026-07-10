@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Artifact Driver Tree — Readiness Defines the Next Step</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --text:  #1E293B;
+      --muted: #64748B;
+      --bg:    #F1F5F9;
+      --line:  #E2E8F0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.55;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; }
+
+    .page-header { text-align: center; margin-bottom: 0.4rem; }
+    .page-header h1 { font-size: 1.85rem; font-weight: 800; color: #0F172A; letter-spacing: -0.02em; }
+    .sub { text-align: center; font-size: 0.84rem; color: var(--muted); margin: 0 auto 1.6rem; max-width: 720px; }
+    .sub b { color: #334155; }
+
+    .scroll { overflow-x: auto; padding-bottom: 0.5rem; }
+    .canvas-card { min-width: 1020px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 2rem 1.5rem 1.5rem; }
+    #graph { position: relative; width: 1020px; margin: 0 auto; }
+    #graph svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    .node { position: absolute; width: 255px; transform: translateX(-50%); background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 0.55rem 0.75rem 0.6rem; box-shadow: 0 1px 3px rgba(15,23,42,0.06); }
+    .node-top { display: flex; align-items: center; gap: 0.45rem; }
+    .abbr { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 17px; padding: 0 4px; border-radius: 4px; font-size: 0.62rem; font-weight: 800; color: #fff; flex-shrink: 0; }
+    .n-name { font-size: 0.82rem; font-weight: 800; color: #0F172A; line-height: 1.2; }
+    .n-cap { font-size: 0.64rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .n-ready { margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--line); }
+    .n-ready-lbl { font-size: 0.54rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94A3B8; margin-bottom: 2px; }
+    .n-check { display: flex; align-items: baseline; gap: 4px; font-size: 0.6rem; color: #334155; line-height: 1.35; }
+    .n-check::before { content: "□"; font-size: 0.62rem; color: #94A3B8; flex-shrink: 0; }
+    .node.optional { border-style: dashed; background: #FCFDFE; }
+
+    .edge { stroke: #CBD5E1; stroke-width: 1.5; fill: none; }
+    .edge.dashed { stroke-dasharray: 5 4; }
+    .e-lbl { font-size: 10px; font-weight: 700; fill: #64748B; }
+    .e-lbl-bg { fill: #fff; }
+
+    .branch-lbl { position: absolute; transform: translateX(-50%); font-size: 0.6rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94A3B8; }
+
+    /* how to use */
+    .how { max-width: 720px; margin: 1.6rem auto 0; background: #fff; border: 1px solid var(--line); border-left: 3px solid #059669; border-radius: 0 12px 12px 0; padding: 1rem 1.3rem 1.1rem; font-size: 0.82rem; color: #334155; }
+    .how b { color: #0F172A; }
+    .how ol { margin: 0.5rem 0 0 1.2rem; }
+    .how li { margin: 0.3rem 0; }
+    .how .fine { margin-top: 0.8rem; padding-top: 0.7rem; border-top: 1px dashed var(--line); font-size: 0.73rem; color: var(--muted); }
+
+    @media (max-width: 720px) { body { padding: 1.5rem 0.8rem 3rem; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page-header"><h1>What Drives What</h1></header>
+<p class="sub">No stages. Each artifact is <b>driven by</b> the ones above it — an artifact is <b>workable the moment
+its parents are canonical</b>. The team's next step is always the frontier: the highest artifacts that are
+unblocked but not yet canonical. This is the <b>artifact-primary</b> reading of the same data as
+<a href="lifecycle-stages.html">the stage-by-stage lifecycle</a> — that view answers "where are we?"
+for stakeholders; this one answers "what can I do next?" for the squad. Companion to the
+<a href="playbook.html">playbook</a> and <a href="ticket-anatomy.html">ticket anatomy</a>.</p>
+
+<div class="scroll">
+  <div class="canvas-card">
+    <div id="graph"></div>
+  </div>
+</div>
+
+<div class="how">
+  <b>How to use it — the whole method in three steps:</b>
+  <ol>
+    <li><b>Mark</b> what's canonical today (agreed, traced, source-of-truth — per the DoR checks).</li>
+    <li><b>Find the frontier:</b> every artifact whose parents are all canonical but which isn't yet. That set is the next step — no meeting needed to know it.</li>
+    <li><b>Work the frontier in parallel.</b> Anything below it is blocked; anything above it is done. Nobody waits on a stage.</li>
+  </ol>
+  <div class="fine">
+    <b>Intake:</b> a Signal is quoted, never rewritten; an Ask is the client's solution hypothesis — never copy it
+    into Requirements. A Problem goes canonical only with an <b>evidence: SIG#/ASK#</b> link, so an Ask with no
+    Problem is visible as untriaged intake, and a Problem with no Signal is visible as an invented need.
+    The spike branch is optional — most problems skip straight from Problem to Requirements; run a spike only
+    when the problem touches legacy or undocumented behavior. Ceremonies hang off transitions, not the other way
+    round: Problem framed → hold triage; AC canonical + sprint pull → agent drafts both plans; plans finalized → code starts.
+  </div>
+</div>
+
+</div>
+
+<script>
+  var NODES = [
+    { id:'SIG', abbr:'SIG', name:'Signal',            hue:'#0D9488', x:36, y:0,
+      cap:'verbatim field evidence — sales call, ticket, churn note. Quoted, never rewritten',
+      ready:['has source + date','quoted verbatim, not paraphrased'] },
+    { id:'ASK', abbr:'ASK', name:'Ask',               hue:'#C026D3', x:64, y:175,
+      cap:'what the client requested, in their words — a solution hypothesis, not a requirement',
+      ready:['links to ≥1 SIG#','labeled as solution hypothesis, not a requirement'] },
+    { id:'P',  abbr:'P',  name:'Problem',             hue:'#DC2626', x:50, y:360,
+      cap:'product\'s interpretation of the evidence — who is affected, impact, metric',
+      ready:['cites evidence: SIG# or ASK#','who is affected + impact stated','no R drafted against it yet'] },
+    { id:'D',  abbr:'D',  name:'Dependency',          hue:'#0891B2', x:16, y:550, optional:true,
+      cap:'external factor a spike surfaces',
+      ready:['links to P# it came from','external owner identified'] },
+    { id:'RK', abbr:'RK', name:'Risk',                hue:'#D97706', x:84, y:550, optional:true,
+      cap:'could undermine a solution',
+      ready:['links to P# it threatens','likelihood + impact noted'] },
+    { id:'R',  abbr:'R',  name:'Requirements',        hue:'#2563EB', x:38, y:705,
+      cap:'each one solves a canonical Problem',
+      ready:['has solves: P#','feasibility confirmed in triage','D/RK factored in'] },
+    { id:'NG', abbr:'NG', name:'Non-Goals',           hue:'#6B7280', x:74, y:705,
+      cap:'scope explicitly excluded, with a reason',
+      ready:['exclusion reason or deferral link stated','reviewed alongside R in triage'] },
+    { id:'AC', abbr:'AC', name:'Acceptance Criteria', hue:'#059669', x:50, y:880,
+      cap:'observable &amp; testable — every R slice covered',
+      ready:['has covers: R#','observable &amp; testable (not subjective)','every R slice has ≥1 AC'] },
+    { id:'TP', abbr:'TP', name:'Test Plan',           hue:'#7C3AED', x:30, y:1055,
+      cap:'scenarios per AC — drafted before code',
+      ready:['scenario per AC# (incl. edge/error)','reviewed by tester before code starts'] },
+    { id:'IP', abbr:'IP', name:'Impl Plan',           hue:'#7C3AED', x:70, y:1055,
+      cap:'approach · files · blockers',
+      ready:['approach + files to change listed','open questions / blockers surfaced'] },
+    { id:'C',  abbr:'C',  name:'Code',                hue:'#0369A1', x:50, y:1225,
+      cap:'built from the plans, not before them',
+      ready:['TP + IP both canonical first','all AC demonstrably met'] },
+    { id:'RV', abbr:'RV', name:'Review',              hue:'#BE185D', x:50, y:1380,
+      cap:'approval closes the ticket',
+      ready:['all TP scenarios pass','no R left partially covered','approved &amp; merged'] },
+  ];
+
+  var EDGES = [
+    { from:'SIG', to:'ASK', label:'distilled into' },
+    { from:'SIG', to:'P',   label:'evidence', dashed:true },
+    { from:'ASK', to:'P',   label:'interpreted by product' },
+    { from:'P',  to:'D',  label:'spike', dashed:true },
+    { from:'P',  to:'RK', label:'spike', dashed:true },
+    { from:'P',  to:'R',  label:'solves' },
+    { from:'P',  to:'NG', label:'excludes' },
+    { from:'D',  to:'R',  label:'constrains', dashed:true },
+    { from:'RK', to:'NG', label:'may justify', dashed:true },
+    { from:'R',  to:'AC', label:'covers' },
+    { from:'AC', to:'TP', label:'drafted from' },
+    { from:'AC', to:'IP', label:'drafted from' },
+    { from:'TP', to:'C',  label:'guides' },
+    { from:'IP', to:'C',  label:'built from' },
+    { from:'C',  to:'RV', label:'PR' },
+  ];
+
+  var W = 1020, NODE_H = 120, GRAPH_H = 1380 + NODE_H + 20;
+  var graph = document.getElementById('graph');
+  graph.style.height = GRAPH_H + 'px';
+
+  function px(n) { return n.x / 100 * W; }
+
+  // edges first (SVG underlay)
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + GRAPH_H + '" xmlns="http://www.w3.org/2000/svg">';
+  EDGES.forEach(function (e) {
+    var a = NODES.find(function (n) { return n.id === e.from; });
+    var b = NODES.find(function (n) { return n.id === e.to; });
+    var x1 = px(a), y1 = a.y + NODE_H, x2 = px(b), y2 = b.y;
+    var my = (y1 + y2) / 2;
+    svg += '<path class="edge' + (e.dashed ? ' dashed' : '') + '" d="M' + x1 + ',' + y1 +
+           ' C' + x1 + ',' + my + ' ' + x2 + ',' + my + ' ' + x2 + ',' + y2 + '"/>';
+    if (e.label) {
+      var lx = (x1 + x2) / 2, ly = my + 3.5;
+      var w = e.label.length * 5.6 + 8;
+      svg += '<rect class="e-lbl-bg" x="' + (lx - w/2) + '" y="' + (ly - 11) + '" width="' + w + '" height="15" rx="4"/>' +
+             '<text class="e-lbl" x="' + lx + '" y="' + ly + '" text-anchor="middle">' + e.label + '</text>';
+    }
+  });
+  svg += '</svg>';
+
+  var html = svg;
+  NODES.forEach(function (n) {
+    var checks = n.ready.map(function(r) {
+      return '<div class="n-check">' + r + '</div>';
+    }).join('');
+    html += '<div class="node' + (n.optional ? ' optional' : '') + '" style="left:' + n.x + '%;top:' + n.y + 'px">' +
+            '<div class="node-top"><span class="abbr" style="background:' + n.hue + '">' + n.abbr + '</span>' +
+            '<span class="n-name">' + n.name + '</span></div>' +
+            '<div class="n-cap">' + n.cap + '</div>' +
+            '<div class="n-ready"><div class="n-ready-lbl">canonical when</div>' + checks + '</div>' +
+            '</div>';
+  });
+  graph.innerHTML = html;
+</script>
+</body>
+</html>

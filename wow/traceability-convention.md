@@ -1,11 +1,17 @@
 # Jira Item-Level Traceability — Convention Spec
 
-> Companion to `jira-ticket-anatomy.html`. The HTML is the **visual explainer** (what good looks like).
-> This doc is the **convention the team applies** (how to do it in real tickets).
+> Companion to [`ticket-anatomy.html`](ticket-anatomy.html) (the **visual explainer** — what good
+> looks like) and [`trace-mechanic.md`](trace-mechanic.md) (the **infrastructure decision** — where
+> IDs and links live in Jira). This doc is the **convention the team applies on top of that
+> mechanic**: the stability and process rules that make the tags trustworthy over a ticket's life.
 >
 > Core idea: decompose a ticket into atomic, tagged items across five layers, and express the
 > links between them in plain text. **Humans read the tags; the AI agent does the tagging and
 > maintenance.** No Jira plugin required.
+>
+> **Note:** the tag format below matches `trace-mechanic.md` and `ticket-templates.md` —
+> `ID: text   keyword: parent-ids`, not a bracket/arrow notation. An earlier draft of this doc used
+> `[ID]` + `(← parent)`; it's been reconciled here so all three docs agree on one syntax.
 
 ---
 
@@ -27,22 +33,25 @@ Not every ticket needs all five. A small bug fix may be `P → AC → T`. Use ju
 
 ## 2. Tag and link format
 
-Tags are inline, plain-text, and human-skimmable. Links are expressed as a `(← parent-ids)` suffix.
+Tags are inline, plain-text, and human-skimmable. Links point upward via a named keyword suffix —
+`solves:` (R → P), `covers:` (AC → R, T → AC), `implements:` (IM → AC) — exactly as shown in
+`ticket-templates.md`.
 
 ```
-[P1] Users can't redeem multiple promo codes in one order
-  [R1] Support up to N codes per cart                 (← P1)
-  [R3] Reject mutually-exclusive code combinations    (← P1, P2)
-    [AC4] Two conflicting codes → clear error shown    (← R3)
-      [T4]  test: conflicting codes are rejected        (← AC4)
-      [im2] CartValidator.checkConflicts()              (← AC4)
+P1: Users can't redeem multiple promo codes in one order
+R1: Support up to N codes per cart                       solves: P1
+R3: Reject mutually-exclusive code combinations           solves: P1, P2
+AC4: Two conflicting codes → clear error shown            covers: R3
+T4: test: conflicting codes are rejected                  covers: AC4
+IM2: CartValidator.checkConflicts()                       implements: AC4
 ```
 
 Rules:
-- **The ID is in square brackets**, at the start of the item: `[AC4]`.
-- **Links point upward** to the item(s) this one derives from, in the `(← …)` suffix.
+- **The ID is a text prefix**, at the start of the item: `AC4:`.
+- **Links point upward** to the item(s) this one derives from, via the `solves:` / `covers:` /
+  `implements:` keyword suffix.
 - Downward links (a requirement listing its ACs) are **not** written — they're derived by reading all the upward links. This keeps every link recorded in exactly one place, so it can't disagree with itself.
-- The suffix line is **agent-regenerated**. Humans write the text; the agent maintains the `(← …)`.
+- The suffix is **agent-regenerated**. Humans write the text; the agent maintains the keyword suffix.
 
 ---
 
@@ -53,11 +62,11 @@ Rules:
 - New item → next unused number for its prefix (`R5`, even if `R2` was deleted).
 - Deleted item → leave a tombstone so its ID is never recycled and dangling links are visible:
   ```
-  [R2] ~~Withdrawn: merged into R1~~   (retired 2026-06-21)
+  R2: ~~Withdrawn: merged into R1~~   (retired 2026-06-21)
   ```
 - Never "tidy up" numbering. `R1, R3, R5` with gaps is correct and intentional.
 
-Why: every link references an ID. If `R3` silently becomes `R4` after an insert, every `(← R3)` now points at the wrong item — and the graph rots the same way hand-maintained matrices always have, just via the agent instead of a human. Stable IDs are what make automated maintenance trustworthy.
+Why: every link references an ID. If `R3` silently becomes `R4` after an insert, every `solves: R3` now points at the wrong item — and the graph rots the same way hand-maintained matrices always have, just via the agent instead of a human. Stable IDs are what make automated maintenance trustworthy.
 
 ---
 
@@ -91,12 +100,12 @@ The agent does two jobs with different failure modes. Run them as **separate pas
 
 | Check | Finding when violated |
 |---|---|
-| Orphan requirement | `R` with no `(← P…)` → requirement traces to no problem (scope creep) |
-| Orphan implementation | `im` with no `(← …)` → work traces to no requirement (gold-plating) |
+| Orphan requirement | `R` with no `solves:` → requirement traces to no problem (scope creep) |
+| Orphan implementation | `IM` with no `implements:` → work traces to no requirement (gold-plating) |
 | Uncovered AC | `AC` with no `T` linking to it → untested acceptance criterion |
 | Untestable AC | `AC` not phrased as a pass/fail condition → flag for rewrite |
 | Bare requirement | `R` with no `AC` → requirement that can never be marked done |
-| Dangling link | `(← R2)` where `R2` is a tombstone or missing → broken trace |
+| Dangling link | a `solves:`/`covers:`/`implements:` target that is a tombstone or missing → broken trace |
 
 These are set operations over the tags, which is exactly why the structure makes the assessment **auditable**: every finding points at a specific ID a human can check.
 
@@ -130,27 +139,27 @@ The agent owns the bookkeeping. Humans own the meaning and the decisions.
 ## 9. Worked example (with a gap the Assessor would catch)
 
 ```
-[P1] Users can't redeem multiple promo codes in one order
-[P2] Conflicting codes silently apply the wrong discount
+P1: Users can't redeem multiple promo codes in one order
+P2: Conflicting codes silently apply the wrong discount
 
-[R1] Support up to N codes per cart                  (← P1)
-[R3] Reject mutually-exclusive code combinations     (← P1, P2)
-[R4] Expired codes are rejected at apply time        (← P2)
+R1: Support up to N codes per cart                  solves: P1
+R3: Reject mutually-exclusive code combinations     solves: P1, P2
+R4: Expired codes are rejected at apply time        solves: P2
 
-[AC1] Up to N valid codes stack correctly            (← R1)
-[AC4] Two conflicting codes → clear error shown      (← R3)
-[AC5] Expired code → "code expired" error            (← R4)
+AC1: Up to N valid codes stack correctly            covers: R1
+AC4: Two conflicting codes → clear error shown      covers: R3
+AC5: Expired code → "code expired" error            covers: R4
 
-[T1] test: N valid codes stack                       (← AC1)
-[T4] test: conflicting codes rejected                (← AC4)
+T1: test: N valid codes stack                       covers: AC1
+T4: test: conflicting codes rejected                covers: AC4
 
-[im1] CartTotals.applyCodes()                        (← AC1)
-[im2] CartValidator.checkConflicts()                 (← AC4)
-[im3] CartValidator.checkExpiry()                    (← AC5)
+IM1: CartTotals.applyCodes()                        implements: AC1
+IM2: CartValidator.checkConflicts()                 implements: AC4
+IM3: CartValidator.checkExpiry()                    implements: AC5
 ```
 
 Assessor findings:
-- ⚠️ **AC5 is uncovered** — no `T` links to it (expiry has impl `im3` but no test).
+- ⚠️ **AC5 is uncovered** — no `T` links to it (expiry has impl `IM3` but no test).
 - ✅ All requirements trace to a problem; all impl items trace to an AC.
 
 ---

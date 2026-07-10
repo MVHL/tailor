@@ -1,8 +1,10 @@
 # Ticket Templates — Problem-Framed WoW
 
 Copy-paste starting points for each artifact in the pipeline
-(`jira-ticket-anatomy.html`). IDs and up-links follow the convention in
-[`jira-trace-mechanic.md`](jira-trace-mechanic.md).
+(`ticket-anatomy.html`). IDs and up-links follow the convention in
+[`trace-mechanic.md`](trace-mechanic.md) (where the IDs live in Jira) and
+[`traceability-convention.md`](traceability-convention.md) (the tagging rules —
+append-only IDs, tombstones, Author/Assessor agent passes).
 
 > **How to use:** copy the block, paste into the Jira description (or a
 > Confluence page for the PRD), delete the `> guidance` lines, fill the rest.
@@ -55,7 +57,7 @@ Copy-paste starting points for each artifact in the pipeline
 ```
 
 **Self-check before "Triage done":** every R has a `solves:`; every P has either
-a matching R or appears in Non-Goals. (See DoR in `squad-playbook.html`.)
+a matching R or appears in Non-Goals. (See DoR in `playbook.html`.)
 
 ---
 
