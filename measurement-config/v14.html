@@ -2186,9 +2186,12 @@ document.getElementById("addLabelBtn").addEventListener("click", ()=>{
 // Top-level actions
 // ---------------------------------------------------------------------------
 
-function newRow(forChart){
+function newRow(forChart, customName){
   const chart = forChart===undefined ? hasChart() : !!forChart;
-  return col(nextRowId++, "New value", chart
+  const d = data[active];
+  const pos = (d && d.rows) ? d.rows.length + 1 : 1;
+  const name = customName || ("Value_" + pos);
+  return col(nextRowId++, name, chart
     ? {cap:"pom", src:"pom", crit:R.pom()}
     : {cap:"sample", unit:"cm"});
 }
@@ -2235,7 +2238,8 @@ document.getElementById("ctName").addEventListener("change", (e)=>{
 // structural change, which silently overwrites choices. Two explicit clicks beat one guess.
 function addStep(){
   const key = "step"+(nextId++);
-  data[key] = {name:"New measurement step", mc:null, rows:[newRow(false)]};
+  const pos = order.length + 1;
+  data[key] = {name: "Measurement_" + pos, mc: null, rows: [newRow(false, "Value_1")]};
   order.push(key);
   active = key;
   openEval.clear();
