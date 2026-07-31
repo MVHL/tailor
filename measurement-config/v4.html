@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection workflow — measurement steps (mockup v4)</title>
+<style>
+  :root{
+    --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
+    --green:#2E7D32; --green-l:#E5F2E6;
+    --amber:#B57A00; --amber-l:#FBF0D9; --amber-line:#E8D5A8;
+    --red:#C8102E;
+    --text:#333333; --mut:#667085; --muted2:#98A2B3;
+    --line:#C9D4E4; --surface1:#F5F7FA; --surface2:#FFFFFF; --page:#F0F2F5;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--page); color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.5;}
+  .page{max-width:1040px; margin:0 auto; padding:28px 20px 60px;}
+  header.top{margin-bottom:22px;}
+  header.top h1{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px;}
+  header.top p{font-size:13px; color:var(--mut); margin:0 0 10px;}
+  .badge-draft{display:inline-block; background:var(--tint); color:var(--blue); font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--radius); margin-left:8px; vertical-align:2px;}
+  .changelog{background:var(--surface2); border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px; font-size:12.5px; color:var(--mut);}
+  .changelog b{color:var(--navy); font-size:11px; text-transform:uppercase; letter-spacing:.03em; display:block; margin-bottom:5px;}
+  .changelog ul{margin:0; padding-left:18px;}
+  .changelog li{margin-bottom:2px;}
+  .axes{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;}
+  .axis{flex:1; min-width:240px; background:var(--surface1); border:1px solid var(--line); border-radius:var(--radius); padding:8px 11px;}
+  .axis .t{font-weight:700; color:var(--navy); font-size:12px;}
+  .layout{display:flex; gap:18px; align-items:flex-start;}
+  .sidebar{width:220px; flex-shrink:0; background:var(--surface1); border-radius:12px; padding:14px; border:1px solid var(--line);}
+  .sidebar h2{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:700;}
+  .ct-row{display:flex; align-items:center; gap:2px; margin-bottom:3px;}
+  .step-row{border-radius:var(--radius);}
+  .step-row.dragging{opacity:0.4;}
+  .step-row.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .step-row.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .step-row .drag-handle{width:14px; height:20px; grid-template-columns:repeat(2,3px); grid-template-rows:repeat(3,3px);}
+  .step-row .drag-handle span{width:3px; height:3px;}
+  .step-num{flex-shrink:0; font-size:11px; font-weight:700; color:var(--muted2); width:13px; text-align:right;}
+  .ct-item{flex:1; min-width:0; display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ct-item.active{background:var(--tint); color:var(--blue); font-weight:700;}
+  .ct-item:not(.active){color:var(--text);}
+  .ct-item:not(.active):hover{background:#EDEFF3;}
+  .ct-remove{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .ct-remove:hover{background:#FCEBEB; color:var(--red);}
+  .main{flex:1; min-width:0;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:18px 22px; margin-bottom:14px;}
+  .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:3px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
+  .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
+  .ct-name-input:disabled{color:var(--muted2);}
+  .card .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
+  .section-label{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.02em; margin:0 0 10px; font-weight:700;}
+  .section-label .note{text-transform:none; font-weight:400; color:var(--muted2);}
+  .drag-handle{width:18px; height:22px; display:grid; grid-template-columns:repeat(2,4px); grid-template-rows:repeat(3,4px); gap:2px; cursor:grab; flex-shrink:0; align-content:center; justify-content:center;}
+  .drag-handle span{width:4px; height:4px; border-radius:50%; background:var(--muted2);}
+  input[type=text]{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text);}
+  select{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); background:#fff;}
+  select:disabled{background:var(--surface1); color:var(--mut);}
+  button.btn{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--text); font-family:inherit;}
+  button.btn:hover{background:var(--surface1);}
+  button.btn:disabled{color:var(--muted2); cursor:not-allowed; background:var(--surface1);}
+  button.btn-primary{background:var(--blue); border-color:var(--blue); color:#fff;}
+  button.btn-primary:hover{background:#00408A;}
+  button.btn-primary:disabled{background:var(--muted2); border-color:var(--muted2); color:#fff;}
+  button.btn-danger{color:var(--red); border-color:var(--line);}
+  button.btn-danger:hover{background:#FCEBEB;}
+  .req{color:var(--red); margin-right:3px;}
+  .field-label{font-size:12px; color:var(--mut); display:block; margin-bottom:4px;}
+  .inline-label{font-size:12px; color:var(--mut); flex-shrink:0; width:88px;}
+  .calc-note{font-size:12.5px; color:var(--mut); margin:10px 0 0;}
+  .soft{font-size:12px; color:var(--muted2);}
+  .warn-note{font-size:12px; color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:var(--radius); padding:6px 10px; margin-top:8px;}
+
+  /* ---- value row ---- */
+  .row-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .row-card.dragging{opacity:0.4;}
+  .row-card.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .row-card.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .row-header{display:flex; align-items:center; gap:10px;}
+  .row-line{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:9px;}
+
+  /* ---- formula chip ---- */
+  .formula-chip{display:inline-flex; align-items:center; gap:7px; background:var(--tint); border:1px solid #C3D8F0; color:var(--blue); border-radius:var(--radius); padding:6px 10px; font-size:12.5px; cursor:pointer; max-width:100%;}
+  .formula-chip:hover{background:#DDEAF8;}
+  .formula-chip .fx{font-style:italic; font-weight:700; flex-shrink:0;}
+  .formula-chip .expr{font-family:'Courier New',monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .formula-chip.warn{background:var(--amber-l); border-color:var(--amber-line); color:var(--amber);}
+
+  /* ---- evaluation ---- */
+  .eval-summary{display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; border-radius:var(--radius); padding:5px 8px; margin-left:-8px; cursor:pointer; font-size:13px;}
+  .eval-summary:hover{border-color:var(--line); background:#fff;}
+  .eval-summary .edit{font-size:11.5px; color:var(--blue);}
+  .eval-summary.muted{color:var(--mut);}
+  .eval-summary.warn{color:var(--amber);}
+  .eval-summary.from-spec{color:var(--green); background:var(--green-l); border-color:#CBE4CC;}
+  .eval-open{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-top:6px;}
+
+  /* ---- spec type popover ---- */
+  .mctype-wrap{position:relative;}
+  .mctype-trigger{border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:13px; background:#fff; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:180px;}
+  .mctype-trigger:hover{background:var(--surface1);}
+  .mctype-caret{color:var(--muted2); font-size:10px; flex-shrink:0;}
+  .mctype-panel{display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 4px 14px rgba(10,42,85,0.14); min-width:230px;}
+  .mctype-panel label{display:flex; align-items:center; gap:6px; font-size:13px; padding:5px 4px; cursor:pointer; white-space:nowrap; border-radius:4px;}
+  .mctype-panel label:hover{background:var(--surface1);}
+  .mctype-panel .u{color:var(--muted2); font-size:11.5px;}
+
+  /* ---- modal ---- */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(10,42,85,0.35); display:flex; align-items:flex-start; justify-content:center; padding:60px 20px; z-index:100; overflow:auto;}
+  .modal{background:#fff; border-radius:12px; width:100%; max-width:560px; box-shadow:0 12px 40px rgba(10,42,85,0.28);}
+  .modal-head{padding:16px 20px 12px; border-bottom:1px solid var(--line);}
+  .modal-head h3{margin:0; font-size:16px; color:var(--navy);}
+  .modal-head p{margin:3px 0 0; font-size:12.5px; color:var(--mut);}
+  .modal-body{padding:16px 20px;}
+  .modal-foot{padding:12px 20px 16px; border-top:1px solid var(--line); display:flex; align-items:center; gap:8px;}
+  .modal-foot .spacer{flex:1;}
+  .preview-box{background:var(--surface1); border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-top:14px;}
+  .preview-box .expr{font-family:'Courier New',monospace; font-size:13.5px; color:var(--navy);}
+  .preview-box .label{font-size:11.5px; color:var(--mut); margin-top:4px;}
+  .hint{font-size:12px; color:var(--amber); margin:10px 0 0;}
+  footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Inspection workflow — measurement steps <span class="badge-draft">Mockup v4 — for review</span></h1>
+    <p>The measurement part of one inspection workflow. Each step is a group of measurements the inspector performs; the list on the left is the order they happen in. A step either measures every POM in a Measurement Chart, or defines its own values by hand.</p>
+    <div class="changelog">
+      <b>The two axes — independent of each other</b>
+      <div class="axes">
+        <div class="axis"><span class="t">Specification</span> — where the <em>standard value and tolerance bands</em> come from. <em>Measurement Chart</em> means every POM in the chart is measured, each carrying its own unit, standard value and tolerance. <em>Manual</em> means you set the unit and the criteria here.</div>
+        <div class="axis"><span class="t">Value</span> — where the <em>number</em> comes from. Either the inspector enters it, or a formula computes it from other values in the same step.</div>
+      </div>
+      <p style="margin:9px 0 0;"><b style="display:inline; text-transform:none; letter-spacing:0; font-size:12.5px;">Changed from v3:</b> the specification comes from a Measurement Chart, not a single POM — so there is no unit at chart level, only inside each POM. And these are ordered steps in one workflow, not reusable templates: the left column is the inspection sequence and is drag-reorderable.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <h2>Inspection order</h2>
+      <div id="checkList"></div>
+      <p style="font-size:11px; color:var(--muted2); margin:8px 0 0; line-height:1.4;">Steps run top to bottom during the inspection. Drag a handle to reorder.</p>
+      <button class="btn" id="addCheckTypeBtn" style="width:100%; margin-top:8px;">+ Add measurement step</button>
+    </div>
+    <div class="main">
+      <div class="card">
+        <input type="text" id="ctName" class="ct-name-input">
+        <p class="meta" id="ctMeta" style="margin-bottom:0;"></p>
+      </div>
+      <div class="card">
+        <p class="section-label">Sampling rule <span class="note">— how many samples are pulled before measuring, set per step</span></p>
+        <div id="samplingBody"></div>
+      </div>
+      <div class="card" id="rowsCard">
+        <p class="section-label">Values <span class="note">— for each one: where its specification comes from, how the number is obtained, and how it is judged</span></p>
+        <div id="rowsList"></div>
+        <div style="margin-top:10px;">
+          <button class="btn" id="addValueBtn">+ Add value</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    Drag the handle on a row to reorder it. Formulas reference other values by name, so order never affects which value feeds a formula — it is only for reading top to bottom.
+  </footer>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+const UNIT_GROUPS = [
+  {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Weight", units:["g","kg","MT","oz","lb","st"]},
+  {category:"Volume", units:["mL","L","mm³","cm³","m³","in³","gal","ft³"]},
+  {category:"Temperature", units:["°C","°F"]},
+  {category:"Area", units:["nm²","cm²","m²","in²","yd²","ft²"]},
+  {category:"Area Density", units:["GSM","oz/yd²"]},
+  {category:"Quantity", units:["EACH","PCS","PAIR","DOZ","SET","PACK"]},
+  {category:"Other", units:["%"]}
+];
+
+// Which square unit a product of two identical dimension units resolves to.
+const SQUARE_UNITS = {cm:"cm²", m:"m²", in:"in²", yd:"yd²"};
+
+// The Measurement Chart "types" a chart-backed value may be drawn from — the
+// "setType" field from the measurement-sets API design.
+//
+// Deliberately NO unit here. A Measurement Chart does not carry a unit; each POM
+// inside it does. unitCategory is kept only as a coarse compatibility check on
+// formula results — a Dimension chart's POMs will be in dimension units — and it
+// is weaker evidence than it looks, constraining the family rather than the unit.
+//
+// "Temperature" is PROVISIONAL — it is not among the 3 confirmed setType values,
+// but a moisture-and-temperature step needs it. Confirm before building.
+const MC_TYPES = [
+  {id:"Dimension",   unitCategory:"Dimension"},
+  {id:"Weight",      unitCategory:"Weight"},
+  {id:"Volume",      unitCategory:"Volume"},
+  {id:"Temperature", unitCategory:"Temperature"}
+];
+
+const FORMULAS = [
+  {id:"pctchange",    label:"Percent change — (B − A) / A × 100", arity:2, expr:"(B − A) / A × 100", unit:"%"},
+  {id:"difference",   label:"Difference — A − B",                 arity:2, expr:"A − B",             unit:"sameAsOperands"},
+  {id:"ratio",        label:"Ratio — A / B",                      arity:2, expr:"A / B",             unit:"unitless"},
+  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",  arity:2, expr:"A / B × 100",       unit:"%"},
+  {id:"product",      label:"Product — A × B",                    arity:2, expr:"A × B",             unit:"product"},
+  {id:"sum",          label:"Total of the included values",        arity:"many",                      unit:"sameAsOperands"},
+  {id:"average",      label:"Average of the included values",      arity:"many",                      unit:"sameAsOperands"},
+  {id:"custom",       label:"Custom expression using A and B",     arity:2, custom:true,              unit:"custom"}
+];
+
+// One evaluation list for every row. "Within POM tolerance" is spliced in only
+// when the row is chart-backed — that is the only case where tolerance bands
+// already exist to defer to. It is available to formula rows too.
+//
+// The stored id stays "spec" so existing sample data keeps working; only the
+// label changed.
+const CRIT_SPEC = {id:"spec", label:"Within POM tolerance"};
+const CRIT_REST = [
+  {id:"range",     label:"Range (between two values)"},
+  {id:"max",       label:"Maximum (upper limit)"},
+  {id:"min",       label:"Minimum (lower limit)"},
+  {id:"inspector", label:"Inspector decides (manual rating)"},
+  {id:"skip",      label:"Not evaluated"}
+];
+
+// ---------------------------------------------------------------------------
+// Sample data
+// ---------------------------------------------------------------------------
+// A row is:
+//   {id, name,
+//    spec:"mc"|"manual",      // where standard value + tolerance bands come from
+//    mcTypes:[],              // when chart-backed — which chart setTypes are eligible
+//    unit:"",                 // when manual, or when a formula's unit cannot be derived
+//    formula:null|{...},      // how the number is obtained; independent of `spec`
+//    criteria:{...}}
+//
+// The six steps below are one workflow's measurement sequence. Steps 1-3 are the
+// three cases described in review: measure every POM in a chart; a fully custom
+// moisture/temperature step; and a custom shrinkage step with no chart at all,
+// where the inspector enters before and after values and the result is derived.
+
+const data = {
+  chartpoms: {
+    // Case 1 — the whole step is "measure the chart". One row, which expands to
+    // every POM in the selected chart; each POM brings its own unit, standard
+    // value and tolerance bands.
+    name: "All chart measurements",
+    rows: [
+      {id:1, name:"Chart POMs", spec:"mc", mcTypes:["Dimension"], unit:"", formula:null, criteria:{type:"spec"}}
+    ]
+  },
+  shrinkage: {
+    // Case 3 — no chart. The inspector enters before and after by hand and the
+    // shrinkage is derived, judged against a threshold set here because no chart
+    // type carries a percentage tolerance.
+    name: "Shrinkage / wash test",
+    rows: [
+      {id:2, name:"Before wash", spec:"manual", mcTypes:[], unit:"cm", formula:null, criteria:{type:"skip"}},
+      {id:3, name:"After wash",  spec:"manual", mcTypes:[], unit:"cm", formula:null, criteria:{type:"skip"}},
+      {id:4, name:"% Shrinkage", spec:"manual", mcTypes:[], unit:"%",
+       formula:{type:"pctchange", op1:2, op2:3},
+       criteria:{type:"range", value:"-5", value2:"5"}}
+    ]
+  },
+  tempmoisture: {
+    // Case 2 — custom measurement for moisture and temperature, no chart involved.
+    name: "Moisture & temperature",
+    rows: [
+      {id:17, name:"Temperature", spec:"manual", mcTypes:[], unit:"°C", formula:null, criteria:{type:"range", value:"18", value2:"24"}},
+      {id:18, name:"Moisture A",  spec:"manual", mcTypes:[], unit:"%", formula:null, criteria:{type:"skip"}},
+      {id:19, name:"Moisture B",  spec:"manual", mcTypes:[], unit:"%", formula:null, criteria:{type:"skip"}},
+      {id:20, name:"Average moisture", spec:"manual", mcTypes:[], unit:"%",
+       formula:{type:"average", operandIds:[18,19]},
+       criteria:{type:"max", value:"12", comparator:"lte"}}
+    ]
+  },
+  avgweight: {
+    // A formula result evaluated against a chart: three readings averaged, then
+    // compared to the Weight chart POM's own standard value and tolerance bands.
+    // The two axes being independent is what makes this expressible.
+    name: "Average weight (3 readings)",
+    rows: [
+      {id:5, name:"Reading 1", spec:"manual", mcTypes:[], unit:"g", formula:null, criteria:{type:"skip"}},
+      {id:6, name:"Reading 2", spec:"manual", mcTypes:[], unit:"g", formula:null, criteria:{type:"skip"}},
+      {id:7, name:"Reading 3", spec:"manual", mcTypes:[], unit:"g", formula:null, criteria:{type:"skip"}},
+      {id:8, name:"Average weight", spec:"mc", mcTypes:["Weight"], unit:"",
+       formula:{type:"average", operandIds:[5,6,7]},
+       criteria:{type:"spec"}}
+    ]
+  },
+  twisting: {
+    name: "Side seam twisting",
+    rows: [
+      {id:9,  name:"Twist / displacement value", spec:"manual", mcTypes:[], unit:"cm", formula:null, criteria:{type:"skip"}},
+      {id:10, name:"Side seam length",           spec:"manual", mcTypes:[], unit:"cm", formula:null, criteria:{type:"skip"}},
+      {id:11, name:"% Twisting", spec:"manual", mcTypes:[], unit:"%",
+       formula:{type:"ratiopercent", op1:9, op2:10},
+       criteria:{type:"max", value:"5", comparator:"lt"}}
+    ]
+  },
+  fabricweight: {
+    // "Swatch area" is a formula row feeding another formula row, and carries no
+    // evaluation of its own. The GSM row uses a custom expression, so its unit
+    // cannot be derived — the admin states it (GSM) instead.
+    name: "Fabric weight (from swatch)",
+    rows: [
+      {id:12, name:"Swatch length", spec:"manual", mcTypes:[], unit:"cm", formula:null, criteria:{type:"skip"}},
+      {id:13, name:"Swatch width",  spec:"manual", mcTypes:[], unit:"cm", formula:null, criteria:{type:"skip"}},
+      {id:14, name:"Swatch area",   spec:"manual", mcTypes:[], unit:"cm²",
+       formula:{type:"product", op1:12, op2:13}, criteria:{type:"skip"}},
+      {id:15, name:"Swatch weight", spec:"manual", mcTypes:[], unit:"g", formula:null, criteria:{type:"skip"}},
+      {id:16, name:"Fabric weight (GSM)", spec:"manual", mcTypes:[], unit:"GSM",
+       formula:{type:"custom", op1:15, op2:14, customExpr:"A / B × 10,000"},
+       criteria:{type:"range", value:"150", value2:"170"}}
+    ]
+  }
+};
+// The workflow's inspection sequence. Drag-reorderable in the sidebar.
+const order = ["chartpoms","shrinkage","tempmoisture","twisting","fabricweight","avgweight"];
+let active = "chartpoms";
+let nextId = 1;
+let nextRowId = 21;
+
+const openEval = new Set();
+let modal = null; // {rowId, formula, isNew}
+
+// ---------------------------------------------------------------------------
+// Model helpers
+// ---------------------------------------------------------------------------
+
+function findRow(d, id){ return d.rows.find(r=>r.id===id); }
+function rowIndex(d, id){ return d.rows.findIndex(r=>r.id===id); }
+function rowName(d, id){ const r = findRow(d,id); return r ? r.name : null; }
+function isFromMC(row){ return row.spec==="mc"; }
+function formulaDef(fm){ return fm ? FORMULAS.find(x=>x.id===fm.type) : null; }
+function mcType(id){ return MC_TYPES.find(t=>t.id===id); }
+
+function unitCategoryOf(unit){
+  const g = UNIT_GROUPS.find(g=>g.units.includes(unit));
+  return g ? g.category : null;
+}
+
+function operandIdsOf(fm){
+  if (!fm) return [];
+  const f = formulaDef(fm);
+  if (f && f.arity==="many") return (fm.operandIds||[]).slice();
+  return [fm.op1, fm.op2].filter(x=>x!=null);
+}
+
+function dependsOn(d, candidateId, targetId, seen){
+  if (candidateId===targetId) return true;
+  seen = seen || new Set();
+  if (seen.has(candidateId)) return false;
+  seen.add(candidateId);
+  const r = findRow(d, candidateId);
+  if (!r || !r.formula) return false;
+  return operandIdsOf(r.formula).some(id=>dependsOn(d, id, targetId, seen));
+}
+
+function eligibleOperands(d, rowId){
+  return d.rows.filter(r=>!dependsOn(d, r.id, rowId));
+}
+
+// The unit a formula implies from its operands, or null when it cannot be worked
+// out (custom expressions, or operands whose own unit is unknown).
+function derivedUnit(d, row, seen){
+  if (!row || !row.formula) return null;
+  seen = seen || new Set();
+  if (seen.has(row.id)) return null;
+  seen.add(row.id);
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return null;
+  if (f.unit==="%") return "%";
+  if (f.unit==="unitless") return "unitless (ratio)";
+  if (f.unit==="custom") return null;
+
+  const units = operandIdsOf(fm).map(id=>unitOf(d, findRow(d,id), seen));
+  const allSame = units.length>0 && units.every(u=>u && u===units[0]);
+  if (f.unit==="product"){
+    if (!allSame) return null;
+    return SQUARE_UNITS[units[0]] || (units[0]+" × "+units[0]);
+  }
+  return allSame ? units[0] : null;
+}
+
+// The unit of a value as far as this screen can know it. A formula wins over
+// everything else — if the operands fix the result unit, that is the unit the
+// number carries, whichever specification governs the row.
+//   formula with a derivable unit -> that unit
+//   chart-backed                  -> comes from the POM inside the chart, unknown here
+//   otherwise                     -> the admin's choice
+function unitOf(d, row, seen){
+  if (!row) return null;
+  if (row.formula){
+    const u = derivedUnit(d, row, seen);
+    if (u) return u;
+  }
+  if (isFromMC(row)) return null;
+  return row.unit || null;
+}
+
+// True when the row's unit is fixed by its formula and so must not be editable.
+function unitIsDerived(d, row){
+  return !!(row.formula && derivedUnit(d, row));
+}
+
+// Short unit for inline use next to a threshold. Phrases are dropped.
+function inlineUnit(d, row){
+  const u = unitOf(d, row);
+  return (!u || u.indexOf(" ")!==-1) ? "" : u;
+}
+
+// A formula judged against a chart must produce something the chart's POMs can
+// actually judge. A percent change cannot be compared to tolerance bands
+// expressed in grams. Coarse by design — the chart type fixes the unit family,
+// not the unit, so this catches wrong families and not wrong units.
+function mcUnitWarning(d, row){
+  if (!isFromMC(row) || !row.formula) return null;
+  if (row.criteria && row.criteria.type!=="spec") return null;
+  const u = derivedUnit(d, row);
+  if (!u) return null;
+  const cat = unitCategoryOf(u);
+  const types = (row.mcTypes && row.mcTypes.length) ? row.mcTypes : MC_TYPES.map(t=>t.id);
+  const cats = types.map(id=>mcType(id)).filter(Boolean).map(t=>t.unitCategory);
+  if (cat && cats.includes(cat)) return null;
+  return "The formula gives " + u + ", but POMs in "
+    + (types.length===1?"a ":"") + types.join(" / ") + " chart"+(types.length===1?"":"s")
+    + " are measured in a different kind of unit. Their tolerance bands may not be comparable.";
+}
+
+function critOptions(row){
+  return isFromMC(row) ? [CRIT_SPEC].concat(CRIT_REST) : CRIT_REST.slice();
+}
+
+// A POM row defers to the POM's tolerance; a manual row defaults to not being
+// evaluated, because manual values are usually plumbing that feeds a formula.
+// Defaulting a manual row to Range instead would make every new row open in an
+// amber "needs both limits" state, which reads as broken rather than as unset.
+function ensureCriteria(row){
+  if (!row.criteria) row.criteria = {type: isFromMC(row) ? "spec" : "skip"};
+  // "Within POM tolerance" survives only while the row is chart-backed.
+  if (row.criteria.type==="spec" && !isFromMC(row)) row.criteria.type = "skip";
+  return row.criteria;
+}
+
+// Switching the specification axis moves the criteria to that axis's natural
+// default. Any thresholds already typed stay on the criteria object, so
+// switching back restores them rather than losing them.
+function syncCriteriaToSpec(row){
+  if (!row.criteria){ ensureCriteria(row); return; }
+  if (isFromMC(row)){
+    // Remember what the row was judged by while manual, so toggling back is
+    // non-destructive — same principle as the stashed formula. Thresholds
+    // already live on the criteria object, so only the type needs keeping.
+    if (row.criteria.type!=="spec"){
+      row.manualCritType = row.criteria.type;
+      row.criteria.type = "spec";
+    }
+  } else if (row.criteria.type==="spec"){
+    row.criteria.type = row.manualCritType || "skip";
+  }
+}
+
+function formulaChipText(d, row){
+  const fm = row.formula;
+  const f = formulaDef(fm);
+  if (!f) return {text:"Unrecognised formula", warn:true};
+
+  if (f.arity==="many"){
+    const names = (fm.operandIds||[]).map(id=>rowName(d,id));
+    if (names.length<2 || names.some(n=>!n)) return {text:(f.id==="sum"?"Total":"Average")+" — pick at least 2 values", warn:true};
+    return f.id==="sum"
+      ? {text: names.join(" + ")}
+      : {text: "("+names.join(" + ")+") / "+names.length};
+  }
+  const a = fm.op1!=null ? rowName(d,fm.op1) : null;
+  const b = fm.op2!=null ? rowName(d,fm.op2) : null;
+  if (!a || !b) return {text:"Formula — pick both values", warn:true};
+  const tpl = f.custom ? (fm.customExpr||"") : f.expr;
+  if (!tpl) return {text:"Custom formula — enter an expression", warn:true};
+  return {text: tpl.replace(/\b[AB]\b/g, m=> m==="A" ? a : b)};
+}
+
+function evalSummary(d, row){
+  const c = ensureCriteria(row);
+  const u = inlineUnit(d, row);
+  const suf = u ? " "+u : "";
+  switch(c.type){
+    case "spec":      return {text:"Within POM tolerance", fromSpec:true};
+    case "range":     return (c.value && c.value2)
+                        ? {text:"Between "+c.value+" and "+c.value2+suf}
+                        : {text:"Range — needs both limits", warn:true};
+    case "max":       return c.value
+                        ? {text:(c.comparator==="lte" ? "≤ " : "< ")+c.value+suf}
+                        : {text:"Maximum — needs a limit", warn:true};
+    case "min":       return c.value
+                        ? {text:(c.comparator==="gte" ? "≥ " : "> ")+c.value+suf}
+                        : {text:"Minimum — needs a limit", warn:true};
+    case "inspector": return {text:"Inspector decides"};
+    default:          return {text:"Not evaluated", muted:true};
+  }
+}
+
+function computeMeta(d){
+  const n = d.rows.length;
+  const nDef  = d.rows.filter(isFromMC).length;
+  const nCalc = d.rows.filter(r=>r.formula).length;
+  const nEval = d.rows.filter(r=>ensureCriteria(r).type!=="skip").length;
+  const parts = [n+" value"+(n===1?"":"s")];
+  if (nDef)  parts.push(nDef+" from a chart");
+  if (nCalc) parts.push(nCalc+" from a formula");
+  parts.push(nEval+" evaluated");
+  return parts.join(" · ");
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ---------------------------------------------------------------------------
+// Sampling rule (unchanged)
+// ---------------------------------------------------------------------------
+
+const SAMPLING_METHODS = [
+  {id:"byitem", label:"By Item", followUp:{type:"number", label:"By Item"}},
+  {id:"bysizeperstyle", label:"By Size Per Style", followUp:{type:"number", label:"By Size Per Style"}},
+  {id:"bycolorperstyle", label:"By Color Per Style", followUp:{type:"number", label:"By Color Per Style"}},
+  {id:"aqlstandard", label:"AQL Standard", followUp:{type:"select", label:"AQL Table", options:["AQL 3.0","AQL 2.5 - GII","AQL 2.0 SI"]}},
+  {id:"determinedquantity", label:"Determined Quantity", followUp:{type:"number", label:"Determined Quantity"}},
+  {id:"inspectordecide", label:"Inspector Decide", followUp:null}
+];
+
+function renderSampling(){
+  const d = data[active];
+  const body = document.getElementById("samplingBody");
+  if (!d){ body.innerHTML = ""; return; }
+  if (!d.sampling) d.sampling = {method: SAMPLING_METHODS[0].id, value:""};
+  const s = d.sampling;
+  const method = SAMPLING_METHODS.find(x=>x.id===s.method) || SAMPLING_METHODS[0];
+
+  let followUpHtml;
+  if (method.followUp){
+    const fu = method.followUp;
+    const control = fu.type==="select"
+      ? '<select id="samplingFollowUpSel" style="width:100%;">' + fu.options.map(o=>'<option'+(o===s.value?" selected":"")+'>'+o+'</option>').join("") + '</select>'
+      : '<input id="samplingFollowUpInp" type="text" value="'+esc(s.value||"")+'" style="width:100%;">';
+    followUpHtml = '<label class="field-label"><span class="req">*</span>'+fu.label+'</label>' + control;
+  } else {
+    followUpHtml = '<p class="calc-note" style="margin-top:0;">Inspector decides the sample size at the time of inspection — no predefined value needed.</p>';
+  }
+
+  body.innerHTML = '<div style="display:flex; gap:24px; flex-wrap:wrap;">'
+    + '<div style="flex:1; min-width:200px;">'
+      + '<label class="field-label"><span class="req">*</span>Sample size determination</label>'
+      + '<select id="samplingMethodSel" style="width:100%;">' + SAMPLING_METHODS.map(m=>'<option value="'+m.id+'"'+(m.id===s.method?" selected":"")+'>'+m.label+'</option>').join("") + '</select>'
+    + '</div>'
+    + '<div style="flex:1; min-width:200px;">' + followUpHtml + '</div>'
+    + '</div>';
+
+  const ms = document.getElementById("samplingMethodSel");
+  if (ms) ms.addEventListener("change", ()=>{ d.sampling.method = ms.value; d.sampling.value = ""; renderSampling(); });
+  const fs = document.getElementById("samplingFollowUpSel");
+  if (fs) fs.addEventListener("change", ()=>{ d.sampling.value = fs.value; });
+  const fi = document.getElementById("samplingFollowUpInp");
+  if (fi) fi.addEventListener("change", ()=>{ d.sampling.value = fi.value; });
+}
+
+// ---------------------------------------------------------------------------
+// Step list & header
+// ---------------------------------------------------------------------------
+
+function renderList(){
+  const el = document.getElementById("checkList");
+  if (order.length===0){
+    el.innerHTML = '<p style="font-size:12px; color:var(--muted2); padding:6px 2px;">No measurement steps yet.</p>';
+    return;
+  }
+  // Numbered and drag-reorderable, because this list IS the inspection sequence
+  // rather than an index of things to find.
+  const showHandle = order.length > 1;
+  el.innerHTML = order.map((k,i)=>{
+    const d = data[k];
+    const handle = showHandle
+      ? '<span class="drag-handle step-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+      : '';
+    return '<div class="ct-row step-row" data-key="'+k+'" draggable="false">'
+      + handle
+      + '<span class="step-num">'+(i+1)+'</span>'
+      + '<div data-key="'+k+'" class="ct-item'+(k===active?" active":"")+'" title="'+esc(d.name)+'">'+esc(d.name)+'</div>'
+      + '<span data-key="'+k+'" class="ct-remove" title="Remove step">&times;</span>'
+      + '</div>';
+  }).join("");
+  el.querySelectorAll(".ct-item").forEach(item=>{
+    item.addEventListener("click", ()=>{ active = item.getAttribute("data-key"); openEval.clear(); renderAll(); });
+  });
+  el.querySelectorAll(".ct-remove").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{ e.stopPropagation(); removeCheckType(btn.getAttribute("data-key")); });
+  });
+  if (showHandle) wireStepDragDrop(el);
+}
+
+// Same interaction as reordering values inside a step, so the two lists behave
+// alike — grab the handle, drop above or below.
+function wireStepDragDrop(el){
+  const rows = [...el.querySelectorAll(".step-row")];
+  let draggedKey = null;
+
+  rows.forEach(rowEl=>{
+    const handle = rowEl.querySelector(".step-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ rowEl.setAttribute("draggable","true"); });
+
+    rowEl.addEventListener("dragstart", (e)=>{
+      draggedKey = rowEl.getAttribute("data-key");
+      rowEl.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", draggedKey);
+    });
+    rowEl.addEventListener("dragend", ()=>{
+      rowEl.setAttribute("draggable","false");
+      rowEl.classList.remove("dragging");
+      rows.forEach(r=>r.classList.remove("drop-above","drop-below"));
+    });
+    rowEl.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (!draggedKey) return;
+      const targetKey = rowEl.getAttribute("data-key");
+      if (targetKey===draggedKey) return;
+      const rect = rowEl.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      rows.forEach(r=>r.classList.remove("drop-above","drop-below"));
+      rowEl.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    rowEl.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetKey = rowEl.getAttribute("data-key");
+      if (!draggedKey || targetKey===draggedKey) return;
+      const rect = rowEl.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      order.splice(order.indexOf(draggedKey), 1);
+      const toIdx = order.indexOf(targetKey);
+      order.splice(isAbove ? toIdx : toIdx+1, 0, draggedKey);
+      draggedKey = null;
+      renderList();
+    });
+  });
+}
+
+function removeCheckType(key){
+  const d = data[key];
+  if (!d) return;
+  if (!confirm('Remove "'+d.name+'"? This cannot be undone.')) return;
+  delete data[key];
+  const idx = order.indexOf(key);
+  if (idx>-1) order.splice(idx,1);
+  if (active===key) active = order.length ? order[0] : null;
+  renderAll();
+}
+
+function renderHeader(){
+  const d = data[active];
+  const nameInput = document.getElementById("ctName");
+  const metaEl = document.getElementById("ctMeta");
+  if (!d){
+    nameInput.value = "";
+    nameInput.placeholder = "No steps yet — click + Add measurement step";
+    nameInput.disabled = true;
+    metaEl.textContent = "";
+    return;
+  }
+  nameInput.disabled = false;
+  nameInput.value = d.name;
+  metaEl.textContent = computeMeta(d);
+}
+
+// ---------------------------------------------------------------------------
+// Value rows
+// ---------------------------------------------------------------------------
+
+function unitSelectHtml(row, disabled){
+  return '<select data-rowid="'+row.id+'" class="unitSel"'+(disabled?" disabled":"")+' style="min-width:150px;">'
+    + UNIT_GROUPS.map(g=>'<optgroup label="'+g.category+'">'
+        + g.units.map(u=>'<option'+(u===row.unit?" selected":"")+'>'+u+'</option>').join("")
+      + '</optgroup>').join("")
+    + '</select>';
+}
+
+function mcTypeSummary(selected){
+  if (!selected || selected.length===0) return "Any type";
+  if (selected.length < 3) return selected.join(", ");
+  return selected.length + " types selected";
+}
+
+function mcTypeHtml(row){
+  const selected = row.mcTypes || [];
+  const optionsHtml = MC_TYPES.map(t=>{
+    const checked = selected.includes(t.id);
+    // No unit shown next to the type — the chart has none.
+    return '<label><input type="checkbox" data-rowid="'+row.id+'" data-mctype="'+t.id+'" class="mcTypeCheck" '+(checked?"checked":"")+'>'
+      + t.id + '</label>';
+  }).join("");
+  return '<div class="mctype-wrap" data-rowid="'+row.id+'">'
+    + '<div class="mctype-trigger" data-rowid="'+row.id+'" tabindex="0">'
+      + '<span class="mctype-summary" data-rowid="'+row.id+'">'+mcTypeSummary(selected)+'</span>'
+      + '<span class="mctype-caret">&#9662;</span>'
+    + '</div>'
+    + '<div class="mctype-panel" data-rowid="'+row.id+'">' + optionsHtml + '</div>'
+    + '</div>';
+}
+
+// Line 2 — where this value's specification comes from: a Measurement Chart, or
+// defined by hand here.
+function specificationHtml(d, row){
+  const defined = isFromMC(row);
+
+  const primary = '<select data-rowid="'+row.id+'" class="specSel" style="min-width:200px;">'
+    + '<option value="mc"'+(defined?" selected":"")+'>Measurement Chart</option>'
+    + '<option value="manual"'+(!defined?" selected":"")+'>Manual</option>'
+    + '</select>';
+
+  let dependent, hint;
+  if (defined){
+    dependent = mcTypeHtml(row);
+    // Says nothing about tolerance bands — the Evaluation line below covers that.
+    // Also no single unit to state: the chart holds many POMs and each carries
+    // its own unit and standard value.
+    hint = unitIsDerived(d, row)
+      ? '<span class="soft">Every POM in the chart is measured · formula result is in <b>'+esc(derivedUnit(d,row))+'</b></span>'
+      : '<span class="soft">Every POM in the chart is measured, each with its own unit and standard value</span>';
+  } else if (unitIsDerived(d, row)){
+    dependent = '<span class="soft">Unit: <b>'+esc(derivedUnit(d,row))+'</b> — set by the formula</span>';
+    hint = "";
+  } else if (row.formula){
+    dependent = unitSelectHtml(row, false);
+    hint = '<span class="soft">The formula’s unit cannot be derived — state it here</span>';
+  } else {
+    dependent = unitSelectHtml(row, false);
+    hint = "";
+  }
+
+  return '<div class="row-line">'
+    + '<span class="inline-label">Specification</span>'
+    + primary + dependent + hint
+    + '</div>';
+}
+
+// Line 3 — how the number is obtained. Independent of line 2, and given the same
+// shape as it (a two-option select plus a dependent detail) so the row reads as
+// three parallel questions rather than two settings and a loose button.
+function valueHtml(d, row){
+  const isFormula = !!row.formula;
+  let html = '<div class="row-line"><span class="inline-label">Value</span>'
+    + '<select data-rowid="'+row.id+'" class="valueSel" style="min-width:200px;">'
+      + '<option value="inspector"'+(!isFormula?" selected":"")+'>Entered by inspector</option>'
+      + '<option value="formula"'+(isFormula?" selected":"")+'>Calculated by formula</option>'
+    + '</select>';
+  if (isFormula){
+    const t = formulaChipText(d, row);
+    html += '<span class="formula-chip'+(t.warn?" warn":"")+'" data-rowid="'+row.id+'" title="Edit formula">'
+      + '<span class="fx">&fnof;</span><span class="expr">'+esc(t.text)+'</span></span>';
+  }
+  return html + '</div>';
+}
+
+// Line 4 — collapsed by default; defaults are right for most rows.
+function evaluationHtml(d, row){
+  const c = ensureCriteria(row);
+  const isOpen = openEval.has(row.id);
+  const s = evalSummary(d, row);
+  const cls = s.warn ? " warn" : (s.muted ? " muted" : (s.fromSpec ? " from-spec" : ""));
+
+  let html = '<div class="row-line">'
+    + '<span class="inline-label">Evaluation</span>'
+    + '<span class="eval-summary'+cls+'" data-rowid="'+row.id+'">'
+      + esc(s.text) + '<span class="edit">'+(isOpen?"close":"change")+'</span>'
+    + '</span>'
+    + '</div>';
+
+  const warn = mcUnitWarning(d, row);
+  if (warn) html += '<div class="warn-note">'+esc(warn)+'</div>';
+
+  if (!isOpen) return html;
+
+  const unit = inlineUnit(d, row);
+  html += '<div class="eval-open">'
+    + '<select data-rowid="'+row.id+'" class="critTypeSel" style="width:100%;">'
+      + critOptions(row).map(x=>'<option value="'+x.id+'"'+(x.id===c.type?" selected":"")+'>'+x.label+'</option>').join("")
+    + '</select>';
+
+  if (c.type==="max" || c.type==="min"){
+    const opts = c.type==="max"
+      ? [["lt","&lt; (less than)"],["lte","&le; (less than or equal to)"]]
+      : [["gt","&gt; (greater than)"],["gte","&ge; (greater than or equal to)"]];
+    html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px;">'
+      + '<select data-rowid="'+row.id+'" class="critCompSel" style="width:220px;">'
+        + opts.map(o=>'<option value="'+o[0]+'"'+(o[0]===c.comparator?" selected":"")+'>'+o[1]+'</option>').join("")
+      + '</select>'
+      + '<input data-rowid="'+row.id+'" class="critValA" type="text" value="'+esc(c.value||"")+'" style="width:100px;">'
+      + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>'
+      + '</div>';
+  } else if (c.type==="range"){
+    html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px;">'
+      + '<input data-rowid="'+row.id+'" class="critValA" type="text" value="'+esc(c.value||"")+'" style="width:100px;">'
+      + '<span style="font-size:13px; color:var(--mut);">to</span>'
+      + '<input data-rowid="'+row.id+'" class="critValB" type="text" value="'+esc(c.value2||"")+'" style="width:100px;">'
+      + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>'
+      + '</div>';
+  }
+
+  const v = c.value || "?", v2 = c.value2 || "?";
+  const suf = unit ? " "+unit : "";
+  let plain = "";
+  if (c.type==="max")            plain = "Pass when this value is "+(c.comparator==="lte"?"less than or equal to":"less than")+" "+v+suf+".";
+  else if (c.type==="min")       plain = "Pass when this value is "+(c.comparator==="gte"?"greater than or equal to":"greater than")+" "+v+suf+".";
+  else if (c.type==="range")     plain = "Pass when this value is between "+v+suf+" and "+v2+suf+".";
+  else if (c.type==="inspector") plain = "No predefined threshold — the inspector assigns Pass / Fail (or a rating) at the time of inspection.";
+  else if (c.type==="spec")      plain = "The POM already records the standard value, the unit and the tolerance bands — a Weight POM predefines g and, for example, bands of −5% to 5%. Pass when the variation from the POM's standard value falls inside those bands. Nothing to set here.";
+  else                           plain = "Recorded but not judged — typically because it only feeds a formula elsewhere.";
+  html += '<p class="calc-note">'+plain+'</p></div>';
+
+  return html;
+}
+
+function renderRowHtml(d, row, showHandle){
+  const handle = showHandle
+    ? '<span class="drag-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+    : "";
+  const remove = showHandle
+    ? '<span data-rowid="'+row.id+'" class="ct-remove row-remove" title="Remove value">&times;</span>'
+    : "";
+
+  return '<div class="row-card" data-rowid="'+row.id+'" draggable="false">'
+    + '<div class="row-header">'
+      + handle
+      + '<input type="text" data-rowid="'+row.id+'" class="nameInp" value="'+esc(row.name)+'" style="flex:1; min-width:0;">'
+      + remove
+    + '</div>'
+    + specificationHtml(d, row)
+    + valueHtml(d, row)
+    + evaluationHtml(d, row)
+    + '</div>';
+}
+
+function renderRows(){
+  const d = data[active];
+  const rowsCard = document.getElementById("rowsCard");
+  if (!d){ rowsCard.style.display = "none"; document.getElementById("rowsList").innerHTML = ""; return; }
+  rowsCard.style.display = "";
+  const showHandle = d.rows.length > 1;
+  // "Not evaluated" is the right default for a single plumbing row but wrong for
+  // a whole step — a step that judges nothing produces no pass/fail. Flag
+  // it here rather than per row, since one unevaluated row is normal and all of
+  // them is not. A soft note, not an error: a data-collection-only step is
+  // legitimate.
+  const noneEvaluated = d.rows.length>0 && d.rows.every(r=>ensureCriteria(r).type==="skip");
+  const templateNote = noneEvaluated
+    ? '<div class="warn-note" style="margin-top:0; margin-bottom:10px;">No value in this step is evaluated, so it cannot produce a pass or fail. Fine if it exists only to record readings — otherwise give at least one value an evaluation.</div>'
+    : "";
+  document.getElementById("rowsList").innerHTML = templateNote + d.rows.map(row=>renderRowHtml(d, row, showHandle)).join("");
+  wireRowEvents(d);
+  if (showHandle) wireDragDrop(d);
+}
+
+function wireDragDrop(d){
+  const list = document.getElementById("rowsList");
+  const cards = [...list.querySelectorAll(".row-card")];
+  let draggedId = null;
+
+  cards.forEach(card=>{
+    const handle = card.querySelector(".drag-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ card.setAttribute("draggable","true"); });
+
+    card.addEventListener("dragstart", (e)=>{
+      draggedId = parseInt(card.getAttribute("data-rowid"));
+      card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(draggedId));
+    });
+    card.addEventListener("dragend", ()=>{
+      card.setAttribute("draggable","false");
+      card.classList.remove("dragging");
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+    });
+    card.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (draggedId===null) return;
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+      card.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    card.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (draggedId===null || targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      const fromIdx = rowIndex(d, draggedId);
+      const moved = d.rows.splice(fromIdx,1)[0];
+      const toIdx = rowIndex(d, targetId);
+      d.rows.splice(isAbove ? toIdx : toIdx+1, 0, moved);
+      draggedId = null;
+      renderRows();
+    });
+  });
+}
+
+function wireRowEvents(d){
+  const rowOf = (el)=> findRow(d, parseInt(el.getAttribute("data-rowid")));
+
+  document.querySelectorAll(".nameInp").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const row = rowOf(inp);
+      if (row) row.name = inp.value.trim() || row.name;
+      renderRows(); renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".row-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = parseInt(btn.getAttribute("data-rowid"));
+      if (d.rows.length<=1) return;
+      d.rows.splice(rowIndex(d,id),1);
+      d.rows.forEach(r=>{
+        if (!r.formula) return;
+        if (r.formula.op1===id) r.formula.op1 = null;
+        if (r.formula.op2===id) r.formula.op2 = null;
+        if (r.formula.operandIds) r.formula.operandIds = r.formula.operandIds.filter(x=>x!==id);
+      });
+      openEval.delete(id);
+      renderRows(); renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".specSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      row.spec = sel.value;
+      if (row.spec==="manual" && !row.unit) row.unit = "cm";
+      if (row.spec==="mc" && !row.mcTypes) row.mcTypes = [];
+      syncCriteriaToSpec(row);
+      renderRows(); renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".unitSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ rowOf(sel).unit = sel.value; renderRows(); });
+  });
+
+  document.querySelectorAll(".mctype-trigger").forEach(trigger=>{
+    trigger.addEventListener("click", ()=>{
+      const id = trigger.getAttribute("data-rowid");
+      const panel = document.querySelector('.mctype-panel[data-rowid="'+id+'"]');
+      if (!panel) return;
+      const isOpen = panel.style.display === "block";
+      document.querySelectorAll(".mctype-panel").forEach(p=>{ p.style.display = "none"; });
+      panel.style.display = isOpen ? "none" : "block";
+    });
+  });
+
+  document.querySelectorAll(".mcTypeCheck").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const row = rowOf(chk);
+      const cat = chk.getAttribute("data-mctype");
+      row.mcTypes = row.mcTypes || [];
+      if (chk.checked){ if (!row.mcTypes.includes(cat)) row.mcTypes.push(cat); }
+      else { row.mcTypes = row.mcTypes.filter(x=>x!==cat); }
+      const summaryEl = document.querySelector('.mctype-summary[data-rowid="'+row.id+'"]');
+      if (summaryEl) summaryEl.textContent = mcTypeSummary(row.mcTypes);
+      // The unit-compatibility warning depends on the selected types, so refresh
+      // it in place without closing the panel.
+      const card = document.querySelector('.row-card[data-rowid="'+row.id+'"]');
+      const existing = card.querySelector(".warn-note");
+      const warn = mcUnitWarning(d, row);
+      if (existing) existing.remove();
+      if (warn){
+        const el = document.createElement("div");
+        el.className = "warn-note";
+        el.textContent = warn;
+        card.appendChild(el);
+      }
+    });
+  });
+
+  document.querySelectorAll(".valueSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      if (sel.value==="inspector"){
+        // Toggling back is non-destructive — the formula is kept aside so
+        // switching to Calculated again restores it. Only the modal's
+        // "Remove formula" actually discards it.
+        if (row.formula){ row.stashedFormula = row.formula; row.formula = null; }
+        ensureCriteria(row);
+        renderRows(); renderHeader();
+      } else if (row.stashedFormula){
+        row.formula = row.stashedFormula;
+        row.stashedFormula = null;
+        renderRows(); renderHeader();
+      } else {
+        // Nothing to restore, so go straight to the editor. Cancelling leaves
+        // row.formula null, and the re-render drops the select back to
+        // "Entered by inspector".
+        openFormulaModal(d, row, true);
+      }
+    });
+  });
+  document.querySelectorAll(".formula-chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{ openFormulaModal(d, rowOf(chip), false); });
+  });
+
+  document.querySelectorAll(".eval-summary").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const id = parseInt(el.getAttribute("data-rowid"));
+      if (openEval.has(id)) openEval.delete(id); else openEval.add(id);
+      renderRows();
+    });
+  });
+
+  document.querySelectorAll(".critTypeSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      row.criteria.type = sel.value;
+      if ((sel.value==="min"||sel.value==="max") && !row.criteria.comparator){
+        row.criteria.comparator = sel.value==="min" ? "gt" : "lt";
+      }
+      renderRows(); renderHeader();
+    });
+  });
+  document.querySelectorAll(".critCompSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ rowOf(sel).criteria.comparator = sel.value; renderRows(); });
+  });
+  document.querySelectorAll(".critValA").forEach(inp=>{
+    inp.addEventListener("change", ()=>{ rowOf(inp).criteria.value = inp.value; renderRows(); });
+  });
+  document.querySelectorAll(".critValB").forEach(inp=>{
+    inp.addEventListener("change", ()=>{ rowOf(inp).criteria.value2 = inp.value; renderRows(); });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Formula modal
+// ---------------------------------------------------------------------------
+
+function openFormulaModal(d, row, isNew){
+  modal = {
+    rowId: row.id,
+    isNew: isNew,
+    formula: row.formula
+      ? JSON.parse(JSON.stringify(row.formula))
+      : {type:"difference", op1:null, op2:null, operandIds:[], customExpr:""}
+  };
+  renderModal();
+}
+
+// Rows are re-rendered too: cancelling a never-saved formula must snap the Value
+// select back to "Entered by inspector".
+function closeModal(){ modal = null; renderModal(); renderRows(); }
+
+function modalValid(fm){
+  const f = formulaDef(fm);
+  if (!f) return "Pick a formula.";
+  if (f.arity==="many"){
+    if ((fm.operandIds||[]).length < 2) return "Include at least two values.";
+    return null;
+  }
+  if (fm.op1==null || fm.op2==null) return "Pick both values (A and B).";
+  if (fm.op1===fm.op2) return "A and B must be different values.";
+  if (f.custom && !(fm.customExpr||"").trim()) return "Enter an expression using A and B.";
+  return null;
+}
+
+function renderModal(){
+  const root = document.getElementById("modalRoot");
+  if (!modal){ root.innerHTML = ""; return; }
+
+  const d = data[active];
+  const row = findRow(d, modal.rowId);
+  if (!row){ root.innerHTML = ""; modal = null; return; }
+
+  const fm = modal.formula;
+  const f = formulaDef(fm) || FORMULAS[0];
+  const candidates = eligibleOperands(d, row.id);
+  const blockedCount = d.rows.length - 1 - candidates.length;
+
+  const formulaSelect = '<label class="field-label">Formula</label>'
+    + '<select id="mFormulaSel" style="width:100%;">'
+      + FORMULAS.map(x=>{
+          const disabled = candidates.length < 2;
+          return '<option value="'+x.id+'"'+(x.id===fm.type?" selected":"")+(disabled?" disabled":"")+'>'
+            + x.label + (disabled ? " (needs 2 other values)" : "") + '</option>';
+        }).join("")
+    + '</select>';
+
+  let operandHtml = "";
+  if (f.arity==="many"){
+    operandHtml = '<div style="margin-top:14px;"><p class="field-label" style="margin-bottom:6px;">Included values</p>'
+      + candidates.map(r=>{
+          const checked = (fm.operandIds||[]).includes(r.id);
+          return '<label style="display:flex; align-items:center; gap:7px; font-size:13px; padding:4px 0;">'
+            + '<input type="checkbox" class="mOperandChk" data-optid="'+r.id+'" '+(checked?"checked":"")+'>'
+            + esc(r.name) + '</label>';
+        }).join("")
+      + '</div>';
+  } else {
+    const opts = (selected)=> '<option value="">Select…</option>'
+      + candidates.map(r=>'<option value="'+r.id+'"'+(r.id===selected?" selected":"")+'>'+esc(r.name)+'</option>').join("");
+    operandHtml = '<div style="display:flex; gap:16px; margin-top:14px; flex-wrap:wrap;">'
+      + '<div style="flex:1; min-width:180px;"><label class="field-label">First value (A)</label>'
+        + '<select id="mOp1" style="width:100%;">'+opts(fm.op1)+'</select></div>'
+      + '<div style="flex:1; min-width:180px;"><label class="field-label">Second value (B)</label>'
+        + '<select id="mOp2" style="width:100%;">'+opts(fm.op2)+'</select></div>'
+      + '</div>';
+    if (f.custom){
+      operandHtml += '<div style="margin-top:14px;"><label class="field-label">Expression — use A and B for the values above</label>'
+        + '<input id="mCustom" type="text" value="'+esc(fm.customExpr||"")+'" placeholder="e.g. A / B × 10,000" '
+        + 'style="width:100%; font-family:\'Courier New\',monospace;"></div>';
+    }
+  }
+
+  const draftRow = Object.assign({}, row, {formula: fm});
+  const chip = formulaChipText(d, draftRow);
+  const abstract = f.arity==="many"
+    ? (f.id==="sum" ? "Sum of the included values" : "Average of the included values")
+    : (f.custom ? (fm.customExpr||"A … B") : f.expr);
+  const du = derivedUnit(d, draftRow);
+  const unitLine = du
+    ? "Result unit: " + du
+    : (isFromMC(row)
+        ? "Result unit: cannot be derived — the POM supplies it"
+        : "Result unit: cannot be derived — state it on the row (currently " + (row.unit||"unset") + ")");
+  const previewHtml = '<div class="preview-box">'
+    + '<div class="expr">'+esc(abstract)+'</div>'
+    + '<div class="label">'+esc(chip.text)+'</div>'
+    + '<div class="label">'+esc(unitLine)+'</div>'
+    + '</div>';
+
+  const err = modalValid(fm);
+  const blockedNote = blockedCount>0
+    ? '<p class="calc-note">'+blockedCount+' value'+(blockedCount===1?" is":"s are")+' hidden because '
+      + (blockedCount===1?"it depends":"they depend")+' on this one — selecting '+(blockedCount===1?"it":"them")+' would create a loop.</p>'
+    : "";
+  const specNote = isFromMC(row)
+    ? '<p class="calc-note">This value takes its specification from a POM, so the formula result is judged against that POM’s own tolerance bands.</p>'
+    : "";
+
+  root.innerHTML = '<div class="modal-backdrop" id="mBackdrop"><div class="modal">'
+    + '<div class="modal-head"><h3>Formula for “'+esc(row.name)+'”</h3>'
+      + '<p>The formula replaces inspector entry for this value. It does not change where its specification comes from.</p></div>'
+    + '<div class="modal-body">' + formulaSelect + operandHtml + previewHtml + specNote + blockedNote
+      + (err ? '<p class="hint">'+esc(err)+'</p>' : "")
+    + '</div>'
+    + '<div class="modal-foot">'
+      + (modal.isNew ? "" : '<button class="btn btn-danger" id="mRemove">Remove formula</button>')
+      + '<span class="spacer"></span>'
+      + '<button class="btn" id="mCancel">Cancel</button>'
+      + '<button class="btn btn-primary" id="mSave"'+(err?" disabled":"")+'>Save</button>'
+    + '</div>'
+    + '</div></div>';
+
+  document.getElementById("mFormulaSel").addEventListener("change", (e)=>{ fm.type = e.target.value; renderModal(); });
+  const op1 = document.getElementById("mOp1");
+  if (op1) op1.addEventListener("change", ()=>{ fm.op1 = op1.value ? parseInt(op1.value) : null; renderModal(); });
+  const op2 = document.getElementById("mOp2");
+  if (op2) op2.addEventListener("change", ()=>{ fm.op2 = op2.value ? parseInt(op2.value) : null; renderModal(); });
+  const cust = document.getElementById("mCustom");
+  if (cust) cust.addEventListener("input", ()=>{ fm.customExpr = cust.value; });
+  document.querySelectorAll(".mOperandChk").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const oid = parseInt(chk.getAttribute("data-optid"));
+      fm.operandIds = fm.operandIds || [];
+      if (chk.checked){ if (!fm.operandIds.includes(oid)) fm.operandIds.push(oid); }
+      else { fm.operandIds = fm.operandIds.filter(x=>x!==oid); }
+      renderModal();
+    });
+  });
+
+  document.getElementById("mCancel").addEventListener("click", closeModal);
+  document.getElementById("mBackdrop").addEventListener("click", (e)=>{ if (e.target.id==="mBackdrop") closeModal(); });
+  const rm = document.getElementById("mRemove");
+  if (rm) rm.addEventListener("click", ()=>{
+    // The destructive path — unlike toggling the Value select, this discards the
+    // formula for good rather than stashing it.
+    row.formula = null;
+    row.stashedFormula = null;
+    ensureCriteria(row);
+    closeModal(); renderRows(); renderHeader();
+  });
+  document.getElementById("mSave").addEventListener("click", ()=>{
+    row.formula = fm;
+    // A formula never changes where the row's specification comes from, so the
+    // criteria are left alone — including "Within POM tolerance".
+    ensureCriteria(row);
+    closeModal(); renderRows(); renderHeader();
+  });
+}
+
+document.addEventListener("keydown", (e)=>{ if (e.key==="Escape" && modal) closeModal(); });
+
+// ---------------------------------------------------------------------------
+// Top-level actions
+// ---------------------------------------------------------------------------
+
+function newRow(){
+  // POM is the default: if it is the wrong choice the admin sees a POM type
+  // picker and an inherited tolerance and will notice. Defaulting to Manual
+  // fails quietly — the admin types thresholds by hand without realising the
+  // POM already carried them.
+  const row = {id: nextRowId++, name:"New value", spec:"mc", mcTypes:[], unit:"cm", formula:null};
+  ensureCriteria(row);
+  return row;
+}
+
+document.getElementById("addValueBtn").addEventListener("click", ()=>{
+  const d = data[active]; if (!d) return;
+  d.rows.push(newRow());
+  renderRows(); renderHeader();
+});
+
+document.getElementById("ctName").addEventListener("change", (e)=>{
+  if (!active || !data[active]) return;
+  data[active].name = e.target.value.trim() || "Untitled step";
+  e.target.value = data[active].name;
+  renderList();
+});
+
+document.getElementById("addCheckTypeBtn").addEventListener("click", ()=>{
+  const key = "custom"+(nextId++);
+  data[key] = {name:"New measurement step", rows:[newRow()]};
+  order.push(key);
+  active = key;
+  openEval.clear();
+  renderAll();
+  const nameInput = document.getElementById("ctName");
+  nameInput.focus(); nameInput.select();
+});
+
+document.addEventListener("click", (e)=>{
+  document.querySelectorAll(".mctype-panel").forEach(panel=>{
+    if (panel.style.display!=="block") return;
+    const wrap = panel.closest(".mctype-wrap");
+    if (wrap && !wrap.contains(e.target)) panel.style.display = "none";
+  });
+});
+
+function renderAll(){ renderList(); renderHeader(); renderSampling(); renderRows(); renderModal(); }
+renderAll();
+</script>
+</body>
+</html>

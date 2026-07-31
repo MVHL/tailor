@@ -1,0 +1,656 @@
+<!--
+  DESIGN RATIONALE
+  - Modeled on GitHub Actions / Vercel "checks" lists: a vertical stack of gates
+    (lifecycle stages), each rolling up its children's worst state into one
+    glanceable pill + icon — the whole ticket's health reads in under 2 seconds.
+  - Tags/colors match wow/lifecycle-drivers.html exactly: P #DC2626, R #2563EB,
+    NG #6B7280, AC #059669, TP/IP #7C3AED, MR/Review #BE185D. R and AC are
+    separate flat lists (R1, R2… / AC1, AC2…), cross-linked by "solves: P#" /
+    "covers: R#" reference chips — matching ticket-anatomy.html's P/R/NG/AC
+    cards, not a nested tree. "Problematic" cites the exact DoR line it fails,
+    quoted from that artifact's "canonical when" checklist in
+    lifecycle-drivers.html, so verdicts are traceable to the org's own
+    definition of done, not an invented heuristic.
+  - v4 revision — populated with two REAL tickets fetched live from Jira
+    (ID2-36184, ID2-36395) instead of fabricated data, which surfaced a case
+    the fake data hadn't: an artifact can be absent not because the ticket
+    hasn't reached that stage (pending) and not because it's overdue, but
+    because it genuinely doesn't apply to this issue type. ID2-36184 (a Story)
+    has no Requirements/Non-Goals despite being nearly done — flagged overdue,
+    a real gap. ID2-36395 (a Bug) also has none — but that's normal for a bug
+    fix and shouldn't read as a defect. A THIRD calm state, "na-type", handles
+    this: check.onlyForType restricts a check to certain issue types; outside
+    those types it renders calm-grey regardless of ticket stage. This scoping
+    rule is this dashboard's own assumption, not sourced from the WoW docs —
+    flagged explicitly in the footnote below the legend.
+  - A fourth "unknown" state covers MR: GitLab isn't authorized in this
+    session, so MR existence/review status genuinely isn't known — rendered
+    distinctly from "no MR yet" (pending) so absence-of-data is never
+    misreported as confirmed-absence.
+  - Click-to-highlight (per this iteration's request, modeled on
+    ticket-anatomy.html's REL map): clicking an item highlights every item
+    that references it or that it references — across ALL checks, not just
+    the one it's in — and dims the rest; clicking again clears it. Any
+    related item whose parent check was collapsed is auto-expanded so the
+    highlighted chain is actually visible, not just marked.
+  - Item cards remain a focus-accordion for their own check (opening one
+    collapses a sibling in the same check); checks/items in "problematic" or
+    "overdue" auto-expand on load, "good"/"pending"/"na-type"/"unknown" stay
+    collapsed until clicked.
+  - The MR check surfaces only neutral metadata — never a pass/fail verdict —
+    because code review is a human judgment call, out of scope here.
+-->
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --border:#e1e4e9;
+    --text:#1c2128;
+    --text-dim:#5b616b;
+    --text-faint:#8b909a;
+    --good:#1a7f37;
+    --good-bg:#dafbe1;
+    --good-bg-soft:#eefcf1;
+    --bad:#cf222e;
+    --bad-bg:#ffebe9;
+    --bad-bg-soft:#fff2f1;
+    --pending:#8b909a;
+    --pending-bg:#eceef1;
+    --pending-bg-soft:#f4f5f7;
+    --progress:#9a6700;
+    --progress-bg:#fff8c5;
+    --progress-bg-soft:#fffbe6;
+    --accent:#0969da;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1117;
+      --panel:#161b22;
+      --border:#30363d;
+      --text:#e6edf3;
+      --text-dim:#9198a1;
+      --text-faint:#6e7681;
+      --good:#3fb950;
+      --good-bg:#1b3a24;
+      --good-bg-soft:#132a1a;
+      --bad:#f85149;
+      --bad-bg:#4c1210;
+      --bad-bg-soft:#33100e;
+      --pending:#8b949e;
+      --pending-bg:#21262d;
+      --pending-bg-soft:#1a1e24;
+      --progress:#d29922;
+      --progress-bg:#3d2f06;
+      --progress-bg-soft:#2b2205;
+      --accent:#58a6ff;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);padding:32px 16px 80px;}
+  .wrap{max-width:880px;margin:0 auto;}
+
+  .app-header{margin-bottom:20px;}
+  .app-title{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);font-weight:600;margin:0 0 10px;}
+  .tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap;}
+  .tab{appearance:none;border:none;background:none;cursor:pointer;padding:10px 14px 12px;font-size:14px;font-weight:600;color:var(--text-dim);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:8px;font-family:inherit;text-align:left;}
+  .tab .key{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text-faint);}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent);}
+
+  .ticket-summary{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin:20px 0 18px;box-shadow:var(--shadow);}
+  .ticket-summary-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  .ticket-key{font-family:var(--mono);font-size:13px;color:var(--text-faint);}
+  .ticket-key a{color:inherit;}
+  .ticket-title{font-size:17px;font-weight:650;margin:2px 0 0;}
+  .stage-pill{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.02em;white-space:nowrap;}
+  .overall-line{margin-top:14px;font-size:13.5px;color:var(--text-dim);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .overall-line b{color:var(--text);}
+  .overall-counts{display:flex;gap:14px;font-size:13px;flex-wrap:wrap;}
+  .count-chip{display:flex;align-items:center;gap:5px;}
+  .count-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+
+  .gate{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+  .gate-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+  .gate-header:hover{background:var(--pending-bg-soft);}
+  .gate-chevron{width:14px;height:14px;flex:none;color:var(--text-faint);transition:transform .15s ease;}
+  .gate.open .gate-chevron{transform:rotate(90deg);}
+  .gate-icon{width:22px;height:22px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .gate-icon svg{width:13px;height:13px;}
+  .gate-name{font-size:15px;font-weight:650;flex:none;}
+  .gate-sub{font-size:12.5px;color:var(--text-faint);flex:1;min-width:120px;}
+  .gate-status-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;flex:none;white-space:nowrap;}
+  .gate-body{border-top:1px solid var(--border);}
+  .gate.collapsed .gate-body{display:none;}
+
+  .check{border-bottom:1px solid var(--border);}
+  .check:last-child{border-bottom:none;}
+  .check-row{display:flex;align-items:flex-start;gap:10px;padding:13px 18px;cursor:pointer;}
+  .check-row:hover{background:var(--pending-bg-soft);}
+  .check-icon{width:18px;height:18px;border-radius:50%;flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;}
+  .check-icon svg{width:11px;height:11px;}
+  .type-abbr{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:18px;padding:0 5px;border-radius:5px;font-size:10.5px;font-weight:800;color:#fff;flex:none;margin-top:1px;font-family:var(--mono);}
+  .check-main{flex:1;min-width:0;}
+  .check-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .check-title{font-size:14px;font-weight:600;}
+  .check-badge{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em;}
+  .check-meta{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
+  .check-chevron{width:12px;height:12px;color:var(--text-faint);flex:none;margin-top:4px;transition:transform .15s ease;}
+  .check.open .check-chevron{transform:rotate(90deg);}
+  .check-detail{display:none;padding:2px 18px 16px 50px;font-size:13px;color:var(--text-dim);line-height:1.55;}
+  .check.open .check-detail{display:block;}
+  .check-detail > p{margin:0 0 10px;}
+  .check-detail a{color:var(--accent);}
+
+  .items{display:flex;flex-direction:column;gap:6px;}
+  .item{border:1px solid var(--border);border-radius:10px;background:var(--pending-bg-soft);cursor:pointer;transition:background .15s,border-color .15s,opacity .15s,outline-color .15s;overflow:hidden;}
+  .item:hover{background:var(--panel);border-color:var(--text-faint);}
+  .item.open{background:var(--panel);border-color:var(--accent);}
+  .item.lit{outline:2px solid var(--accent);outline-offset:-1px;}
+  .item.dim{opacity:.32;}
+  .item-row{display:flex;align-items:center;gap:9px;padding:9px 12px;}
+  .item-icon{width:15px;height:15px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .item-icon svg{width:9px;height:9px;}
+  .item-tag{font-family:var(--mono);font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;flex:none;}
+  .item-title{font-size:13px;font-weight:600;flex:1;min-width:0;}
+  .item-badge{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em;flex:none;}
+  .item-chevron{width:11px;height:11px;color:var(--text-faint);flex:none;transition:transform .15s ease;}
+  .item.open .item-chevron{transform:rotate(90deg);}
+  .item-detail{display:none;padding:0 14px 12px 40px;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+  .item.open .item-detail{display:block;}
+  .item-issue{color:var(--bad);font-weight:600;margin-top:6px;display:block;}
+  .item-note{color:var(--text-faint);font-style:italic;margin-top:6px;display:block;}
+  .item-refs{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+  .ref-label{font-size:10.5px;color:var(--text-faint);margin-right:1px;}
+  .ref-chip{font-family:var(--mono);font-size:10px;font-weight:800;border-radius:4px;padding:1px 6px;}
+  code{font-family:var(--mono);font-size:.92em;background:rgba(0,0,0,0.07);padding:1px 5px;border-radius:4px;}
+
+  .mr-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .mr-chip{font-size:12px;background:var(--pending-bg);color:var(--text-dim);padding:4px 10px;border-radius:14px;display:flex;align-items:center;gap:5px;font-weight:600;}
+
+  .st-good-bg{background:var(--good-bg);color:var(--good);}
+  .st-good-icon{background:var(--good);color:#fff;}
+  .st-bad-bg{background:var(--bad-bg);color:var(--bad);}
+  .st-bad-icon{background:var(--bad);color:#fff;}
+  .st-pending-bg{background:var(--pending-bg);color:var(--text-dim);}
+  .st-pending-icon{background:transparent;color:var(--text-faint);border:1.5px dashed var(--text-faint);}
+  .st-progress-bg{background:var(--progress-bg);color:var(--progress);}
+  .st-progress-icon{background:var(--progress);color:#fff;}
+
+  .missing-overdue-row{background:var(--bad-bg-soft);}
+  .missing-na-row{opacity:.72;}
+
+  footer.legend{margin-top:28px;padding:16px 18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);font-size:12.5px;color:var(--text-dim);}
+  .legend-title{font-weight:700;color:var(--text);margin-bottom:10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;}
+  .legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;}
+  .legend-item{display:flex;align-items:center;gap:8px;}
+  .legend-icon{width:16px;height:16px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .legend-icon svg{width:10px;height:10px;}
+  .legend-types{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+  .legend-footnote{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--text-faint);line-height:1.5;}
+  .legend-footnote b{color:var(--text-dim);}
+</style>
+
+<div class="wrap">
+  <div class="app-header">
+    <p class="app-title">Artifact Health &mdash; Ticket Checks (live Jira data)</p>
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <div id="ticket-summary"></div>
+  <div id="gates"></div>
+
+  <footer class="legend">
+    <div class="legend-title">State legend</div>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="legend-icon st-good-icon">&#10003;</span> Good &mdash; exists, passes checks</div>
+      <div class="legend-item"><span class="legend-icon st-bad-icon">&#10005;</span> Problematic &mdash; exists, fails a DoR check</div>
+      <div class="legend-item"><span class="legend-icon st-pending-icon"></span> Pending &mdash; stage not started yet (calm)</div>
+      <div class="legend-item"><span class="legend-icon st-bad-icon">!</span> Missing &amp; overdue &mdash; should exist now (alarming)</div>
+      <div class="legend-item"><span class="legend-icon st-pending-icon">t</span> N/A for this issue type (calm)</div>
+      <div class="legend-item"><span class="legend-icon st-pending-icon">?</span> Not fetched &mdash; source unauthorized (calm, not asserted-missing)</div>
+    </div>
+    <div class="legend-types" id="legend-types"></div>
+    <div class="legend-footnote">
+      <b>Assumption, not sourced from the WoW docs:</b> this view treats Non-Goals as not-applicable for Bug-type tickets. That scoping rule is this dashboard's own inference to avoid flagging every bug fix as defective for lacking a Non-Goals section — confirm it matches your team's actual DoR before relying on it. Requirements are <em>not</em> exempted the same way — see the next correction.
+      <br><b>Known gap:</b> MR/code-review data requires GitLab, which isn't authorized in this session — MR checks below show "Not fetched," not a verdict.
+      <br><b>Correction (caught by the user, 2026-07-19):</b> this project's formal test cases live in a separate "AIO Tests" app panel on each ticket (its own Cases/Cycles/Defects tabs), not in the ticket description or comments the Jira API fetch used here — and issuelinks doesn't expose them either. The first pass wrongly read ID2-36184's Test Plan as absent; it actually has 19 published cases there. Fixed for ID2-36184 using a screenshot the user provided (partial visibility: 8 of 19 titles). ID2-36395's Test Plan is now shown as "Not fetched" rather than "overdue," since the same blind spot could apply and wasn't checked.
+      <br><b>Correction (caught by the user, 2026-07-19):</b> ID2-36184's Problem check was also misclassified — its User Story ("AS a... I WANT... SO THAT...") states the decided feature to build, which is a Requirement, not the underlying pain point. Moved to Requirements as R1; the Problem check is now "N/A" with a note pointing to the parent Epic. A Story ticket not restating its Epic's Problem is expected, not a defect.
+      <br><b>Correction (caught by the user, 2026-07-19):</b> ID2-36395's Requirements check was wrongly marked not-applicable for its Bug type. In a Bug ticket, the "Expected behavior" line <em>is</em> the Requirement (what should happen); "Steps to Reproduce" + "Actual behavior" are the Problem (what's wrong). Extracted as R1, with AC1–3 now covering it — Requirements apply to bug tickets too, just packaged inside different section headers than a Story uses.
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ---------------- ICONS ---------------- */
+const ICONS = {
+  check: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-6.5 6.5a.75.75 0 01-1.06 0l-3-3a.75.75 0 111.06-1.06l2.47 2.47 5.97-5.97a.75.75 0 011.06 0z"/></svg>',
+  x: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/></svg>',
+  clock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>',
+  dash: '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="7" width="10" height="2" rx="1"/></svg>',
+  bang: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a1 1 0 011 1v6a1 1 0 01-2 0v-6a1 1 0 011-1zM8 12a1.15 1.15 0 100 2.3A1.15 1.15 0 008 12z"/></svg>',
+  q: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-4.9 4h1.7A3.3 3.3 0 018 2.7c1.7 0 3 1.2 3 2.6 0 1.1-.6 1.7-1.7 2.5C8.1 8.6 7.3 9.3 7.3 11h1.6c0-1 .5-1.5 1.5-2.2 1.2-.9 2.1-1.8 2.1-3.4C12.5 3 10.5 1 8 1zM7.2 12.6v1.7h1.7v-1.7H7.2z"/></svg>',
+  chevron: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>'
+};
+
+const STATE = {
+  good:        {label:'Passing',   icon:ICONS.check, iconClass:'st-good-icon',     badgeClass:'st-good-bg'},
+  problematic: {label:'Issues',    icon:ICONS.x,     iconClass:'st-bad-icon',       badgeClass:'st-bad-bg'},
+  pending:     {label:'Pending',   icon:ICONS.dash,  iconClass:'st-pending-icon',   badgeClass:'st-pending-bg'},
+  overdue:     {label:'Overdue',   icon:ICONS.bang,  iconClass:'st-bad-icon',       badgeClass:'st-bad-bg'},
+  progress:    {label:'In progress', icon:ICONS.clock, iconClass:'st-progress-icon', badgeClass:'st-progress-bg'},
+  'na-type':   {label:'N/A (type)',  icon:ICONS.dash, iconClass:'st-pending-icon',  badgeClass:'st-pending-bg'},
+  unknown:     {label:'Not fetched', icon:ICONS.q,    iconClass:'st-pending-icon',  badgeClass:'st-pending-bg'}
+};
+
+const GATE_STATE = {
+  passed:    {label:'Passed',      cls:'st-good-bg',     icon:ICONS.check, iconCls:'st-good-icon'},
+  issues:    {label:'Has issues',  cls:'st-bad-bg',       icon:ICONS.x,     iconCls:'st-bad-icon'},
+  overdue:   {label:'Overdue',     cls:'st-bad-bg',       icon:ICONS.bang,  iconCls:'st-bad-icon'},
+  progress:  {label:'In progress', cls:'st-progress-bg',  icon:ICONS.clock, iconCls:'st-progress-icon'},
+  pending:   {label:'Not started', cls:'st-pending-bg',   icon:ICONS.dash,  iconCls:'st-pending-icon'}
+};
+
+/* ---------------- ARTIFACT TYPES — tags & colors match wow/lifecycle-drivers.html exactly ---------------- */
+const TYPES = {
+  P:  {abbr:'P',  label:'Problem Statement(s)',  hue:'#DC2626'},
+  R:  {abbr:'R',  label:'Requirements',          hue:'#2563EB'},
+  NG: {abbr:'NG', label:'Non-Goals',             hue:'#6B7280'},
+  AC: {abbr:'AC', label:'Acceptance Criteria',   hue:'#059669'},
+  TP: {abbr:'TP', label:'Test Plan',             hue:'#7C3AED'},
+  IP: {abbr:'IP', label:'Implementation Plan',   hue:'#7C3AED'},
+  MR: {abbr:'MR', label:'Merge Request',         hue:'#BE185D'}
+};
+
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+function hueForTag(tag){
+  const m = tag.match(/^[A-Za-z]+/);
+  return (TYPES[m ? m[0] : ''] || {}).hue || '#64748B';
+}
+
+/* ---------------- REAL DATA — fetched live via Jira MCP (getJiraIssue) + Confluence (getConfluencePage)
+   on 2026-07-19. Extraction is honest, not fabricated: where a ticket has no explicit Problem /
+   Requirements / Non-Goals section, that's modeled as genuinely absent, not synthesized. ---------------- */
+const TICKETS = {
+  A: {
+    key:'ID2-36184', issueType:'Story',
+    title:'Certifications Tab — Per-Product Certification Data Entry — Create mode',
+    url:'https://inspectorio.atlassian.net/browse/ID2-36184',
+    stage:'In Pre-production Testing', stageColor:'#BE185D',
+    gates: [
+      { id:'framing', name:'Framing', stageOrder:0, checks: [
+        { id:'p', kind:'itemgroup', type:'P', items:[], naType:true,
+          naNote:'Corrected after user feedback: the User Story text previously shown here was misclassified — "AS a... I WANT... SO THAT..." states the <em>decided feature</em> to build, which is a Requirement, not the underlying pain point. Moved to the Requirements check below as R1. A Story ticket not restating its parent Epic\'s Problem is expected, not a gap — this one\'s problem context lives at Epic <a href="https://inspectorio.atlassian.net/browse/ID2-36166" target="_blank">ID2-36166</a> (Automatic CPSC Product Registry Submission with Product caching).' },
+        { id:'r', kind:'itemgroup', type:'R', items:[
+          { id:'R1', text:'AS a 3P Lab or Brand/Retailer, I WANT to capture certification attributes and filing readiness per product within a lab test through a dedicated Certifications tab, SO THAT the system has the data needed to construct a valid CPSC Product Registry payload and knows which products should be auto-submitted.', state:'good',
+            note:'Written as a User Story (AS/I WANT/SO THAT) rather than a plain requirement sentence — recategorized from Problem to Requirement after user feedback, since this names the feature being built, not the pain behind it.' }
+        ]},
+        { id:'ng', kind:'itemgroup', type:'NG', items:[] },
+        { id:'ac', kind:'itemgroup', type:'AC', items:[
+          { id:'AC1', text:'Do not show these columns if this component was not added to For Test Creation in the Lab Test form.', refs:[{label:'covers',tag:'R1'}], state:'good',
+            note:'Ticket body shows AC1/AC2 were revised in place (original wording struck through, replaced) — a live edit history worth a glance if Test/Impl Plan were drafted against the earlier wording.' },
+          { id:'AC2', text:'If enabled, show them next to the last column of the Product Information table.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC3', text:'Load Certificate Type from the LT Form.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC4', text:'Load Citation Code from the LT Form.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC5', text:'Load Exemption Code from the LT Form.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC6', text:'All fields are individually inline-editable by clicking the cell (dropdown / multi-select / file upload).', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC7', text:'Remove the (currently non-functional) sort icon from all columns.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC8', text:'Show these new fields as editable for Add item manually, Add item from list, and Add from PO.', refs:[{label:'covers',tag:'R1'}], state:'good' }
+        ]}
+      ]},
+      { id:'planning', name:'Planning', stageOrder:1, checks: [
+        { id:'tp', kind:'itemgroup', type:'TP',
+          headNote:'Corrected after review: these live in a separate "AIO Tests" app panel on the ticket (Cases tab), not in the ticket description/comments this dashboard fetched via the Jira API — issuelinks confirmed no standard link exposes them either. Sourced from a screenshot the user provided (2026-07-19), not a live fetch: 19 cases total, all "Published"; only the 8 below were visible in that screenshot, so AC-coverage on the remaining 11 is unconfirmed. AC↔TC mapping below is inferred from title wording, not an explicit Jira link.',
+          items:[
+            { id:'TC-4132', text:'Verify the certification columns are hidden when the component is not added to "For Test Creation" in the LT form', refs:[{label:'covers',tag:'AC1'}], state:'good' },
+            { id:'TC-4133', text:'Verify the certification columns appear in Product Information when the component is enabled in "For Test Creation"', refs:[{label:'covers',tag:'AC1'}], state:'good' },
+            { id:'TC-4134', text:'Verify toggling the component off in form settings removes the columns from the Product Information table', refs:[{label:'covers',tag:'AC1'}], state:'good' },
+            { id:'TC-4135', text:'Verify enabled certification columns render after the last existing column of the Product Information table', refs:[{label:'covers',tag:'AC2'}], state:'good' },
+            { id:'TC-4136', text:'Verify column order matches the LT form configuration', refs:[{label:'covers',tag:'AC2'}], state:'good' },
+            { id:'TC-4137', text:'Verify Certificate Type options load from the LT Form configuration', refs:[{label:'covers',tag:'AC3'}], state:'good' },
+            { id:'TC-4138', text:'Verify Certificate Type displays no value when nothing is configured/selected in Create mode', refs:[{label:'covers',tag:'AC3'}], state:'good' },
+            { id:'TC-4139', text:'Verify Citation Code options load from the LT Form (title truncated in the source screenshot — shown as visible, not confirmed complete)', refs:[{label:'covers',tag:'AC4'}], state:'good' }
+          ] },
+        { id:'ip', kind:'itemgroup', type:'IP', items:[
+          { id:'1', text:'Expose only the Creation-phase writable fields (certification_type, citation_codes, exemption_codes) on LabTestItemV2Serializer — drop just these three from its exclude.', refs:[{label:'implements',tag:'AC3'},{label:'implements',tag:'AC4'},{label:'implements',tag:'AC5'}], state:'good' },
+          { id:'2', text:'Re-expose all six cert fields in LabTestItemDetailV2Serializer so the Product Information table renders them without a new endpoint (plan marks this step "Done").', refs:[{label:'implements',tag:'AC2'}], state:'good' }
+        ]}
+      ]},
+      { id:'building', name:'Building / QA', stageOrder:2, checks: [
+        { id:'mr', kind:'mr', state:'unknown', meta:'Not fetched — GitLab not authorized in this session',
+          detail:'This ticket is already "In Pre-production Testing," so an MR almost certainly exists — but its state and review status can\'t be confirmed here without GitLab access. Shown as unknown, not as missing.' }
+      ]}
+    ]
+  },
+
+  B: {
+    key:'ID2-36395', issueType:'Bug',
+    title:'[Lab Test][Linked Tests] Link Test modal in questionnaire does not pre-fill Supplier/Style filters',
+    url:'https://inspectorio.atlassian.net/browse/ID2-36395',
+    stage:'In Pre-production Testing', stageColor:'#BE185D',
+    gates: [
+      { id:'framing', name:'Framing', stageOrder:0, checks: [
+        { id:'p', kind:'itemgroup', type:'P', items:[
+          { id:'P1', text:'The Link Test modal is reused from two entry points. From Lab Test Detail → Linked Tests it receives prefilledOptions narrowing search to the current test\'s Supplier/Vendor and Style ID (linked-tests.component.ts:172-204, :221). From a questionnaire\'s Linked Test question it passes prefilledOptions: [] — no filters applied — inconsistent with the other entry point.', state:'good',
+            note:'Unusually well-evidenced for a Problem statement: names exact files and line numbers rather than describing the symptom abstractly. Related tickets referenced for context (not modeled as Dependency/Risk — no Spike was run, appropriately, for a bug this contained): ID2-34160, ID2-34768.' }
+        ]},
+        { id:'r', kind:'itemgroup', type:'R', items:[
+          { id:'R1', text:'The modal opened from the questionnaire pre-fills the same prefilledOptions as the Lab Test Detail entry point: Supplier/Vendor from the first tier-less supplier, and Style ID from the first item\'s styleId (for the Item entity type).', refs:[{label:'solves',tag:'P1'}], state:'good',
+            note:'Corrected after user feedback: this is the ticket\'s "Expected behavior" line — in a Bug ticket, Expected behavior states the Requirement (what should happen), while Steps to Reproduce + Actual behavior state the Problem (what\'s wrong). Extracted here rather than treated as a missing/not-applicable section.' }
+        ]},
+        { id:'ng', kind:'itemgroup', type:'NG', onlyForType:['Story'], items:[] },
+        { id:'ac', kind:'itemgroup', type:'AC', items:[
+          { id:'AC1', text:'When the Link Test modal opens from a questionnaire Linked Test question, the Supplier/Vendor filter pre-fills from the first supplier without a tier, matching Lab Test Detail behavior.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC2', text:'For the Item entity type, the Style ID filter pre-fills from the first item\'s styleId when present.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+          { id:'AC3', text:'Prefill parity holds for both Lab Test and Approval Request questionnaires, and degrades gracefully (no error) when supplier/item data is absent.', refs:[{label:'covers',tag:'R1'}], state:'good' }
+        ]}
+      ]},
+      { id:'planning', name:'Planning', stageOrder:1, checks: [
+        { id:'tp', kind:'itemgroup', type:'TP', items:[], blindSpot:true,
+          detail:'Not confirmed either way. ID2-36184 turned out to have 19 published test cases in a separate "AIO Tests" app panel that isn\'t exposed via the standard Jira issue fields this dashboard fetches — this ticket may have the same and simply wasn\'t checked for it (no screenshot was provided for this one). Shown as unknown, not as a confirmed gap.' },
+        { id:'ip', kind:'itemgroup', type:'IP', items:[
+          { id:'1', text:'Mirror the prefill logic from linked-tests.component.ts into the SurveyJS selector\'s buildPrefilledOptions, so the questionnaire entry point matches the Lab Test Detail entry point.', refs:[{label:'implements',tag:'AC1'},{label:'implements',tag:'AC2'}], state:'good',
+            note:'Informal — a one-line note in the ticket body naming the fix + function, not a separate structured Impl Plan doc. Proportionate for a bug this size.' }
+        ]}
+      ]},
+      { id:'building', name:'Building / QA', stageOrder:2, checks: [
+        { id:'mr', kind:'mr', state:'unknown', meta:'Not fetched — GitLab not authorized in this session',
+          detail:'This ticket is already "In Pre-production Testing" and the note says a fix was applied locally — an MR likely exists, but can\'t be confirmed here without GitLab access.' }
+      ]}
+    ]
+  }
+};
+
+/* ---------------- RENDER ---------------- */
+let activeKey = 'A';
+let highlightId = null;
+
+function checkRawState(check, ticket){
+  if(check.kind === 'itemgroup'){
+    if(check.onlyForType && !check.onlyForType.includes(ticket.issueType)) return 'na-type';
+    if(check.naType) return 'na-type';
+    if(!check.items.length) return check.blindSpot ? 'unknown' : 'pending';
+    return check.items.some(i=>i.state==='problematic') ? 'problematic' : 'good';
+  }
+  return check.state;
+}
+
+function currentStageOrder(ticket){
+  let max = 0;
+  ticket.gates.forEach(g=>{
+    const hasReal = g.checks.some(c => checkRawState(c, ticket) !== 'pending');
+    if(hasReal) max = Math.max(max, g.stageOrder);
+  });
+  return max;
+}
+
+function computeVisual(rawState, gate, ticket){
+  if(rawState !== 'pending') return rawState;
+  const curStage = currentStageOrder(ticket);
+  return gate.stageOrder <= curStage ? 'overdue' : 'pending';
+}
+
+function gateRollup(gate, ticket){
+  const calm = s => s==='pending' || s==='na-type' || s==='unknown';
+  const raws = gate.checks.map(c=>checkRawState(c, ticket));
+  const curStage = currentStageOrder(ticket);
+  const isFutureGate = gate.stageOrder > curStage && raws.every(calm);
+  if(isFutureGate) return 'pending';
+  if(raws.some(s=>computeVisual(s, gate, ticket)==='overdue')) return 'overdue';
+  if(raws.some(s=>s==='problematic')) return 'issues';
+  if(raws.some(s=>s==='progress')) return 'progress';
+  if(raws.every(s=>s==='good'||s==='na-type'||s==='unknown')) return raws.some(s=>s==='unknown') ? 'pending' : 'passed';
+  if(raws.some(calm)) return 'progress';
+  return 'passed';
+}
+
+function renderTabs(){
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = Object.keys(TICKETS).map(k=>{
+    const t = TICKETS[k];
+    return `<button class="tab ${k===activeKey?'active':''}" data-key="${k}">
+      <span class="key">${t.key}</span> <span>${t.issueType}</span>
+    </button>`;
+  }).join('');
+  tabs.querySelectorAll('.tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ activeKey = btn.dataset.key; highlightId = null; renderAll(); });
+  });
+}
+
+function overallSummary(ticket){
+  let passed=0, issues=0, overdue=0, prog=0, pend=0;
+  ticket.gates.forEach(g=>{
+    const r = gateRollup(g, ticket);
+    if(r==='passed') passed++;
+    else if(r==='issues') issues++;
+    else if(r==='overdue') overdue++;
+    else if(r==='progress') prog++;
+    else pend++;
+  });
+  return {passed, issues, overdue, prog, pend};
+}
+
+function renderSummary(ticket){
+  const s = overallSummary(ticket);
+  const el = document.getElementById('ticket-summary');
+  el.innerHTML = `
+    <div class="ticket-summary">
+      <div class="ticket-summary-top">
+        <div>
+          <div class="ticket-key"><a href="${ticket.url}" target="_blank" rel="noopener">${ticket.key}</a> &middot; ${ticket.issueType}</div>
+          <div class="ticket-title">${ticket.title}</div>
+        </div>
+        <span class="stage-pill" style="background:${hexA(ticket.stageColor,0.13)};color:${ticket.stageColor};border:1px solid ${hexA(ticket.stageColor,0.35)};">${ticket.stage}</span>
+      </div>
+      <div class="overall-line">
+        <b>Pipeline summary:</b>
+        <div class="overall-counts">
+          ${s.passed? `<span class="count-chip"><span class="dot" style="background:var(--good)"></span>${s.passed} passed</span>`:''}
+          ${s.issues? `<span class="count-chip"><span class="dot" style="background:var(--bad)"></span>${s.issues} has issues</span>`:''}
+          ${s.overdue? `<span class="count-chip"><span class="dot" style="background:var(--bad)"></span>${s.overdue} overdue</span>`:''}
+          ${s.prog? `<span class="count-chip"><span class="dot" style="background:var(--progress)"></span>${s.prog} in progress</span>`:''}
+          ${s.pend? `<span class="count-chip"><span class="dot" style="background:var(--text-faint)"></span>${s.pend} not started / n·a</span>`:''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function itemTagStyle(tag){
+  const hue = hueForTag(tag);
+  return `background:${hexA(hue,0.14)};color:${hue};`;
+}
+
+function itemHtml(item, gi, ci, ii){
+  const st = STATE[item.state];
+  const domId = `item-${gi}-${ci}-${ii}`;
+  const autoOpen = item.state === 'problematic' || item.state === 'overdue';
+  const refsHtml = (item.refs||[]).map(r=>{
+    const hue = hueForTag(r.tag);
+    return `<span class="ref-label">${r.label}</span><span class="ref-chip" style="background:${hexA(hue,0.14)};color:${hue}">${r.tag}</span>`;
+  }).join('');
+  const shortText = item.text.length > 62 ? item.text.slice(0,62)+'…' : item.text;
+  return `
+    <div class="item ${autoOpen?'open':''}" id="${domId}" data-item-id="${item.id}">
+      <div class="item-row" onclick="selectItem('${domId}', 'item-${gi}-${ci}-', '${item.id}')">
+        <span class="item-icon ${st.iconClass}">${st.icon}</span>
+        <span class="item-tag" style="${itemTagStyle(item.id)}">${item.id}</span>
+        <span class="item-title">${shortText}</span>
+        <span class="item-badge ${st.badgeClass}">${st.label}</span>
+        <span class="item-chevron">${ICONS.chevron}</span>
+      </div>
+      <div class="item-detail">
+        <div>${item.text}</div>
+        ${item.issue ? `<span class="item-issue">${item.issue}</span>` : ''}
+        ${item.note ? `<span class="item-note">${item.note}</span>` : ''}
+        ${refsHtml ? `<div class="item-refs">${refsHtml}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+/* click-to-highlight, global across the whole ticket (per ticket-anatomy.html's REL map):
+   opening an item also highlights everything it references and everything that references it,
+   dimming the rest, and auto-expands the parent check of any related item so it's actually visible. */
+function collectAllItems(ticket){
+  const all = [];
+  ticket.gates.forEach(g=>g.checks.forEach(c=>{ if(c.kind==='itemgroup') c.items.forEach(it=>all.push(it)); }));
+  return all;
+}
+function relatedIds(ticket, id){
+  const all = collectAllItems(ticket);
+  const set = new Set([id]);
+  const self = all.find(it=>it.id===id);
+  (self && self.refs || []).forEach(r=>set.add(r.tag));
+  all.forEach(it=>{ if((it.refs||[]).some(r=>r.tag===id)) set.add(it.id); });
+  return set;
+}
+
+function selectItem(domId, groupPrefix, itemId){
+  const el = document.getElementById(domId);
+  const willOpen = !el.classList.contains('open');
+  document.querySelectorAll(`.item[id^="${groupPrefix}"]`).forEach(s=>s.classList.remove('open'));
+  document.querySelectorAll('.item').forEach(s=>s.classList.remove('lit','dim'));
+  if(willOpen){
+    el.classList.add('open');
+    highlightId = itemId;
+    const rel = relatedIds(TICKETS[activeKey], itemId);
+    document.querySelectorAll('.item[data-item-id]').forEach(elm=>{
+      if(rel.has(elm.dataset.itemId)){
+        elm.classList.add('lit');
+        const chk = elm.closest('.check');
+        if(chk) chk.classList.add('open');
+      } else {
+        elm.classList.add('dim');
+      }
+    });
+  } else {
+    highlightId = null;
+  }
+}
+
+function checkMeta(check){
+  if(check.kind !== 'itemgroup') return check.meta || '';
+  const n = check.items.length;
+  const flagged = check.items.filter(i=>i.state==='problematic').length;
+  if(n === 0) return check.naType ? 'Not applicable' : (check.blindSpot ? 'Not fetched' : 'No items yet');
+  let m = `${n} item${n===1?'':'s'}`;
+  if(flagged) m += ` · ${flagged} flagged`;
+  return m;
+}
+
+function checkHtml(check, gate, ticket, gi, ci){
+  const rawState = checkRawState(check, ticket);
+  const visState = computeVisual(rawState, gate, ticket);
+  const st = STATE[visState];
+  const rowExtra = visState==='overdue' ? 'missing-overdue-row' : ((visState==='pending'||visState==='na-type'||visState==='unknown') ? 'missing-na-row' : '');
+  const domId = `chk-${gi}-${ci}`;
+  const autoOpenCheck = visState === 'problematic' || visState === 'overdue';
+
+  const type = check.type ? TYPES[check.type] : (check.kind==='mr' ? TYPES.MR : null);
+  const title = type ? type.label : check.title;
+  const abbr = type ? type.abbr : '';
+  const abbrHue = type ? type.hue : '#64748B';
+
+  let extraDetail = '';
+  if(check.kind === 'itemgroup'){
+    if(visState === 'na-type'){
+      extraDetail = check.naNote
+        ? `<p style="margin:0;">${check.naNote}</p>`
+        : `<p style="margin:0;">Treated as not-applicable for a <b>${ticket.issueType}</b>-type ticket (this dashboard's own assumption — see the footnote below the legend).</p>`;
+    } else if(visState === 'unknown'){
+      extraDetail = `<p style="margin:0;">${check.detail || 'Not fetched — presence/absence could not be confirmed.'}</p>`;
+    } else if(check.items.length){
+      const head = check.headNote ? `<p>${check.headNote}</p>` : '';
+      extraDetail = `${head}<div class="items">${check.items.map((it,ii)=>itemHtml(it, gi, ci, ii)).join('')}</div>`;
+    } else {
+      extraDetail = `<p style="margin:0;">${visState==='pending'
+        ? `Not created yet — expected once the ticket reaches a later stage.`
+        : `Expected by this stage, but nothing has been drafted in the ticket body.`}</p>`;
+    }
+  }
+  if(check.kind === 'mr'){
+    extraDetail += `<p>${check.detail||''}</p>`;
+    if(check.mrMeta){
+      const m = check.mrMeta;
+      extraDetail += `<div class="mr-meta">
+        <span class="mr-chip">State: ${m.state}</span>
+        <span class="mr-chip">${m.comments} comment${m.comments===1?'':'s'}</span>
+        <span class="mr-chip">${m.approvals} approval${m.approvals===1?'':'s'}</span>
+        ${m.changesRequested? `<span class="mr-chip">Changes requested</span>`:''}
+        <span class="mr-chip">${m.reviewers}</span>
+      </div>`;
+    }
+  }
+  if(check.kind === 'simple'){
+    extraDetail += `<p>${check.detail||''}</p>`;
+  }
+
+  return `
+    <div class="check ${rowExtra} ${autoOpenCheck?'open':''}" id="${domId}">
+      <div class="check-row" onclick="toggleCheck('${domId}')">
+        <span class="check-icon ${st.iconClass}">${st.icon}</span>
+        ${abbr ? `<span class="type-abbr" style="background:${abbrHue}">${abbr}</span>` : ''}
+        <div class="check-main">
+          <div class="check-title-line">
+            <span class="check-title">${title}</span>
+            <span class="check-badge ${st.badgeClass}">${st.label}</span>
+          </div>
+          <div class="check-meta">${checkMeta(check)}</div>
+        </div>
+        <span class="check-chevron">${ICONS.chevron}</span>
+      </div>
+      <div class="check-detail">${extraDetail}</div>
+    </div>
+  `;
+}
+
+function gateHtml(gate, ticket, gi){
+  const rollup = gateRollup(gate, ticket);
+  const gs = GATE_STATE[rollup];
+  const domId = `gate-${gi}`;
+  const subLabel = rollup==='pending' ? 'Not applicable yet — stage hasn\'t started' : `${gate.checks.length} check${gate.checks.length===1?'':'s'}`;
+  return `
+    <div class="gate open" id="${domId}">
+      <div class="gate-header" onclick="toggleGate('${domId}')">
+        <span class="gate-chevron">${ICONS.chevron}</span>
+        <span class="gate-icon ${gs.iconCls}">${gs.icon}</span>
+        <span class="gate-name">${gate.name}</span>
+        <span class="gate-sub">${subLabel}</span>
+        <span class="gate-status-pill ${gs.cls}">${gs.label}</span>
+      </div>
+      <div class="gate-body">${gate.checks.map((c,ci)=>checkHtml(c, gate, ticket, gi, ci)).join('')}</div>
+    </div>
+  `;
+}
+
+function renderGates(ticket){
+  document.getElementById('gates').innerHTML = ticket.gates.map((g,gi)=>gateHtml(g, ticket, gi)).join('');
+}
+
+function toggleGate(id){ document.getElementById(id).classList.toggle('collapsed'); }
+function toggleCheck(id){ document.getElementById(id).classList.toggle('open'); }
+
+function renderLegendTypes(){
+  document.getElementById('legend-types').innerHTML = Object.values(TYPES).map(t=>
+    `<span class="type-abbr" style="background:${t.hue}" title="${t.label}">${t.abbr}</span>`
+  ).join('');
+}
+
+function renderAll(){
+  renderTabs();
+  const ticket = TICKETS[activeKey];
+  renderSummary(ticket);
+  renderGates(ticket);
+}
+
+renderLegendTypes();
+renderAll();
+</script>

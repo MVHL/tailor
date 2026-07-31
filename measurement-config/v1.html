@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection check configuration — measurements &amp; calculation (mockup)</title>
+<style>
+  :root{
+    --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
+    --green:#2E7D32; --green-l:#E5F2E6;
+    --amber:#B57A00; --amber-l:#FBF0D9;
+    --red:#C8102E;
+    --text:#333333; --mut:#667085; --muted2:#98A2B3;
+    --line:#C9D4E4; --surface1:#F5F7FA; --surface2:#FFFFFF; --page:#F0F2F5;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--page); color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.5;}
+  .page{max-width:980px; margin:0 auto; padding:28px 20px 60px;}
+  header.top{margin-bottom:22px;}
+  header.top h1{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px;}
+  header.top p{font-size:13px; color:var(--mut); margin:0;}
+  .badge-draft{display:inline-block; background:var(--tint); color:var(--blue); font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--radius); margin-left:8px; vertical-align:2px;}
+  .layout{display:flex; gap:18px; align-items:flex-start;}
+  .sidebar{width:220px; flex-shrink:0; background:var(--surface1); border-radius:12px; padding:14px; border:1px solid var(--line);}
+  .sidebar h2{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:700;}
+  .ct-row{display:flex; align-items:center; gap:2px; margin-bottom:3px;}
+  .ct-item{flex:1; min-width:0; display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ct-item.active{background:var(--tint); color:var(--blue); font-weight:700;}
+  .ct-item:not(.active){color:var(--text);}
+  .ct-item:not(.active):hover{background:#EDEFF3;}
+  .ct-remove{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .ct-remove:hover{background:#FCEBEB; color:var(--red);}
+  .main{flex:1; min-width:0;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:18px 22px; margin-bottom:14px;}
+  .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:3px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
+  .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
+  .ct-name-input:disabled{color:var(--muted2);}
+  .card .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
+  .section-label{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.02em; margin:0 0 10px; font-weight:700;}
+  .section-label .note{text-transform:none; font-weight:400; color:var(--muted2);}
+  .drag-handle{width:18px; height:22px; display:grid; grid-template-columns:repeat(2,4px); grid-template-rows:repeat(3,4px); gap:2px; cursor:grab; flex-shrink:0; align-content:center; justify-content:center;}
+  .drag-handle span{width:4px; height:4px; border-radius:50%; background:var(--muted2);}
+  input[type=text]{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text);}
+  select{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); background:#fff;}
+  button.btn{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--text);}
+  button.btn:hover{background:var(--surface1);}
+  .src-toggle{display:flex; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; flex-shrink:0;}
+  .src-toggle span{padding:5px 9px; font-size:11px; cursor:pointer;}
+  .src-pom-on{background:var(--green-l); color:var(--green);}
+  .src-standalone-on{background:var(--surface1); color:var(--text); font-weight:700;}
+  .src-off{background:transparent; color:var(--mut);}
+  .formula-preview{background:var(--surface2); border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-top:12px;}
+  .formula-preview .expr{font-family:'Courier New',monospace; font-size:13.5px; color:var(--navy);}
+  .formula-preview .label{font-size:11.5px; color:var(--mut); margin-top:4px;}
+  .result-unit{font-size:11.5px; color:var(--muted2); margin:8px 0 0;}
+  .calc-note{font-size:12.5px; color:var(--mut); margin:10px 0 0;}
+  .flag{font-size:12.5px; color:var(--text); margin-top:8px;}
+  .flag .icon{color:var(--amber); margin-right:5px;}
+  .req{color:var(--red); margin-right:3px;}
+  .field-label{font-size:12px; color:var(--mut); display:block; margin-bottom:4px;}
+  .inline-label{font-size:12px; color:var(--mut); flex-shrink:0;}
+  .spectype-wrap{position:relative; width:220px;}
+  .spectype-trigger{border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:13px; background:#fff; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .spectype-trigger:hover{background:var(--surface1);}
+  .spectype-caret{color:var(--muted2); font-size:10px; flex-shrink:0;}
+  .spectype-panel{display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 4px 14px rgba(10,42,85,0.14); min-width:180px;}
+  .spectype-panel label{display:flex; align-items:center; gap:6px; font-size:13px; padding:5px 4px; cursor:pointer; white-space:nowrap; border-radius:4px;}
+  .spectype-panel label:hover{background:var(--surface1);}
+  .row-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .row-card.dragging{opacity:0.4;}
+  .row-card.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .row-card.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .row-header{display:flex; align-items:center; gap:10px;}
+  .row-body{margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+  .kind-badge{font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:var(--radius); flex-shrink:0; white-space:nowrap;}
+  .kind-meas{background:#fff; border:1px solid var(--line); color:var(--mut);}
+  .kind-calc{background:var(--tint); color:var(--blue);}
+  .criteria-inline{margin-top:14px; padding-top:12px; border-top:1px dashed var(--line);}
+  footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Inspection check configuration <span class="badge-draft">Mockup — for review</span></h1>
+    <p>Draft UI concept: how admins define the values taken per sample, any values calculated from them, and the acceptance criteria for each — in one place. Standard values and tolerances for each specification are still pulled automatically from the spec sheet and are not configured here.</p>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <h2>Check types</h2>
+      <div id="checkList"></div>
+      <button class="btn" id="addCheckTypeBtn" style="width:100%; margin-top:8px;">+ Add check type</button>
+    </div>
+    <div class="main">
+      <div class="card">
+        <input type="text" id="ctName" class="ct-name-input">
+        <p class="meta" id="ctMeta" style="margin-bottom:0;"></p>
+      </div>
+      <div class="card">
+        <p class="section-label">Sampling rule <span class="note">— how many samples are pulled before measuring, same options for every check type</span></p>
+        <div id="samplingBody"></div>
+      </div>
+      <div class="card" id="rowsCard">
+        <p class="section-label">Input &amp; calculated values <span class="note">— add either an input value or a value calculated from other rows below</span></p>
+        <div id="rowsList"></div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn" id="addMeasBtn">+ Add input value</button>
+          <button class="btn" id="addCalcBtn">+ Add calculated value</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    Drag the handle on a row to reorder it. Calculated rows reference other rows by name directly, so order no longer affects which value feeds a formula — it's just for reading top to bottom.
+  </footer>
+</div>
+
+<script>
+// Units grouped by category, matching the reference unit table. "Other" is an addition
+// (not from that reference) to cover units already used elsewhere in this mockup, e.g. "%".
+const UNIT_GROUPS = [
+  {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Weight", units:["g","kg","MT","oz","lb","st"]},
+  {category:"Volume", units:["mL","L","mm³","cm³","m³","in³","gal","ft³"]},
+  {category:"Temperature", units:["°C","°F"]},
+  {category:"Area", units:["nm²","cm²","m²","in²","yd²","ft²"]},
+  {category:"Area Density", units:["GSM","oz/yd²"]},
+  {category:"Quantity", units:["EACH","PCS","PAIR","DOZ","SET","PACK"]},
+  {category:"Other", units:["%"]}
+];
+
+// Specification "types" a spec-linked row may draw from. This is the "setType" field
+// from the separate measurement-sets API design (not the unit categories above — a
+// different concept). Only the 3 confirmed values are wired up here; add more if that
+// API design defines additional setType values.
+const SPEC_TYPE_OPTIONS = ["Weight", "Dimension", "Volume"];
+
+// Calculated-row formulas. Every calculated row must have a real formula (a row that
+// needs no formula is simply an "input" row instead).
+const FORMULAS = [
+  {id:"pctchange", label:"Percent change: (B - A) / A x 100", min:2, unit:"%"},
+  {id:"ratio", label:"Ratio: A / B", min:2},
+  {id:"ratiopercent", label:"Ratio as percentage: A / B x 100", min:2, unit:"%"},
+  {id:"difference", label:"Difference: A - B", min:2},
+  {id:"sum", label:"Total of all included values", min:2},
+  {id:"average", label:"Average of all included values", min:2},
+  {id:"custom", label:"Custom expression", custom:true}
+];
+
+const CRIT_TYPES = [
+  {id:"range", label:"Range (between two values)"},
+  {id:"max", label:"Maximum (upper limit)"},
+  {id:"min", label:"Minimum (lower limit)"},
+  {id:"inspector", label:"Inspector-defined (manual rating)"}
+];
+// Only offered for rows linked to a Specification — defers evaluation to that
+// Specification's own standard value and tolerance instead of a threshold defined here.
+const SPEC_CRITERIA = {id:"spec", label:"Evaluated against Specification"};
+const SKIP_CRITERIA = {id:"skip", label:"Not evaluated"};
+
+const data = {
+  normalpom: {
+    name: "Normal specification measurement",
+    rows: [
+      {id:1, kind:"measured", role:"Measurement", source:"pom", unit:"", criteria:{type:"spec"}, specTypes:["Dimension","Weight"]}
+    ]
+  },
+  shrinkage: {
+    name: "Shrinkage / wash test",
+    rows: [
+      {id:2, kind:"measured", role:"Before wash", source:"pom", unit:"", criteria:{type:"skip"}},
+      {id:3, kind:"measured", role:"After wash", source:"pom", unit:"", criteria:{type:"skip"}},
+      {id:4, kind:"calculated", role:"% Shrinkage", formula:"pctchange", op1:2, op2:3, criteria:{type:"range", value:"-5", value2:"5"}}
+    ]
+  },
+  twisting: {
+    name: "Side seam twisting",
+    rows: [
+      {id:5, kind:"measured", role:"Twist / displacement value", source:"standalone", unit:"cm", criteria:{type:"skip"}},
+      {id:6, kind:"measured", role:"Side seam length", source:"standalone", unit:"cm", criteria:{type:"skip"}},
+      {id:7, kind:"calculated", role:"% Twisting", formula:"ratiopercent", op1:5, op2:6, criteria:{type:"max", value:"5", comparator:"lt"}}
+    ]
+  },
+  fabricweight: {
+    name: "Fabric weight (from swatch)",
+    rows: [
+      {id:8, kind:"measured", role:"Swatch weight", source:"standalone", unit:"g", criteria:{type:"skip"}},
+      {id:9, kind:"measured", role:"Swatch area", source:"standalone", unit:"cm²", criteria:{type:"skip"}},
+      {id:10, kind:"calculated", role:"Fabric weight (GSM)", formula:"custom", customExpr:"A / B x 10,000", criteria:{type:"range"}}
+    ]
+  },
+  moisture: {
+    name: "Moisture content",
+    rows: [
+      {id:11, kind:"measured", role:"Moisture measurement A", source:"standalone", unit:"%", criteria:{type:"skip"}},
+      {id:12, kind:"measured", role:"Moisture measurement B", source:"standalone", unit:"%", criteria:{type:"skip"}},
+      {id:13, kind:"measured", role:"Moisture measurement C", source:"standalone", unit:"%", criteria:{type:"skip"}}
+    ]
+  }
+};
+const order = ["normalpom","shrinkage","twisting","fabricweight","moisture"];
+let active = "shrinkage";
+let nextId = 1;
+let nextRowId = 14;
+
+function rowIndex(d, id){ return d.rows.findIndex(r=>r.id===id); }
+function rowRole(d, id){ const r = d.rows.find(x=>x.id===id); return r ? r.role : "(removed)"; }
+
+function computeMeta(d){
+  const nMeas = d.rows.filter(r=>r.kind==="measured").length;
+  const nCalc = d.rows.filter(r=>r.kind==="calculated").length;
+  let s = nMeas + " input" + (nMeas===1?"":"s");
+  if (nCalc>0) s += ", " + nCalc + " calculated";
+  return s;
+}
+
+// Sample size determination — how many physical samples are pulled before any
+// measuring happens. Independent of, and configured before, the rows below.
+const SAMPLING_METHODS = [
+  {id:"byitem", label:"By Item", followUp:{type:"number", label:"By Item"}},
+  {id:"bysizeperstyle", label:"By Size Per Style", followUp:{type:"number", label:"By Size Per Style"}},
+  {id:"bycolorperstyle", label:"By Color Per Style", followUp:{type:"number", label:"By Color Per Style"}},
+  {id:"aqlstandard", label:"AQL Standard", followUp:{type:"select", label:"AQL Table", options:["AQL 3.0","AQL 2.5 - GII","AQL 2.0 SI"]}},
+  {id:"determinedquantity", label:"Determined Quantity", followUp:{type:"number", label:"Determined Quantity"}},
+  {id:"inspectordecide", label:"Inspector Decide", followUp:null}
+];
+
+function renderSampling(){
+  const d = data[active];
+  const body = document.getElementById("samplingBody");
+  if (!d){ body.innerHTML = ""; return; }
+  if (!d.sampling) d.sampling = {method: SAMPLING_METHODS[0].id, value:""};
+  const s = d.sampling;
+  const method = SAMPLING_METHODS.find(x=>x.id===s.method) || SAMPLING_METHODS[0];
+
+  let followUpHtml;
+  if (method.followUp){
+    const fu = method.followUp;
+    const control = fu.type==="select"
+      ? '<select id="samplingFollowUpSel" style="width:100%;">' + fu.options.map(o=>'<option'+(o===s.value?" selected":"")+'>'+o+'</option>').join("") + '</select>'
+      : '<input id="samplingFollowUpInp" type="text" value="'+(s.value||"")+'" style="width:100%;">';
+    followUpHtml = '<label class="field-label"><span class="req">*</span>'+fu.label+'</label>' + control;
+  } else {
+    followUpHtml = '<p class="calc-note" style="margin-top:0;">Inspector decides the sample size at the time of inspection — no predefined value needed.</p>';
+  }
+
+  body.innerHTML = '<div style="display:flex; gap:24px; flex-wrap:wrap;">'
+    + '<div style="flex:1; min-width:200px;">'
+      + '<label class="field-label"><span class="req">*</span>Sample size determination</label>'
+      + '<select id="samplingMethodSel" style="width:100%;">' + SAMPLING_METHODS.map(m=>'<option value="'+m.id+'"'+(m.id===s.method?" selected":"")+'>'+m.label+'</option>').join("") + '</select>'
+    + '</div>'
+    + '<div style="flex:1; min-width:200px;">' + followUpHtml + '</div>'
+    + '</div>';
+
+  const ms = document.getElementById("samplingMethodSel");
+  if (ms) ms.addEventListener("change", ()=>{ d.sampling.method = ms.value; d.sampling.value = ""; renderSampling(); });
+  const fs = document.getElementById("samplingFollowUpSel");
+  if (fs) fs.addEventListener("change", ()=>{ d.sampling.value = fs.value; });
+  const fi = document.getElementById("samplingFollowUpInp");
+  if (fi) fi.addEventListener("change", ()=>{ d.sampling.value = fi.value; });
+}
+
+function renderList(){
+  const el = document.getElementById("checkList");
+  if (order.length===0){
+    el.innerHTML = '<p style="font-size:12px; color:var(--muted2); padding:6px 2px;">No check types yet.</p>';
+    return;
+  }
+  el.innerHTML = order.map(k=>{
+    const d = data[k];
+    const sel = k===active;
+    return '<div class="ct-row">'
+      + '<div data-key="'+k+'" class="ct-item'+(sel?" active":"")+'" title="'+d.name+'">'+d.name+'</div>'
+      + '<span data-key="'+k+'" class="ct-remove" title="Remove check type">&times;</span>'
+      + '</div>';
+  }).join("");
+  el.querySelectorAll(".ct-item").forEach(item=>{
+    item.addEventListener("click", ()=>{ active = item.getAttribute("data-key"); renderAll(); });
+  });
+  el.querySelectorAll(".ct-remove").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{ e.stopPropagation(); removeCheckType(btn.getAttribute("data-key")); });
+  });
+}
+
+function removeCheckType(key){
+  const d = data[key];
+  if (!d) return;
+  if (!confirm('Remove "'+d.name+'"? This cannot be undone.')) return;
+  delete data[key];
+  const idx = order.indexOf(key);
+  if (idx>-1) order.splice(idx,1);
+  if (active===key) active = order.length ? order[0] : null;
+  renderAll();
+}
+
+function renderHeader(){
+  const d = data[active];
+  const nameInput = document.getElementById("ctName");
+  const metaEl = document.getElementById("ctMeta");
+  if (!d){
+    nameInput.value = "";
+    nameInput.placeholder = "No check types yet — click + Add check type";
+    nameInput.disabled = true;
+    metaEl.textContent = "";
+    return;
+  }
+  nameInput.disabled = false;
+  nameInput.value = d.name;
+  metaEl.textContent = computeMeta(d);
+}
+
+// ---- Calculated-row helpers ----
+
+function calcRowUnit(d, row){
+  const f = FORMULAS.find(x=>x.id===row.formula);
+  if (!f) return "";
+  if (f.unit) return f.unit; // percent change, ratio as percentage -> "%"
+  if (f.id==="ratio") return "unitless (ratio)"; // A / B with no x100 — units of A and B cancel
+  if (f.id==="difference" || f.id==="sum" || f.id==="average"){
+    const ids = f.id==="difference" ? [row.op1, row.op2] : (row.operandIds || []);
+    const rows = ids.map(id=>d.rows.find(r=>r.id===id)).filter(Boolean);
+    const units = rows.map(r=> (r.kind==="measured" && r.source==="standalone") ? r.unit : null);
+    if (units.length && units.every(u=>u && u===units[0])) return units[0];
+    return "same unit as the included values";
+  }
+  return "depends on expression"; // custom
+}
+
+// The abstract "expr" line always uses fixed A / B placeholders for the two named
+// operand slots (First value / Second value) — it no longer depends on row position,
+// since operands are now picked explicitly by name rather than by order.
+function calcRowPreview(d, row){
+  const f = FORMULAS.find(x=>x.id===row.formula);
+  if (!f || f.custom) return null;
+  if (f.id==="sum" || f.id==="average"){
+    const ids = row.operandIds || [];
+    if (ids.length<2) return null;
+    const roles = ids.map(id=>rowRole(d,id));
+    if (f.id==="sum") return {expr:"Sum of the included values", label: roles.join(" + ")};
+    return {expr:"Average of the included values", label: "("+roles.join(" + ")+") / "+roles.length};
+  }
+  if (row.op1==null || row.op2==null) return null;
+  const aRole = rowRole(d,row.op1), bRole = rowRole(d,row.op2);
+  let expr="", label="";
+  if (f.id==="pctchange"){ expr = "(B - A) / A x 100"; label = "("+bRole+" - "+aRole+") / "+aRole+" x 100"; }
+  else if (f.id==="ratio"){ expr = "A / B"; label = aRole+" / "+bRole; }
+  else if (f.id==="ratiopercent"){ expr = "A / B x 100"; label = aRole+" / "+bRole+" x 100"; }
+  else if (f.id==="difference"){ expr = "A - B"; label = aRole+" - "+bRole; }
+  return {expr, label};
+}
+
+function renderCriteriaBlock(d, row, mandatory){
+  const specLinked = row.kind==="measured" && row.source==="pom";
+  if (!row.criteria){
+    if (mandatory){
+      row.criteria = {type:"range"};
+    } else if (specLinked){
+      row.criteria = {type:"spec"};
+    } else {
+      const hasCalcSibling = d.rows.some(r=>r.kind==="calculated");
+      row.criteria = {type: hasCalcSibling ? "skip" : "range"};
+    }
+  }
+  const c = row.criteria;
+  // Spec-linked rows only need: use the Specification's own tolerance, skip evaluation,
+  // or fall back to inspector judgment — Range/Max/Min don't apply since the
+  // Specification already carries its own standard value and tolerance.
+  const inspectorType = CRIT_TYPES.find(x=>x.id==="inspector");
+  const types = mandatory ? CRIT_TYPES : (specLinked ? [SPEC_CRITERIA, SKIP_CRITERIA, inspectorType] : [SKIP_CRITERIA].concat(CRIT_TYPES));
+  if (!types.some(x=>x.id===c.type)) c.type = specLinked ? "spec" : (mandatory ? "range" : "skip");
+
+  const unit = row.kind==="calculated" ? calcRowUnit(d, row) : (row.unit || "");
+  const isPhrase = unit.indexOf(" ")!==-1;
+  const inlineUnit = (!isPhrase && unit) ? (" "+unit) : "";
+  const trailingUnit = (isPhrase && unit) ? (" ("+unit+")") : "";
+
+  let html = '<div class="criteria-inline">'
+    + '<p class="field-label" style="margin-bottom:6px;">Evaluation'+(mandatory?"":" (optional)")+'</p>'
+    + '<select data-rowid="'+row.id+'" class="critTypeSel2" style="width:100%;">'
+      + types.map(x=>'<option value="'+x.id+'"'+(x.id===c.type?" selected":"")+'>'+x.label+'</option>').join("")
+    + '</select>';
+
+  if (c.type==="max" || c.type==="min"){
+    const compOpts = c.type==="max" ? [["lt","&lt; (less than)"],["lte","&le; (less than or equal to)"]] : [["gt","&gt; (greater than)"],["gte","&ge; (greater than or equal to)"]];
+    html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px;">'
+      + '<select data-rowid="'+row.id+'" class="critCompSel2" style="width:210px;">' + compOpts.map(o=>'<option value="'+o[0]+'"'+(o[0]===c.comparator?" selected":"")+'>'+o[1]+'</option>').join("") + '</select>'
+      + '<input data-rowid="'+row.id+'" class="critVal2a" type="text" value="'+(c.value||"")+'" style="width:100px;">'
+      + '<span style="font-size:13px; color:var(--mut);">'+unit+'</span>'
+      + '</div>';
+  } else if (c.type==="range"){
+    html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px;">'
+      + '<input data-rowid="'+row.id+'" class="critVal2a" type="text" value="'+(c.value||"")+'" style="width:100px;">'
+      + '<span style="font-size:13px; color:var(--mut);">to</span>'
+      + '<input data-rowid="'+row.id+'" class="critVal2b" type="text" value="'+(c.value2||"")+'" style="width:100px;">'
+      + '<span style="font-size:13px; color:var(--mut);">'+unit+'</span>'
+      + '</div>';
+  }
+
+  let preview = "";
+  const v = c.value || "?", v2 = c.value2 || "?";
+  if (c.type==="max") preview = "Pass when this value is "+(c.comparator==="lte"?"less than or equal to":"less than")+" "+v+inlineUnit+trailingUnit+".";
+  else if (c.type==="min") preview = "Pass when this value is "+(c.comparator==="gte"?"greater than or equal to":"greater than")+" "+v+inlineUnit+trailingUnit+".";
+  else if (c.type==="range") preview = "Pass when this value is between "+v+inlineUnit+" and "+v2+inlineUnit+trailingUnit+".";
+  else if (c.type==="inspector") preview = "No predefined threshold — the inspector assigns Pass / Fail (or a rating) based on judgment at the time of inspection.";
+  else if (c.type==="spec") preview = "Compared directly against the Specification's standard value and tolerance.";
+  else if (c.type==="skip") preview = "Not evaluated on its own — likely because it only supports a calculation elsewhere.";
+  html += '<p class="calc-note">'+preview+'</p>';
+
+  html += '</div>';
+  return html;
+}
+
+function unitSelectHtml(row){
+  return '<select data-rowid="'+row.id+'" class="unitSel2" style="width:170px;">'
+    + UNIT_GROUPS.map(g=>'<optgroup label="'+g.category+'">'
+        + g.units.map(u=>'<option'+(u===row.unit?" selected":"")+'>'+u+'</option>').join("")
+      + '</optgroup>').join("")
+    + '</select>';
+}
+
+// < 3 selected -> list the values; >= 3 selected -> show a count instead.
+function specTypeSummary(selected){
+  if (!selected || selected.length===0) return "Any type";
+  if (selected.length < 3) return selected.join(", ");
+  return selected.length + " types selected";
+}
+
+function renderSpecTypeInline(row){
+  const selected = row.specTypes || [];
+  const optionsHtml = SPEC_TYPE_OPTIONS.map(cat=>{
+    const checked = selected.includes(cat);
+    return '<label><input type="checkbox" data-rowid="'+row.id+'" data-spectype="'+cat+'" class="specTypeCheck2" '+(checked?"checked":"")+'>'+cat+'</label>';
+  }).join("");
+  return '<span style="display:flex; align-items:center; gap:6px;">'
+    + '<span class="inline-label">Specification type</span>'
+    + '<div class="spectype-wrap" data-rowid="'+row.id+'">'
+      + '<div class="spectype-trigger" data-rowid="'+row.id+'" tabindex="0">'
+        + '<span class="spectype-summary" data-rowid="'+row.id+'">'+specTypeSummary(selected)+'</span>'
+        + '<span class="spectype-caret">&#9662;</span>'
+      + '</div>'
+      + '<div class="spectype-panel" data-rowid="'+row.id+'">' + optionsHtml + '</div>'
+    + '</div>'
+    + '</span>';
+}
+
+function renderMeasuredBody(d, row){
+  const isPom = row.source==="pom";
+  const unitCell = isPom ? '' : ('<span style="display:flex; align-items:center; gap:6px;">'
+    + '<span class="inline-label">Unit</span>' + unitSelectHtml(row) + '</span>');
+  const specTypeCell = isPom ? renderSpecTypeInline(row) : '';
+
+  let html = '<div class="row-body">'
+    + '<div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">'
+      + '<span style="display:flex; align-items:center; gap:6px;">'
+        + '<span class="inline-label">Source</span>'
+        + '<span class="src-toggle">'
+          + '<span data-rowid="'+row.id+'" data-src="pom" class="srcBtn2 '+(isPom?"src-pom-on":"src-off")+'">Specification</span>'
+          + '<span data-rowid="'+row.id+'" data-src="standalone" class="srcBtn2 '+(!isPom?"src-standalone-on":"src-off")+'">Standalone</span>'
+        + '</span>'
+      + '</span>'
+      + unitCell
+      + specTypeCell
+    + '</div>';
+
+  html += renderCriteriaBlock(d, row, false);
+  html += '</div>';
+  return html;
+}
+
+function renderCalculatedBody(d, row){
+  const f = FORMULAS.find(x=>x.id===row.formula) || FORMULAS[0];
+  const others = d.rows.filter(r=>r.id!==row.id);
+
+  let html = '<div class="row-body">';
+  html += '<select data-rowid="'+row.id+'" class="formulaSel2" style="width:100%;">'
+    + FORMULAS.map(x=>{
+        const disabled = x.min && others.length < x.min;
+        return '<option value="'+x.id+'"'+(x.id===row.formula?" selected":"")+(disabled?" disabled":"")+'>'+x.label+(disabled?" (needs "+x.min+"+ other rows)":"")+'</option>';
+      }).join("")
+    + '</select>';
+
+  const opOptions = (selectedId)=> others.map(r=>
+    '<option value="'+r.id+'"'+(r.id===selectedId?" selected":"")+'>'+r.role+'</option>'
+  ).join("");
+
+  if (f.custom){
+    html += '<div style="margin-top:12px;"><input data-rowid="'+row.id+'" type="text" class="customInp2" placeholder="e.g. (B - A) / A x 100" value="'+(row.customExpr||"")+'" style="width:100%; font-family:\'Courier New\',monospace;"></div>';
+  } else if (f.id==="sum" || f.id==="average"){
+    html += '<div style="margin-top:12px;"><p class="field-label" style="margin-bottom:6px;">Included values</p>'
+      + others.map(r=>{
+          const checked = (row.operandIds||[]).includes(r.id);
+          return '<label style="display:flex; align-items:center; gap:6px; font-size:13px; padding:3px 0;"><input type="checkbox" data-rowid="'+row.id+'" data-optid="'+r.id+'" class="operandCheck2" '+(checked?"checked":"")+'>'+r.role+'</label>';
+        }).join("")
+      + '</div>';
+  } else {
+    html += '<div style="display:flex; gap:16px; margin-top:12px; flex-wrap:wrap;">'
+      + '<div style="flex:1; min-width:180px;"><label class="field-label">First value (A)</label><select data-rowid="'+row.id+'" data-op="op1" class="operandSel2" style="width:100%;">'
+        + '<option value="">Select…</option>' + opOptions(row.op1) + '</select></div>'
+      + '<div style="flex:1; min-width:180px;"><label class="field-label">Second value (B)</label><select data-rowid="'+row.id+'" data-op="op2" class="operandSel2" style="width:100%;">'
+        + '<option value="">Select…</option>' + opOptions(row.op2) + '</select></div>'
+      + '</div>';
+  }
+
+  const fp = calcRowPreview(d, row);
+  if (fp){
+    html += '<div class="formula-preview"><div class="expr">'+fp.expr+'</div><div class="label">'+fp.label+'</div></div>';
+    html += '<p class="result-unit">Result unit: '+calcRowUnit(d,row)+' (implied by the formula, not set manually)</p>';
+  } else if (f.custom){
+    html += '<p class="result-unit">Result unit: depends on expression (implied by the formula, not set manually)</p>';
+  }
+
+  html += renderCriteriaBlock(d, row, true);
+  html += '</div>';
+  return html;
+}
+
+function renderRowHtml(d, row, showHandle){
+  const dragHandle = showHandle
+    ? '<span class="drag-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+    : "";
+  const kindBadge = row.kind==="calculated"
+    ? '<span class="kind-badge kind-calc">Calculated</span>'
+    : '<span class="kind-badge kind-meas">Input</span>';
+  const removeHtml = showHandle
+    ? '<span data-rowid="'+row.id+'" class="ct-remove row-remove" title="Remove row">&times;</span>'
+    : "";
+
+  const header = '<div class="row-header">'
+    + dragHandle
+    + '<input type="text" data-rowid="'+row.id+'" class="roleInp2" value="'+row.role+'" style="flex:1; min-width:0;">'
+    + kindBadge
+    + removeHtml
+    + '</div>';
+
+  const body = row.kind==="measured" ? renderMeasuredBody(d, row) : renderCalculatedBody(d, row);
+  return '<div class="row-card" data-rowid="'+row.id+'" draggable="false">' + header + body + '</div>';
+}
+
+function renderRows(){
+  const d = data[active];
+  const rowsCard = document.getElementById("rowsCard");
+  if (!d){ rowsCard.style.display = "none"; document.getElementById("rowsList").innerHTML = ""; return; }
+  rowsCard.style.display = "";
+  const showHandle = d.rows.length > 1;
+  document.getElementById("rowsList").innerHTML = d.rows.map(row=>renderRowHtml(d, row, showHandle)).join("");
+  wireRowEvents(d);
+  if (showHandle) wireDragDrop(d);
+}
+
+function wireDragDrop(d){
+  const list = document.getElementById("rowsList");
+  const cards = [...list.querySelectorAll(".row-card")];
+  let draggedId = null;
+
+  cards.forEach(card=>{
+    const handle = card.querySelector(".drag-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ card.setAttribute("draggable","true"); });
+
+    card.addEventListener("dragstart", (e)=>{
+      draggedId = parseInt(card.getAttribute("data-rowid"));
+      card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(draggedId));
+    });
+    card.addEventListener("dragend", ()=>{
+      card.setAttribute("draggable","false");
+      card.classList.remove("dragging");
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+    });
+    card.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (draggedId===null) return;
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+      card.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    card.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (draggedId===null || targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      const fromIdx = rowIndex(d, draggedId);
+      const moved = d.rows.splice(fromIdx,1)[0];
+      const toIdx = rowIndex(d, targetId);
+      d.rows.splice(isAbove ? toIdx : toIdx+1, 0, moved);
+      draggedId = null;
+      renderRows();
+    });
+  });
+}
+
+function wireRowEvents(d){
+  document.querySelectorAll(".roleInp2").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const row = d.rows.find(r=>r.id===parseInt(inp.getAttribute("data-rowid")));
+      if (row) row.role = inp.value.trim() || row.role;
+      renderRows(); renderHeader();
+    });
+  });
+  document.querySelectorAll(".row-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = parseInt(btn.getAttribute("data-rowid"));
+      if (d.rows.length<=1) return;
+      const idx = rowIndex(d, id);
+      d.rows.splice(idx,1);
+      d.rows.forEach(r=>{
+        if (r.kind!=="calculated") return;
+        if (r.op1===id) r.op1=null;
+        if (r.op2===id) r.op2=null;
+        if (r.operandIds) r.operandIds = r.operandIds.filter(oid=>oid!==id);
+      });
+      renderRows(); renderHeader();
+    });
+  });
+  document.querySelectorAll(".srcBtn2").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = parseInt(btn.getAttribute("data-rowid"));
+      const src = btn.getAttribute("data-src");
+      const row = d.rows.find(r=>r.id===id);
+      row.source = src;
+      if (src==="standalone" && !row.unit) row.unit = "cm";
+      // "Evaluated against Specification" only makes sense while spec-linked —
+      // drop back to the default (skip/range) if the row is switched to standalone.
+      if (src==="standalone" && row.criteria && row.criteria.type==="spec") row.criteria = null;
+      // Specification type restriction only applies to spec-linked rows.
+      if (src==="standalone") row.specTypes = [];
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".unitSel2").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const id = parseInt(sel.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.unit = sel.value;
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".formulaSel2").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const id = parseInt(sel.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.formula = sel.value;
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".operandSel2").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const id = parseInt(sel.getAttribute("data-rowid"));
+      const opKey = sel.getAttribute("data-op");
+      const row = d.rows.find(r=>r.id===id);
+      row[opKey] = sel.value ? parseInt(sel.value) : null;
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".operandCheck2").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const id = parseInt(chk.getAttribute("data-rowid"));
+      const optId = parseInt(chk.getAttribute("data-optid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.operandIds = row.operandIds || [];
+      if (chk.checked){ if (!row.operandIds.includes(optId)) row.operandIds.push(optId); }
+      else { row.operandIds = row.operandIds.filter(x=>x!==optId); }
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".spectype-trigger").forEach(trigger=>{
+    trigger.addEventListener("click", ()=>{
+      const id = trigger.getAttribute("data-rowid");
+      const panel = document.querySelector('.spectype-panel[data-rowid="'+id+'"]');
+      if (!panel) return;
+      const isOpen = panel.style.display === "block";
+      document.querySelectorAll(".spectype-panel").forEach(p=>{ p.style.display = "none"; });
+      panel.style.display = isOpen ? "none" : "block";
+    });
+  });
+  document.querySelectorAll(".specTypeCheck2").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const id = parseInt(chk.getAttribute("data-rowid"));
+      const cat = chk.getAttribute("data-spectype");
+      const row = d.rows.find(r=>r.id===id);
+      row.specTypes = row.specTypes || [];
+      if (chk.checked){ if (!row.specTypes.includes(cat)) row.specTypes.push(cat); }
+      else { row.specTypes = row.specTypes.filter(x=>x!==cat); }
+      // Update the collapsed summary in place (no full re-render) so the panel stays open
+      // while the user keeps checking/unchecking options.
+      const summaryEl = document.querySelector('.spectype-summary[data-rowid="'+id+'"]');
+      if (summaryEl) summaryEl.textContent = specTypeSummary(row.specTypes);
+    });
+  });
+  document.querySelectorAll(".customInp2").forEach(inp=>{
+    inp.addEventListener("input", ()=>{
+      const id = parseInt(inp.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.customExpr = inp.value;
+    });
+  });
+  document.querySelectorAll(".critTypeSel2").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const id = parseInt(sel.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.criteria.type = sel.value;
+      if ((sel.value==="min"||sel.value==="max") && !row.criteria.comparator) row.criteria.comparator = sel.value==="min"?"gt":"lt";
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".critCompSel2").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const id = parseInt(sel.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.criteria.comparator = sel.value;
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".critVal2a").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const id = parseInt(inp.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.criteria.value = inp.value;
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".critVal2b").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const id = parseInt(inp.getAttribute("data-rowid"));
+      const row = d.rows.find(r=>r.id===id);
+      row.criteria.value2 = inp.value;
+      renderRows();
+    });
+  });
+}
+
+document.getElementById("addMeasBtn").addEventListener("click", ()=>{
+  const d = data[active]; if (!d) return;
+  d.rows.push({id: nextRowId++, kind:"measured", role:"New value", source:"standalone", unit:"cm"});
+  renderRows(); renderHeader();
+});
+
+document.getElementById("addCalcBtn").addEventListener("click", ()=>{
+  const d = data[active]; if (!d) return;
+  d.rows.push({id: nextRowId++, kind:"calculated", role:"New calculated value", formula:"difference", op1:null, op2:null});
+  renderRows(); renderHeader();
+});
+
+document.getElementById("ctName").addEventListener("change", (e)=>{
+  if (!active || !data[active]) return;
+  data[active].name = e.target.value.trim() || "Untitled check type";
+  e.target.value = data[active].name;
+  renderList();
+});
+
+document.getElementById("addCheckTypeBtn").addEventListener("click", ()=>{
+  const key = "custom"+(nextId++);
+  data[key] = {
+    name: "New check type",
+    rows: [ {id: nextRowId++, kind:"measured", role:"New value", source:"standalone", unit:"cm"} ]
+  };
+  order.push(key);
+  active = key;
+  renderAll();
+  const nameInput = document.getElementById("ctName");
+  nameInput.focus(); nameInput.select();
+});
+
+// Close any open Specification-type panel when clicking outside it. Registered once
+// (not per-render) and uses event delegation so it keeps working after re-renders.
+document.addEventListener("click", (e)=>{
+  document.querySelectorAll(".spectype-panel").forEach(panel=>{
+    if (panel.style.display!=="block") return;
+    const wrap = panel.closest(".spectype-wrap");
+    if (wrap && !wrap.contains(e.target)) panel.style.display = "none";
+  });
+});
+
+function renderAll(){ renderList(); renderHeader(); renderSampling(); renderRows(); }
+renderAll();
+</script>
+</body>
+</html>

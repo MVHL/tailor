@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection workflow — measurement steps (mockup v8)</title>
+<style>
+  :root{
+    --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
+    --green:#2E7D32; --green-l:#E5F2E6;
+    --amber:#B57A00; --amber-l:#FBF0D9; --amber-line:#E8D5A8;
+    --red:#C8102E;
+    --text:#333333; --mut:#667085; --muted2:#98A2B3;
+    --line:#C9D4E4; --surface1:#F5F7FA; --surface2:#FFFFFF; --page:#F0F2F5;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--page); color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.5;}
+  .page{max-width:1040px; margin:0 auto; padding:28px 20px 60px;}
+  header.top{margin-bottom:22px;}
+  header.top h1{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px;}
+  header.top p{font-size:13px; color:var(--mut); margin:0 0 10px;}
+  .badge-draft{display:inline-block; background:var(--tint); color:var(--blue); font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--radius); margin-left:8px; vertical-align:2px;}
+  .changelog{background:var(--surface2); border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px; font-size:12.5px; color:var(--mut);}
+  .changelog b{color:var(--navy); font-size:11px; text-transform:uppercase; letter-spacing:.03em; display:block; margin-bottom:5px;}
+  .changelog ul{margin:0; padding-left:18px;}
+  .changelog li{margin-bottom:2px;}
+  .axes{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;}
+  .axis{flex:1; min-width:240px; background:var(--surface1); border:1px solid var(--line); border-radius:var(--radius); padding:8px 11px;}
+  .axis .t{font-weight:700; color:var(--navy); font-size:12px;}
+  .layout{display:flex; gap:18px; align-items:flex-start;}
+  .sidebar{width:220px; flex-shrink:0; background:var(--surface1); border-radius:12px; padding:14px; border:1px solid var(--line);}
+  .sidebar h2{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:700;}
+  .ct-row{display:flex; align-items:center; gap:2px; margin-bottom:3px;}
+  .step-row{border-radius:var(--radius);}
+  .step-row.dragging{opacity:0.4;}
+  .step-row.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .step-row.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .step-row .drag-handle{width:14px; height:20px; grid-template-columns:repeat(2,3px); grid-template-rows:repeat(3,3px);}
+  .step-row .drag-handle span{width:3px; height:3px;}
+  .step-num{flex-shrink:0; font-size:11px; font-weight:700; color:var(--muted2); width:13px; text-align:right;}
+  .ct-item{flex:1; min-width:0; display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ct-item.active{background:var(--tint); color:var(--blue); font-weight:700;}
+  .ct-item:not(.active){color:var(--text);}
+  .ct-item:not(.active):hover{background:#EDEFF3;}
+  .ct-remove{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .ct-remove:hover{background:#FCEBEB; color:var(--red);}
+  .main{flex:1; min-width:0;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:18px 22px; margin-bottom:14px;}
+  .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:3px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
+  .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
+  .ct-name-input:disabled{color:var(--muted2);}
+  .card .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
+  .section-label{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.02em; margin:0 0 10px; font-weight:700;}
+  .section-label .note{text-transform:none; font-weight:400; color:var(--muted2);}
+  .drag-handle{width:18px; height:22px; display:grid; grid-template-columns:repeat(2,4px); grid-template-rows:repeat(3,4px); gap:2px; cursor:grab; flex-shrink:0; align-content:center; justify-content:center;}
+  .drag-handle span{width:4px; height:4px; border-radius:50%; background:var(--muted2);}
+  input[type=text]{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text);}
+  select{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); background:#fff;}
+  select:disabled{background:var(--surface1); color:var(--mut);}
+  button.btn{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--text); font-family:inherit;}
+  button.btn:hover{background:var(--surface1);}
+  button.btn:disabled{color:var(--muted2); cursor:not-allowed; background:var(--surface1);}
+  button.btn-primary{background:var(--blue); border-color:var(--blue); color:#fff;}
+  button.btn-primary:hover{background:#00408A;}
+  button.btn-primary:disabled{background:var(--muted2); border-color:var(--muted2); color:#fff;}
+  button.btn-danger{color:var(--red); border-color:var(--line);}
+  button.btn-danger:hover{background:#FCEBEB;}
+  .req{color:var(--red); margin-right:3px;}
+  .field-label{font-size:12px; color:var(--mut); display:block; margin-bottom:4px;}
+  .inline-label{font-size:12px; color:var(--mut); flex-shrink:0; width:88px;}
+  .calc-note{font-size:12.5px; color:var(--mut); margin:10px 0 0;}
+  .soft{font-size:12px; color:var(--muted2);}
+  .warn-note{font-size:12px; color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:var(--radius); padding:6px 10px; margin-top:8px;}
+
+  /* ---- value row ---- */
+  .row-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .row-card.dragging{opacity:0.4;}
+  .row-card.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .row-card.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .row-header{display:flex; align-items:center; gap:10px;}
+  .row-line{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:9px;}
+
+  /* ---- formula chip ---- */
+  .formula-chip{display:inline-flex; align-items:center; gap:7px; background:var(--tint); border:1px solid #C3D8F0; color:var(--blue); border-radius:var(--radius); padding:6px 10px; font-size:12.5px; cursor:pointer; max-width:100%;}
+  .formula-chip:hover{background:#DDEAF8;}
+  .formula-chip .fx{font-style:italic; font-weight:700; flex-shrink:0;}
+  .formula-chip .expr{font-family:'Courier New',monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .formula-chip.warn{background:var(--amber-l); border-color:var(--amber-line); color:var(--amber);}
+
+  /* ---- evaluation ---- */
+  .eval-summary{display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; border-radius:var(--radius); padding:5px 8px; margin-left:-8px; cursor:pointer; font-size:13px;}
+  .eval-summary:hover{border-color:var(--line); background:#fff;}
+  .eval-summary .edit{font-size:11.5px; color:var(--blue);}
+  .eval-summary.muted{color:var(--mut);}
+  .eval-summary.warn{color:var(--amber);}
+  .eval-summary.from-spec{color:var(--green); background:var(--green-l); border-color:#CBE4CC;}
+  .eval-summary.graded{color:var(--navy); background:var(--tint); border-color:#C3D8F0;}
+  .out-chip{display:inline-block; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:var(--radius); border:1px solid;}
+  .kind-opt{flex:1; min-width:260px; display:flex; align-items:flex-start; gap:9px; border:1px solid var(--line); border-radius:var(--radius); padding:11px 13px; cursor:pointer; background:#fff; font-size:13px;}
+  .kind-opt:hover{background:var(--surface1);}
+  .kind-opt.on{border-color:var(--blue); background:var(--tint);}
+  .kind-opt input{margin-top:2px; flex-shrink:0;}
+  .kind-opt b{color:var(--navy);}
+  .step-chip{display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:var(--radius); margin-right:6px; vertical-align:1px;}
+  .chip-mc{background:var(--tint); color:var(--blue);}
+  .chip-custom{background:var(--surface1); color:var(--mut); border:1px solid var(--line);}
+  .switch-kind{font-size:11.5px; color:var(--blue); cursor:pointer; margin-left:6px;}
+  .switch-kind:hover{text-decoration:underline;}
+  .step-tag{flex-shrink:0; font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:4px; letter-spacing:.02em;}
+  .tag-mc{background:var(--tint); color:var(--blue);}
+  .tag-custom{background:#EDEFF3; color:var(--muted2);}
+  .eval-open{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-top:6px;}
+
+  /* ---- spec type popover ---- */
+  .mctype-wrap{position:relative;}
+  .mctype-trigger{border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:13px; background:#fff; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:180px;}
+  .mctype-trigger:hover{background:var(--surface1);}
+  .mctype-caret{color:var(--muted2); font-size:10px; flex-shrink:0;}
+  .mctype-panel{display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 4px 14px rgba(10,42,85,0.14); min-width:230px;}
+  .mctype-panel label{display:flex; align-items:center; gap:6px; font-size:13px; padding:5px 4px; cursor:pointer; white-space:nowrap; border-radius:4px;}
+  .mctype-panel label:hover{background:var(--surface1);}
+  .mctype-panel .u{color:var(--muted2); font-size:11.5px;}
+
+  /* ---- modal ---- */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(10,42,85,0.35); display:flex; align-items:flex-start; justify-content:center; padding:60px 20px; z-index:100; overflow:auto;}
+  .modal{background:#fff; border-radius:12px; width:100%; max-width:560px; box-shadow:0 12px 40px rgba(10,42,85,0.28);}
+  .modal-head{padding:16px 20px 12px; border-bottom:1px solid var(--line);}
+  .modal-head h3{margin:0; font-size:16px; color:var(--navy);}
+  .modal-head p{margin:3px 0 0; font-size:12.5px; color:var(--mut);}
+  .modal-body{padding:16px 20px;}
+  .modal-foot{padding:12px 20px 16px; border-top:1px solid var(--line); display:flex; align-items:center; gap:8px;}
+  .modal-foot .spacer{flex:1;}
+  .preview-box{background:var(--surface1); border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-top:14px;}
+  .preview-box .expr{font-family:'Courier New',monospace; font-size:13.5px; color:var(--navy);}
+  .preview-box .label{font-size:11.5px; color:var(--mut); margin-top:4px;}
+  .hint{font-size:12px; color:var(--amber); margin:10px 0 0;}
+  footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Inspection workflow — measurement steps <span class="badge-draft">Mockup v8 — for review</span></h1>
+    <p>The measurement part of one inspection workflow. Each step is a group of measurements the inspector performs; the list on the left is the order they happen in. A step either measures every POM in a Measurement Chart, or defines its own values by hand.</p>
+    <div class="changelog">
+      <b>A step is one of two shapes — never both</b>
+      <div class="axes">
+        <div class="axis"><span class="t">Every POM in a Measurement Chart</span> — the step <em>is</em> the chart. A table of POMs, measured for every sample, each POM carrying its own unit and standard value. There is no list of values, because a chart is not a value.</div>
+        <div class="axis"><span class="t">Values defined here</span> — a short list of individual numbers. Each row is exactly one number per sample: its unit, whether the inspector enters it or a formula computes it, and how it is judged.</div>
+      </div>
+      <p style="margin:9px 0 0;"><b style="display:inline; text-transform:none; letter-spacing:0; font-size:12.5px;">Changed from v7:</b> the chart / manual choice moved from each value up to the step, where it belongs. v7 put a chart in the same list as single values and called them both “values”, which hid the fact that one row meant a whole table. That also removed a case that never had a meaning: a formula judged against a chart, when a chart has no single POM to judge it.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <h2>Inspection order</h2>
+      <div id="checkList"></div>
+      <p style="font-size:11px; color:var(--muted2); margin:8px 0 0; line-height:1.4;">Steps run top to bottom during the inspection. Drag a handle to reorder.</p>
+      <button class="btn" id="addChartStepBtn" style="width:100%; margin-top:8px;">+ Measurement Chart step</button>
+      <button class="btn" id="addCustomStepBtn" style="width:100%; margin-top:6px;">+ Custom values step</button>
+    </div>
+    <div class="main">
+      <div class="card">
+        <input type="text" id="ctName" class="ct-name-input">
+        <p class="meta" id="ctMeta" style="margin-bottom:0;"></p>
+      </div>
+      <div class="card">
+        <p class="section-label">Sampling rule <span class="note">— how many samples are pulled before measuring, set per step</span></p>
+        <div id="samplingBody"></div>
+      </div>
+      <div class="card" id="rowsCard">
+        <p class="section-label" id="rowsLabel"></p>
+        <div id="rowsList"></div>
+        <div style="margin-top:10px;">
+          <button class="btn" id="addValueBtn">+ Add value</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <p class="section-label">Result labels <span class="note">— defined by you, shared by every band in this workflow. Each label says whether it counts as a pass.</span></p>
+    <div id="labelsList"></div>
+    <button class="btn" id="addLabelBtn" style="margin-top:10px;">+ Add result label</button>
+  </div>
+
+  <footer class="foot">
+    Drag the handle on a row to reorder it. Formulas reference other values by name, so order never affects which value feeds a formula — it is only for reading top to bottom.
+  </footer>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+const UNIT_GROUPS = [
+  {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Weight", units:["g","kg","MT","oz","lb","st"]},
+  {category:"Volume", units:["mL","L","mm³","cm³","m³","in³","gal","ft³"]},
+  {category:"Temperature", units:["°C","°F"]},
+  {category:"Area", units:["nm²","cm²","m²","in²","yd²","ft²"]},
+  {category:"Area Density", units:["GSM","oz/yd²"]},
+  {category:"Quantity", units:["EACH","PCS","PAIR","DOZ","SET","PACK"]},
+  {category:"Other", units:["%"]}
+];
+
+// Which square unit a product of two identical dimension units resolves to.
+const SQUARE_UNITS = {cm:"cm²", m:"m²", in:"in²", yd:"yd²"};
+
+// The Measurement Chart "types" a chart-backed value may be drawn from — the
+// "setType" field from the measurement-sets API design.
+//
+// Deliberately NO unit here. A Measurement Chart does not carry a unit; each POM
+// inside it does. unitCategory is kept only as a coarse compatibility check on
+// formula results — a Dimension chart's POMs will be in dimension units — and it
+// is weaker evidence than it looks, constraining the family rather than the unit.
+//
+// "Temperature" is PROVISIONAL — it is not among the 3 confirmed setType values,
+// but a moisture-and-temperature step needs it. Confirm before building.
+const MC_TYPES = [
+  {id:"Dimension",   unitCategory:"Dimension"},
+  {id:"Weight",      unitCategory:"Weight"},
+  {id:"Volume",      unitCategory:"Volume"},
+  {id:"Temperature", unitCategory:"Temperature"}
+];
+
+const FORMULAS = [
+  {id:"pctchange",    label:"Percent change — (B − A) / A × 100", arity:2, expr:"(B − A) / A × 100", unit:"%"},
+  {id:"difference",   label:"Difference — A − B",                 arity:2, expr:"A − B",             unit:"sameAsOperands"},
+  {id:"ratio",        label:"Ratio — A / B",                      arity:2, expr:"A / B",             unit:"unitless"},
+  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",  arity:2, expr:"A / B × 100",       unit:"%"},
+  {id:"product",      label:"Product — A × B",                    arity:2, expr:"A × B",             unit:"product"},
+  {id:"sum",          label:"Total of the included values",        arity:"many",                      unit:"sameAsOperands"},
+  {id:"average",      label:"Average of the included values",      arity:"many",                      unit:"sameAsOperands"},
+  {id:"custom",       label:"Custom expression using A and B",     arity:2, custom:true,              unit:"custom"}
+];
+
+// ---------------------------------------------------------------------------
+// Evaluation model — ONE structure, many presets
+// ---------------------------------------------------------------------------
+// criteria = {
+//   mode: "rule" | "inspector" | "none",
+//   rule: {                       // only when mode === "rule"
+//     source:   "pom" | "local",  // "pom" = bounds come from the POM at inspection time
+//     preset:   "pom" | "tolerance" | "range" | "min" | "max",
+//     standard: "",               // only meaningful for the tolerance preset
+//     lower:    bound | null,
+//     upper:    bound | null
+//   }
+// }
+// bound = { value:"", basis:"absolute"|"percent", inclusive:true }
+//
+// Every rule shape reduces to at most two bounds on a number line, each with a
+// basis and an inclusivity, optionally anchored to a standard value:
+//
+//   standard + absolute lower/upper   -> preset "tolerance", bounds basis "absolute"
+//   standard + −5% / +10%             -> preset "tolerance", bounds basis "percent"
+//   range a to b                      -> preset "range",     no standard
+//   >= / > a                          -> preset "min",       lower only, inclusive flag
+//   <= / < b                          -> preset "max",       upper only, inclusive flag
+//
+// `preset` records AUTHORING INTENT, not evaluation logic — "≥ 5" and "range 5 to
+// unbounded" evaluate identically but must reopen in the editor as what the user
+// picked. Evaluation itself reads only standard / lower / upper.
+//
+// Bounds are never deleted when the preset changes; activeBounds() decides which
+// ones a preset actually uses. That keeps preset switching non-destructive, the
+// same rule the Value and Specification axes already follow. A persisted record
+// for the backend would null the inactive ones.
+
+// Result labels are USER-DEFINED, not a fixed enum. The admin names them and says
+// what each one means for the verdict. `passes` is the load-bearing field —
+// downstream logic (does this fail the inspection, does it need approval, how many
+// deviations this month) reads that, never the label text or the colour. Colour is
+// presentation only, so a label and its verdict can never drift apart.
+//
+// Seeded with the examples given in review. The `passes` flags on CRF and
+// CRF-Passed are GUESSES — I do not know what CRF stands for; the admin sets them.
+const LABEL_COLORS = [
+  {id:"green", label:"Green", fg:"#2E7D32", bg:"#E5F2E6", bd:"#CBE4CC"},
+  {id:"blue",  label:"Blue",  fg:"#0050AA", bg:"#EAF1FA", bd:"#C3D8F0"},
+  {id:"amber", label:"Amber", fg:"#B57A00", bg:"#FBF0D9", bd:"#E8D5A8"},
+  {id:"red",   label:"Red",   fg:"#C8102E", bg:"#FCEBEB", bd:"#F3C9CE"},
+  {id:"grey",  label:"Grey",  fg:"#667085", bg:"#F5F7FA", bd:"#C9D4E4"}
+];
+function labelColor(id){ return LABEL_COLORS.find(c=>c.id===id) || LABEL_COLORS[4]; }
+
+let nextLabelId = 6;
+const outcomeLabels = [
+  {id:"l1", label:"Pass",       passes:true,  color:"green"},
+  {id:"l2", label:"CRF",        passes:false, color:"amber"},
+  {id:"l3", label:"CRF-Passed", passes:true,  color:"blue"},
+  {id:"l4", label:"Warning",    passes:true,  color:"amber"},
+  {id:"l5", label:"Hard Fail",  passes:false, color:"red"}
+];
+function outcomeDef(id){
+  return outcomeLabels.find(o=>o.id===id) || outcomeLabels[0] || {id:"", label:"(no label)", passes:false, color:"grey"};
+}
+function defaultPassLabel(){ const o = outcomeLabels.find(x=>x.passes); return o ? o.id : (outcomeLabels[0]||{}).id; }
+function defaultFailLabel(){ const o = outcomeLabels.find(x=>!x.passes); return o ? o.id : (outcomeLabels[0]||{}).id; }
+
+// `standard: "required"` -> the preset is meaningless without one.
+// `standard: "optional"` -> bands are read relative to the standard when one is
+// given, and as actual values when it is left empty.
+const PRESETS = [
+  {id:"pom",       label:"Within POM tolerance",                chartOnly:true},
+  {id:"tolerance", label:"Tolerance around a standard value",   lower:true, upper:true, standard:"required"},
+  {id:"range",     label:"Range between two values",            lower:true, upper:true},
+  {id:"min",       label:"Minimum (lower limit)",               lower:true},
+  {id:"max",       label:"Maximum (upper limit)",               upper:true},
+  {id:"graded",    label:"Graded bands (multiple result labels)", lower:true, upper:true, standard:"optional", graded:true}
+];
+const CHOICE_INSPECTOR = {id:"inspector", label:"Inspector decides (pass / fail)"};
+const CHOICE_NONE      = {id:"none",      label:"Not evaluated"};
+
+function preset(id){ return PRESETS.find(p=>p.id===id); }
+function newBound(){ return {value:"", inclusive:true}; }
+function newBand(outcomeId){ return {lower:newBound(), upper:newBound(), outcome:outcomeId||defaultPassLabel()}; }
+
+// Which parts of the structure the current preset uses.
+function activeBounds(rule){
+  const p = preset(rule && rule.preset);
+  if (!p) return {lower:false, upper:false, standardField:false, standardRequired:false, graded:false};
+  return {
+    lower:!!p.lower, upper:!!p.upper,
+    standardField: !!p.standard,
+    standardRequired: p.standard==="required",
+    graded: !!p.graded
+  };
+}
+
+// The single rule that decides how a band's numbers are read. A standard value
+// present means the bands are relative to it; absent means they are actual values
+// on the measurement scale. There is no third option, which is why "absolute" was
+// the wrong word for a basis — it read as "the actual value" when it meant "a
+// difference from the standard".
+function hasStandard(rule){
+  return !!(rule && rule.standard!=null && String(rule.standard).trim()!=="");
+}
+const BASES = [
+  {id:"percent",    label:"% of standard"},
+  {id:"difference", label:"difference from standard"}
+];
+function basisLabel(id){ const b = BASES.find(x=>x.id===id); return b ? b.label : BASES[0].label; }
+
+// ---- validation -----------------------------------------------------------
+// Checked per band, on the raw numbers. This only works because `basis` is shared
+// across a band's two bounds: with a per-bound basis, "−5% to +6 mm" could not be
+// compared without resolving the standard first.
+function bandError(rule, band){
+  const a = activeBounds(rule);
+  if (!(a.lower && a.upper)) return null;
+  const lo = band.lower, hi = band.upper;
+  if (!lo || !hi || lo.value==="" || hi.value==="") return null;
+  const l = parseFloat(lo.value), u = parseFloat(hi.value);
+  if (isNaN(l) || isNaN(u)) return null;
+  if (l > u) return "Lower limit is above the upper limit.";
+  // Equal limits are a legitimate "exactly this value" — but only if both ends
+  // are inclusive. Otherwise the interval is empty and nothing can ever pass.
+  if (l === u && !(lo.inclusive && hi.inclusive)) return "Nothing can pass: the limits are equal and at least one end is exclusive.";
+  return null;
+}
+
+// Bands are first-match-wins, so a band is broken only when an EARLIER band
+// already covers all of it. That is a containment test, not a "must widen" test —
+// both of these are legitimate and neither should be flagged:
+//   nested:   ±5% -> Pass, ±10% -> Warning, else Hard Fail
+//   adjacent: 0-8% -> Pass, 8-12% -> Warning, else Hard Fail
+// Checked against each single earlier band rather than against their union, so it
+// under-reports rather than raising false alarms on shapes like the ones above.
+function bandOrderError(rule){
+  const a = activeBounds(rule);
+  if (!a.graded || !rule.bands) return null;
+  for (let i=1; i<rule.bands.length; i++){
+    const cur = rule.bands[i];
+    const cl = parseFloat(cur.lower.value), cu = parseFloat(cur.upper.value);
+    if (isNaN(cl) || isNaN(cu)) continue;
+    for (let j=0; j<i; j++){
+      const prev = rule.bands[j];
+      const pl = parseFloat(prev.lower.value), pu = parseFloat(prev.upper.value);
+      if (isNaN(pl) || isNaN(pu)) continue;
+      if (pl <= cl && pu >= cu){
+        return "Band "+(i+1)+" sits entirely inside band "+(j+1)+", so it can never be reached — bands are checked in order and the first match wins.";
+      }
+    }
+  }
+  return null;
+}
+
+function ruleError(rule){
+  if (!rule || !rule.bands) return null;
+  for (const b of rule.bands){ const e = bandError(rule, b); if (e) return e; }
+  return bandOrderError(rule);
+}
+
+// ---------------------------------------------------------------------------
+// Sample data
+// ---------------------------------------------------------------------------
+// A STEP is one of two shapes, never both:
+//
+//   kind:"chart"  -> the step IS the chart. The inspector measures every POM in
+//                    the style's chart, per sample. There is no list of values,
+//                    because a chart is not a value — it is a table. Configured by
+//                    step.chart, a single target that behaves like a row for
+//                    evaluation purposes.
+//
+//   kind:"custom" -> the step is a list of hand-built values, each meaning exactly
+//                    one number per sample. step.rows.
+//
+// That split is why a row no longer carries `spec` or `mcTypes`: inside a custom
+// step every value is hand-defined by definition, so there was nothing to choose.
+//
+// A row is:
+//   {id, name,
+//    unit:"",                 // or, when a formula fixes it, derived
+//    formula:null|{...},      // inspector entry vs computed
+//    criteria:{...}}          // see the evaluation model above
+//
+// The six steps below are one workflow's measurement sequence. Steps 1-3 are the
+// three cases described in review: measure every POM in a chart; a fully custom
+// moisture/temperature step; and a custom shrinkage step with no chart at all,
+// where the inspector enters before and after values and the result is derived.
+
+// Shorthand builders, so the sample data below stays readable while every entry
+// is really the same structure underneath.
+const bd = (lo,hi,out,loInc,hiInc)=>({
+  lower:{value:lo==null?"":String(lo), inclusive: loInc!==false},
+  upper:{value:hi==null?"":String(hi), inclusive: hiInc!==false},
+  outcome: out || "l1"
+});
+// No `basis` on the presets without a standard — their bands ARE actual values,
+// which is the whole point of the clarification.
+const R = {
+  pom:  ()=>({mode:"rule", rule:{source:"pom", preset:"pom"}}),
+  none: ()=>({mode:"none"}),
+  insp: ()=>({mode:"inspector"}),
+  range:(a,b,ai,bi)=>({mode:"rule", rule:{source:"local", preset:"range",
+          bands:[bd(a,b,"l1",ai,bi)], fallback:"l5"}}),
+  min:  (a,inc)=>({mode:"rule", rule:{source:"local", preset:"min",
+          bands:[bd(a,null,"l1",inc)], fallback:"l5"}}),
+  max:  (b,inc)=>({mode:"rule", rule:{source:"local", preset:"max",
+          bands:[bd(null,b,"l1",true,inc)], fallback:"l5"}}),
+  // basis is shared by both ends, and only means anything because a standard
+  // exists: "percent" -> ±5% OF the standard; "difference" -> ±3 FROM it.
+  tol:  (std,lo,hi,basis)=>({mode:"rule", rule:{source:"local", preset:"tolerance",
+          standard:String(std), basis:basis||"percent",
+          bands:[bd(lo,hi,"l1")], fallback:"l5"}}),
+  // Graded: innermost band first, each wider than the last, with a catch-all.
+  // Pass std as null for bands that are actual values rather than relative ones.
+  graded:(std,list,basis,fb)=>({mode:"rule", rule:{source:"local", preset:"graded",
+          standard: std==null ? "" : String(std), basis:basis||"percent",
+          bands:list.map(x=>bd(x[0],x[1],x[2])), fallback:fb||"l5"}})
+};
+
+const data = {
+  chartpoms: {
+    // A chart step. No rows at all — the chart is the whole step.
+    name: "All chart measurements",
+    kind: "chart",
+    chart: {id:"chart", isChart:true, name:"Chart POMs", mcTypes:["Dimension"], unit:"", formula:null, criteria:R.pom()},
+    rows: []
+  },
+  chartgraded: {
+    // A chart step that grades instead of just passing/failing. The bands are % of
+    // each POM's OWN standard value, which is the only basis that can mean anything
+    // across POMs that do not share a unit.
+    name: "Critical POMs (graded)",
+    kind: "chart",
+    chart: {id:"chart", isChart:true, name:"Chart POMs", mcTypes:["Dimension","Weight"], unit:"", formula:null,
+            criteria:R.graded(null,[[-5,5,"l1"],[-10,10,"l2"]],"percent","l5")},
+    rows: []
+  },
+  shrinkage: {
+    // Case 3 — no chart. The inspector enters before and after by hand and the
+    // shrinkage is derived, judged against a threshold set here because no chart
+    // type carries a percentage tolerance.
+    name: "Shrinkage / wash test",
+    kind: "custom",
+    rows: [
+      {id:2, name:"Before wash", unit:"cm", formula:null, criteria:R.none()},
+      {id:3, name:"After wash",  unit:"cm", formula:null, criteria:R.none()},
+      {id:4, name:"% Shrinkage", unit:"%",
+       formula:{type:"pctchange", op1:2, op2:3},
+       criteria:R.range(-5,5)}
+    ]
+  },
+  tempmoisture: {
+    // Case 2 — custom measurement for moisture and temperature, no chart involved.
+    name: "Moisture & temperature",
+    kind: "custom",
+    rows: [
+      {id:17, name:"Temperature", unit:"°C", formula:null, criteria:R.tol(21,-3,3,"difference")},
+      {id:18, name:"Moisture A",  unit:"%", formula:null, criteria:R.none()},
+      {id:19, name:"Moisture B",  unit:"%", formula:null, criteria:R.none()},
+      // Graded with NO standard value, so the bands are actual % readings rather
+       // than deviations from anything.
+      {id:20, name:"Average moisture", unit:"%",
+       formula:{type:"average", operandIds:[18,19]},
+       criteria:R.graded(null, [[0,8,"l1"],[8,12,"l4"]], null, "l5")}
+    ]
+  },
+  avgweight: {
+    // In v7 the averaged result was judged "within POM tolerance" against a Weight
+    // chart. That is now retracted: a chart is every POM in it, so there was no
+    // single POM whose tolerance could judge one averaged number. The threshold is
+    // stated here instead, which is what that configuration actually meant.
+    name: "Average weight (3 readings)",
+    kind: "custom",
+    rows: [
+      {id:5, name:"Reading 1", unit:"g", formula:null, criteria:R.none()},
+      {id:6, name:"Reading 2", unit:"g", formula:null, criteria:R.none()},
+      {id:7, name:"Reading 3", unit:"g", formula:null, criteria:R.none()},
+      {id:8, name:"Average weight", unit:"g",
+       formula:{type:"average", operandIds:[5,6,7]},
+       criteria:R.tol(200,-5,5,"percent")}
+    ]
+  },
+  twisting: {
+    name: "Side seam twisting",
+    kind: "custom",
+    rows: [
+      {id:9,  name:"Twist / displacement value", unit:"cm", formula:null, criteria:R.none()},
+      {id:10, name:"Side seam length",           unit:"cm", formula:null, criteria:R.none()},
+      {id:11, name:"% Twisting", unit:"%",
+       formula:{type:"ratiopercent", op1:9, op2:10},
+       criteria:R.max(5,false)}
+    ]
+  },
+  fabricweight: {
+    // "Swatch area" is a formula row feeding another formula row, and carries no
+    // evaluation of its own. The GSM row uses a custom expression, so its unit
+    // cannot be derived — the admin states it (GSM) instead.
+    name: "Fabric weight (from swatch)",
+    kind: "custom",
+    rows: [
+      {id:12, name:"Swatch length", unit:"cm", formula:null, criteria:R.none()},
+      {id:13, name:"Swatch width",  unit:"cm", formula:null, criteria:R.none()},
+      {id:14, name:"Swatch area",   unit:"cm²",
+       formula:{type:"product", op1:12, op2:13}, criteria:R.none()},
+      {id:15, name:"Swatch weight", unit:"g", formula:null, criteria:R.none()},
+      {id:16, name:"Fabric weight (GSM)", unit:"GSM",
+       formula:{type:"custom", op1:15, op2:14, customExpr:"A / B × 10,000"},
+       // Graded WITH a standard, so the bands are % of it. Uses the CRF label from
+       // review to show that the labels are the admin's, not the system's.
+       criteria:R.graded(160,[[-5,5,"l1"],[-10,10,"l2"]],"percent","l5")}
+    ]
+  }
+};
+// The workflow's inspection sequence. Drag-reorderable in the sidebar.
+const order = ["chartpoms","chartgraded","shrinkage","tempmoisture","twisting","fabricweight","avgweight"];
+let active = "chartpoms";
+let nextId = 1;
+let nextRowId = 21;
+
+const openEval = new Set();
+let modal = null; // {rowId, formula, isNew}
+
+// ---------------------------------------------------------------------------
+// Model helpers
+// ---------------------------------------------------------------------------
+
+// The chart target answers to id "chart" so that every evaluation control — the
+// summary, the editor, the band handlers — works on it unchanged. It is the only
+// place a chart still resembles a row, and only for judging.
+function findRow(d, id){
+  if (id==="chart") return d.chart;
+  return d.rows.find(r=>r.id===id);
+}
+function rowIndex(d, id){ return d.rows.findIndex(r=>r.id===id); }
+function rowName(d, id){ const r = findRow(d,id); return r ? r.name : null; }
+function isChartStep(d){ return d && d.kind==="chart"; }
+// Bands on a chart target are always relative: each POM supplies its own standard,
+// so there is no single standard to type and no unit the bands could be absolute in.
+function isFromMC(row){ return !!(row && row.isChart); }
+function formulaDef(fm){ return fm ? FORMULAS.find(x=>x.id===fm.type) : null; }
+function mcType(id){ return MC_TYPES.find(t=>t.id===id); }
+
+function unitCategoryOf(unit){
+  const g = UNIT_GROUPS.find(g=>g.units.includes(unit));
+  return g ? g.category : null;
+}
+
+function operandIdsOf(fm){
+  if (!fm) return [];
+  const f = formulaDef(fm);
+  if (f && f.arity==="many") return (fm.operandIds||[]).slice();
+  return [fm.op1, fm.op2].filter(x=>x!=null);
+}
+
+function dependsOn(d, candidateId, targetId, seen){
+  if (candidateId===targetId) return true;
+  seen = seen || new Set();
+  if (seen.has(candidateId)) return false;
+  seen.add(candidateId);
+  const r = findRow(d, candidateId);
+  if (!r || !r.formula) return false;
+  return operandIdsOf(r.formula).some(id=>dependsOn(d, id, targetId, seen));
+}
+
+function eligibleOperands(d, rowId){
+  return d.rows.filter(r=>!dependsOn(d, r.id, rowId));
+}
+
+// The unit a formula implies from its operands, or null when it cannot be worked
+// out (custom expressions, or operands whose own unit is unknown).
+function derivedUnit(d, row, seen){
+  if (!row || !row.formula) return null;
+  seen = seen || new Set();
+  if (seen.has(row.id)) return null;
+  seen.add(row.id);
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return null;
+  if (f.unit==="%") return "%";
+  if (f.unit==="unitless") return "unitless (ratio)";
+  if (f.unit==="custom") return null;
+
+  const units = operandIdsOf(fm).map(id=>unitOf(d, findRow(d,id), seen));
+  const allSame = units.length>0 && units.every(u=>u && u===units[0]);
+  if (f.unit==="product"){
+    if (!allSame) return null;
+    return SQUARE_UNITS[units[0]] || (units[0]+" × "+units[0]);
+  }
+  return allSame ? units[0] : null;
+}
+
+// The unit of a value as far as this screen can know it. A formula wins over
+// everything else — if the operands fix the result unit, that is the unit the
+// number carries, whichever specification governs the row.
+//   formula with a derivable unit -> that unit
+//   chart-backed                  -> comes from the POM inside the chart, unknown here
+//   otherwise                     -> the admin's choice
+function unitOf(d, row, seen){
+  if (!row) return null;
+  if (row.formula){
+    const u = derivedUnit(d, row, seen);
+    if (u) return u;
+  }
+  if (isFromMC(row)) return null;
+  return row.unit || null;
+}
+
+// True when the row's unit is fixed by its formula and so must not be editable.
+function unitIsDerived(d, row){
+  return !!(row.formula && derivedUnit(d, row));
+}
+
+// Short unit for inline use next to a threshold. Phrases are dropped.
+function inlineUnit(d, row){
+  const u = unitOf(d, row);
+  return (!u || u.indexOf(" ")!==-1) ? "" : u;
+}
+
+// v7 warned when a formula's unit did not match the chart type's unit family. That
+// check is gone with the case it guarded: a chart step has no formula, because the
+// chart is not a value. Nothing left to mismatch.
+function mcUnitWarning(d, row){ return null; }
+
+// The dropdown's value space is preset ids plus the two non-rule modes. On a chart
+// target only the presets that can mean something across POMs with different units
+// are offered — deferring to each POM's own bands, or grading by % of each POM's
+// own standard. An absolute range would be meaningless across a mixed-unit chart.
+function critOptions(row){
+  if (isFromMC(row)){
+    return [preset("pom"), preset("graded"), CHOICE_INSPECTOR, CHOICE_NONE];
+  }
+  const list = PRESETS.filter(p=>!p.chartOnly || isFromMC(row)).slice();
+  return list.concat([CHOICE_INSPECTOR, CHOICE_NONE]);
+}
+
+// Collapse the stored structure back to the single dropdown value.
+function critChoice(row){
+  const c = ensureCriteria(row);
+  if (c.mode==="none") return "none";
+  if (c.mode==="inspector") return "inspector";
+  return c.rule && c.rule.source==="pom" ? "pom" : ((c.rule && c.rule.preset) || "range");
+}
+
+// A chart row defers to the POM's bounds; a manual row defaults to not being
+// evaluated, because manual values are usually plumbing that feeds a formula.
+// Defaulting to Range instead would make every new row open in an amber "needs
+// both limits" state, which reads as broken rather than as unset.
+function ensureCriteria(row){
+  if (!row.criteria) row.criteria = isFromMC(row) ? R.pom() : R.none();
+  const c = row.criteria;
+  // Deferring to the POM survives only while the row is chart-backed.
+  if (c.mode==="rule" && c.rule && c.rule.source==="pom" && !isFromMC(row)){
+    c.mode = "none";
+    c.rule = null;
+  }
+  return c;
+}
+
+// Ensure what a preset needs exists, without ever deleting what it does not use —
+// so switching preset and back does not lose typed numbers. Extra bands left over
+// from the graded preset are kept for the same reason; activeBounds() decides what
+// is actually read.
+function seedRule(rule){
+  const a = activeBounds(rule);
+  if (a.standardField && rule.standard==null) rule.standard = "";
+  if (!a.standardField) rule.standard = "";            // no standard -> actual values
+  if (a.standardRequired && String(rule.standard).trim()==="" && rule.standard!=="") rule.standard = "";
+  if (!rule.basis) rule.basis = "percent";             // only read when a standard exists
+  if (!rule.bands || !rule.bands.length) rule.bands = [newBand()];
+  rule.bands.forEach(b=>{
+    if (!b.lower) b.lower = newBound();
+    if (!b.upper) b.upper = newBound();
+    // A band pointing at a deleted label falls back rather than rendering blank.
+    if (!b.outcome || !outcomeLabels.some(o=>o.id===b.outcome)) b.outcome = defaultPassLabel();
+  });
+  // Graded needs at least two bands to mean anything beyond plain pass/fail.
+  if (a.graded && rule.bands.length < 2) rule.bands.push(newBand(defaultFailLabel()));
+  if (!rule.fallback || !outcomeLabels.some(o=>o.id===rule.fallback)) rule.fallback = defaultFailLabel();
+  return rule;
+}
+
+function setCritChoice(row, choice){
+  const c = ensureCriteria(row);
+  if (choice==="none"){ c.mode = "none"; return; }
+  if (choice==="inspector"){ c.mode = "inspector"; return; }
+  c.mode = "rule";
+  c.rule = c.rule || {};
+  if (choice==="pom"){ c.rule.source = "pom"; c.rule.preset = "pom"; return; }
+  c.rule.source = "local";
+  c.rule.preset = choice;
+  seedRule(c.rule);
+}
+
+// Switching the specification axis moves the evaluation to that axis's natural
+// default. The local rule is kept aside so switching back restores it — the same
+// non-destructive rule the Value and Specification axes already follow.
+function syncCriteriaToSpec(row){
+  const c = row.criteria;
+  if (!c){ ensureCriteria(row); return; }
+  // Read the previous state BEFORE any normalisation. The caller has already
+  // flipped row.spec, so ensureCriteria() would strip the POM rule as
+  // invalid-for-manual and the restore branch below would never see it.
+  const wasPom = c.mode==="rule" && c.rule && c.rule.source==="pom";
+  if (isFromMC(row)){
+    if (!wasPom){
+      row.stashedCriteria = JSON.parse(JSON.stringify(c));
+      setCritChoice(row, "pom");
+    }
+  } else if (wasPom){
+    if (row.stashedCriteria){
+      row.criteria = row.stashedCriteria;
+      row.stashedCriteria = null;
+    } else {
+      c.mode = "none";
+      c.rule = null;
+    }
+  }
+  ensureCriteria(row);
+}
+
+function formulaChipText(d, row){
+  const fm = row.formula;
+  const f = formulaDef(fm);
+  if (!f) return {text:"Unrecognised formula", warn:true};
+
+  if (f.arity==="many"){
+    const names = (fm.operandIds||[]).map(id=>rowName(d,id));
+    if (names.length<2 || names.some(n=>!n)) return {text:(f.id==="sum"?"Total":"Average")+" — pick at least 2 values", warn:true};
+    return f.id==="sum"
+      ? {text: names.join(" + ")}
+      : {text: "("+names.join(" + ")+") / "+names.length};
+  }
+  const a = fm.op1!=null ? rowName(d,fm.op1) : null;
+  const b = fm.op2!=null ? rowName(d,fm.op2) : null;
+  if (!a || !b) return {text:"Formula — pick both values", warn:true};
+  const tpl = f.custom ? (fm.customExpr||"") : f.expr;
+  if (!tpl) return {text:"Custom formula — enter an expression", warn:true};
+  return {text: tpl.replace(/\b[AB]\b/g, m=> m==="A" ? a : b)};
+}
+
+// One reader for every preset, because there is one structure to read.
+function evalSummary(d, row){
+  const c = ensureCriteria(row);
+  if (c.mode==="none")      return {text:"Not evaluated", muted:true};
+  if (c.mode==="inspector") return {text:"Inspector decides", inspector:true};
+
+  const rule = c.rule || {};
+  if (rule.source==="pom") return {text:"Within POM tolerance", fromSpec:true};
+
+  seedRule(rule);
+  const err = ruleError(rule);
+  if (err) return {text: err, warn:true};
+
+  const u = inlineUnit(d, row);
+  const suf = u ? " "+u : "";
+  const a = activeBounds(rule);
+  // The one decision: a standard value present means the bands are relative to it,
+  // absent means they are actual values on the measurement scale. A chart target is
+  // always relative — every POM brings its own standard.
+  const perPom = isFromMC(row);
+  const rel = perPom || hasStandard(rule);
+  const uSuf = perPom ? "%" : (rel ? (rule.basis==="percent" ? "%" : suf) : suf);
+  const sign = (v)=> String(v).trim().startsWith("-") ? "" : "+";
+
+  const bandText = (band)=>{
+    const lo = a.lower ? band.lower : null, hi = a.upper ? band.upper : null;
+    if (rel && lo && hi) return sign(lo.value)+lo.value+uSuf+" to "+sign(hi.value)+hi.value+uSuf;
+    if (a.lower && a.upper){
+      // The clean phrasing is only honest when both ends are inclusive; otherwise
+      // spell the operators out rather than hide an exclusive bound.
+      return (lo.inclusive && hi.inclusive)
+        ? lo.value+" to "+hi.value+suf
+        : (lo.inclusive?"≥ ":"> ")+lo.value+" and "+(hi.inclusive?"≤ ":"< ")+hi.value+suf;
+    }
+    if (a.lower) return (lo.inclusive?"≥ ":"> ")+lo.value+uSuf;
+    return (hi.inclusive?"≤ ":"< ")+hi.value+uSuf;
+  };
+
+  const filled = (band)=>{
+    const lo = a.lower ? band.lower : null, hi = a.upper ? band.upper : null;
+    return (!a.lower || (lo && lo.value!=="")) && (!a.upper || (hi && hi.value!==""));
+  };
+
+  if (a.standardRequired && !hasStandard(rule)) return {text:"Needs a standard value", warn:true};
+  if (!rule.bands.every(filled)) return {text: a.graded ? "Bands — every band needs both limits" : (rel ? "Tolerance — needs both bands" : (a.lower && a.upper ? "Range — needs both limits" : "Needs a limit")), warn:true};
+
+  if (a.graded){
+    // Innermost first, so the summary reads outward from nominal.
+    const parts = rule.bands.map(b=>bandText(b)+" → "+outcomeDef(b.outcome).label);
+    // A chart target has no standard to print — each POM supplies its own.
+    const head = perPom ? "per POM · " : (rel ? rule.standard+suf+" · " : "");
+    return {text: head+parts.join(" · ")+" · else "+outcomeDef(rule.fallback).label, graded:true};
+  }
+  const one = bandText(rule.bands[0]);
+  return {text: perPom ? one : (rel ? rule.standard+suf+", "+one : one)};
+}
+
+function computeMeta(d){
+  // A chart step deliberately does NOT report a count. v7 said "1 value", which was
+  // the misleading part: one config row stood for a whole table of POMs, and the
+  // POM list is not even knowable here since charts are grouped per Style ID.
+  if (isChartStep(d)){
+    const types = (d.chart.mcTypes && d.chart.mcTypes.length) ? d.chart.mcTypes.join(" / ") : "any type";
+    return "Every POM in the style’s " + types + " chart, per sample";
+  }
+  const n = d.rows.length;
+  const nCalc = d.rows.filter(r=>r.formula).length;
+  const nEval = d.rows.filter(r=>ensureCriteria(r).mode!=="none").length;
+  const parts = [n+" value"+(n===1?"":"s")+" per sample"];
+  if (nCalc) parts.push(nCalc+" from a formula");
+  parts.push(nEval+" evaluated");
+  return parts.join(" · ");
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ---------------------------------------------------------------------------
+// Sampling rule (unchanged)
+// ---------------------------------------------------------------------------
+
+const SAMPLING_METHODS = [
+  {id:"byitem", label:"By Item", followUp:{type:"number", label:"By Item"}},
+  {id:"bysizeperstyle", label:"By Size Per Style", followUp:{type:"number", label:"By Size Per Style"}},
+  {id:"bycolorperstyle", label:"By Color Per Style", followUp:{type:"number", label:"By Color Per Style"}},
+  {id:"aqlstandard", label:"AQL Standard", followUp:{type:"select", label:"AQL Table", options:["AQL 3.0","AQL 2.5 - GII","AQL 2.0 SI"]}},
+  {id:"determinedquantity", label:"Determined Quantity", followUp:{type:"number", label:"Determined Quantity"}},
+  {id:"inspectordecide", label:"Inspector Decide", followUp:null}
+];
+
+function renderSampling(){
+  const d = data[active];
+  const body = document.getElementById("samplingBody");
+  if (!d){ body.innerHTML = ""; return; }
+  if (!d.sampling) d.sampling = {method: SAMPLING_METHODS[0].id, value:""};
+  const s = d.sampling;
+  const method = SAMPLING_METHODS.find(x=>x.id===s.method) || SAMPLING_METHODS[0];
+
+  let followUpHtml;
+  if (method.followUp){
+    const fu = method.followUp;
+    const control = fu.type==="select"
+      ? '<select id="samplingFollowUpSel" style="width:100%;">' + fu.options.map(o=>'<option'+(o===s.value?" selected":"")+'>'+o+'</option>').join("") + '</select>'
+      : '<input id="samplingFollowUpInp" type="text" value="'+esc(s.value||"")+'" style="width:100%;">';
+    followUpHtml = '<label class="field-label"><span class="req">*</span>'+fu.label+'</label>' + control;
+  } else {
+    followUpHtml = '<p class="calc-note" style="margin-top:0;">Inspector decides the sample size at the time of inspection — no predefined value needed.</p>';
+  }
+
+  body.innerHTML = '<div style="display:flex; gap:24px; flex-wrap:wrap;">'
+    + '<div style="flex:1; min-width:200px;">'
+      + '<label class="field-label"><span class="req">*</span>Sample size determination</label>'
+      + '<select id="samplingMethodSel" style="width:100%;">' + SAMPLING_METHODS.map(m=>'<option value="'+m.id+'"'+(m.id===s.method?" selected":"")+'>'+m.label+'</option>').join("") + '</select>'
+    + '</div>'
+    + '<div style="flex:1; min-width:200px;">' + followUpHtml + '</div>'
+    + '</div>';
+
+  const ms = document.getElementById("samplingMethodSel");
+  if (ms) ms.addEventListener("change", ()=>{ d.sampling.method = ms.value; d.sampling.value = ""; renderSampling(); });
+  const fs = document.getElementById("samplingFollowUpSel");
+  if (fs) fs.addEventListener("change", ()=>{ d.sampling.value = fs.value; });
+  const fi = document.getElementById("samplingFollowUpInp");
+  if (fi) fi.addEventListener("change", ()=>{ d.sampling.value = fi.value; });
+}
+
+// ---------------------------------------------------------------------------
+// Step list & header
+// ---------------------------------------------------------------------------
+
+function renderList(){
+  const el = document.getElementById("checkList");
+  if (order.length===0){
+    el.innerHTML = '<p style="font-size:12px; color:var(--muted2); padding:6px 2px;">No measurement steps yet.</p>';
+    return;
+  }
+  // Numbered and drag-reorderable, because this list IS the inspection sequence
+  // rather than an index of things to find.
+  const showHandle = order.length > 1;
+  el.innerHTML = order.map((k,i)=>{
+    const d = data[k];
+    const handle = showHandle
+      ? '<span class="drag-handle step-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+      : '';
+    return '<div class="ct-row step-row" data-key="'+k+'" draggable="false">'
+      + handle
+      + '<span class="step-num">'+(i+1)+'</span>'
+      + '<div data-key="'+k+'" class="ct-item'+(k===active?" active":"")+'" title="'+esc(d.name)+'">'+esc(d.name)+'</div>'
+      + '<span data-key="'+k+'" class="ct-remove" title="Remove step">&times;</span>'
+      + '</div>';
+  }).join("");
+  el.querySelectorAll(".ct-item").forEach(item=>{
+    item.addEventListener("click", ()=>{ active = item.getAttribute("data-key"); openEval.clear(); renderAll(); });
+  });
+  el.querySelectorAll(".ct-remove").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{ e.stopPropagation(); removeCheckType(btn.getAttribute("data-key")); });
+  });
+  if (showHandle) wireStepDragDrop(el);
+}
+
+// Same interaction as reordering values inside a step, so the two lists behave
+// alike — grab the handle, drop above or below.
+function wireStepDragDrop(el){
+  const rows = [...el.querySelectorAll(".step-row")];
+  let draggedKey = null;
+
+  rows.forEach(rowEl=>{
+    const handle = rowEl.querySelector(".step-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ rowEl.setAttribute("draggable","true"); });
+
+    rowEl.addEventListener("dragstart", (e)=>{
+      draggedKey = rowEl.getAttribute("data-key");
+      rowEl.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", draggedKey);
+    });
+    rowEl.addEventListener("dragend", ()=>{
+      rowEl.setAttribute("draggable","false");
+      rowEl.classList.remove("dragging");
+      rows.forEach(r=>r.classList.remove("drop-above","drop-below"));
+    });
+    rowEl.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (!draggedKey) return;
+      const targetKey = rowEl.getAttribute("data-key");
+      if (targetKey===draggedKey) return;
+      const rect = rowEl.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      rows.forEach(r=>r.classList.remove("drop-above","drop-below"));
+      rowEl.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    rowEl.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetKey = rowEl.getAttribute("data-key");
+      if (!draggedKey || targetKey===draggedKey) return;
+      const rect = rowEl.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      order.splice(order.indexOf(draggedKey), 1);
+      const toIdx = order.indexOf(targetKey);
+      order.splice(isAbove ? toIdx : toIdx+1, 0, draggedKey);
+      draggedKey = null;
+      renderList();
+    });
+  });
+}
+
+function removeCheckType(key){
+  const d = data[key];
+  if (!d) return;
+  if (!confirm('Remove "'+d.name+'"? This cannot be undone.')) return;
+  delete data[key];
+  const idx = order.indexOf(key);
+  if (idx>-1) order.splice(idx,1);
+  if (active===key) active = order.length ? order[0] : null;
+  renderAll();
+}
+
+function renderHeader(){
+  const d = data[active];
+  const nameInput = document.getElementById("ctName");
+  const metaEl = document.getElementById("ctMeta");
+  if (!d){
+    nameInput.value = "";
+    nameInput.placeholder = "No steps yet — add one from the left";
+    nameInput.disabled = true;
+    metaEl.innerHTML = "";
+    return;
+  }
+  nameInput.disabled = false;
+  nameInput.value = d.name;
+
+  // The step's shape is stated, not offered. It is decided when the step is added
+  // and effectively never changes, so a permanent radio pair was dead UI. The
+  // switch survives as a quiet link rather than disappearing — converting keeps the
+  // step's name, position and sampling rule, which delete-and-re-add would lose.
+  const chip = isChartStep(d)
+    ? '<span class="step-chip chip-mc">Measurement Chart step</span>'
+    : '<span class="step-chip chip-custom">Custom values step</span>';
+  metaEl.innerHTML = chip + ' ' + esc(computeMeta(d))
+    + ' <span class="switch-kind" id="switchKind">change type</span>';
+
+  const sw = document.getElementById("switchKind");
+  if (sw) sw.addEventListener("click", ()=>{
+    const to = isChartStep(d) ? "custom" : "chart";
+    if (!confirm('Change this step to a '+(to==="chart"?"Measurement Chart":"Custom values")+' step?\n\nWhatever is configured on the other side is kept, so you can switch back.')) return;
+    d.kind = to;
+    if (to==="chart" && !d.chart){
+      d.chart = {id:"chart", isChart:true, name:"Chart POMs", mcTypes:[], unit:"", formula:null, criteria:R.pom()};
+    }
+    if (to==="custom" && (!d.rows || !d.rows.length)) d.rows = [newRow()];
+    openEval.clear();
+    renderAll();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Value rows
+// ---------------------------------------------------------------------------
+
+function unitSelectHtml(row, disabled){
+  return '<select data-rowid="'+row.id+'" class="unitSel"'+(disabled?" disabled":"")+' style="min-width:150px;">'
+    + UNIT_GROUPS.map(g=>'<optgroup label="'+g.category+'">'
+        + g.units.map(u=>'<option'+(u===row.unit?" selected":"")+'>'+u+'</option>').join("")
+      + '</optgroup>').join("")
+    + '</select>';
+}
+
+function mcTypeSummary(selected){
+  if (!selected || selected.length===0) return "Any type";
+  if (selected.length < 3) return selected.join(", ");
+  return selected.length + " types selected";
+}
+
+function mcTypeHtml(row){
+  const selected = row.mcTypes || [];
+  const optionsHtml = MC_TYPES.map(t=>{
+    const checked = selected.includes(t.id);
+    // No unit shown next to the type — the chart has none.
+    return '<label><input type="checkbox" data-rowid="'+row.id+'" data-mctype="'+t.id+'" class="mcTypeCheck" '+(checked?"checked":"")+'>'
+      + t.id + '</label>';
+  }).join("");
+  return '<div class="mctype-wrap" data-rowid="'+row.id+'">'
+    + '<div class="mctype-trigger" data-rowid="'+row.id+'" tabindex="0">'
+      + '<span class="mctype-summary" data-rowid="'+row.id+'">'+mcTypeSummary(selected)+'</span>'
+      + '<span class="mctype-caret">&#9662;</span>'
+    + '</div>'
+    + '<div class="mctype-panel" data-rowid="'+row.id+'">' + optionsHtml + '</div>'
+    + '</div>';
+}
+
+// Line 2 — just the unit now. Inside a custom step there is no specification
+// question left to ask: every value is hand-defined, and its standard value and
+// tolerance bands live in the evaluation rule. The Measurement Chart / Manual
+// dropdown is gone, because it was asking a question about the STEP.
+function specificationHtml(d, row){
+  let dependent, hint;
+  if (unitIsDerived(d, row)){
+    dependent = '<span class="soft"><b>'+esc(derivedUnit(d,row))+'</b> — set by the formula</span>';
+    hint = "";
+  } else if (row.formula){
+    dependent = unitSelectHtml(row, false);
+    hint = '<span class="soft">The formula’s unit cannot be derived — state it here</span>';
+  } else {
+    dependent = unitSelectHtml(row, false);
+    hint = "";
+  }
+  return '<div class="row-line">'
+    + '<span class="inline-label">Unit</span>'
+    + dependent + hint
+    + '</div>';
+}
+
+// The chart step's whole configuration. Deliberately NOT a row: no name field, no
+// Value line, no formula, and it says out loud that it produces a table.
+function chartPanelHtml(d){
+  const chart = d.chart;
+  return '<div class="row-card">'
+    + '<div class="row-line" style="margin-top:0;">'
+      + '<span class="inline-label">Chart type</span>'
+      + mcTypeHtml(chart)
+      + '<span class="soft">Which Measurement Charts this step may draw from</span>'
+    + '</div>'
+    + '<div class="warn-note" style="color:var(--mut); background:var(--surface2); border-color:var(--line);">'
+      + 'The inspector measures <b>every POM</b> in the style’s chart, for <b>every sample</b>. '
+      + 'The POM list is not known here — a chart is grouped per Style ID, so it is resolved at inspection time. '
+      + 'Each POM carries its own unit and standard value.'
+    + '</div>'
+    + evaluationHtml(d, chart)
+    + '</div>';
+}
+
+// Line 3 — how the number is obtained. Independent of line 2, and given the same
+// shape as it (a two-option select plus a dependent detail) so the row reads as
+// three parallel questions rather than two settings and a loose button.
+function valueHtml(d, row){
+  const isFormula = !!row.formula;
+  let html = '<div class="row-line"><span class="inline-label">Value</span>'
+    + '<select data-rowid="'+row.id+'" class="valueSel" style="min-width:200px;">'
+      + '<option value="inspector"'+(!isFormula?" selected":"")+'>Entered by inspector</option>'
+      + '<option value="formula"'+(isFormula?" selected":"")+'>Calculated by formula</option>'
+    + '</select>';
+  if (isFormula){
+    const t = formulaChipText(d, row);
+    html += '<span class="formula-chip'+(t.warn?" warn":"")+'" data-rowid="'+row.id+'" title="Edit formula">'
+      + '<span class="fx">&fnof;</span><span class="expr">'+esc(t.text)+'</span></span>';
+  }
+  return html + '</div>';
+}
+
+// Line 4 — collapsed by default; defaults are right for most rows.
+function evaluationHtml(d, row){
+  const c = ensureCriteria(row);
+  const isOpen = openEval.has(row.id);
+  const s = evalSummary(d, row);
+  const cls = s.warn ? " warn" : (s.muted ? " muted" : (s.fromSpec ? " from-spec" : (s.graded ? " graded" : "")));
+
+  let html = '<div class="row-line">'
+    + '<span class="inline-label">Evaluation</span>'
+    + '<span class="eval-summary'+cls+'" data-rowid="'+row.id+'">'
+      + esc(s.text) + '<span class="edit">'+(isOpen?"close":"change")+'</span>'
+    + '</span>'
+    + '</div>';
+
+  const warn = mcUnitWarning(d, row);
+  if (warn) html += '<div class="warn-note">'+esc(warn)+'</div>';
+
+  if (!isOpen) return html;
+
+  const unit = inlineUnit(d, row);
+  const choice = critChoice(row);
+  html += '<div class="eval-open">'
+    + '<select data-rowid="'+row.id+'" class="critTypeSel" style="width:100%;">'
+      + critOptions(row).map(x=>'<option value="'+x.id+'"'+(x.id===choice?" selected":"")+'>'+x.label+'</option>').join("")
+    + '</select>';
+
+  // One editor for every preset. A band is a band whether there is one of them or
+  // four, so adding a preset means adding a row to PRESETS, not a branch here.
+  if (c.mode==="rule" && c.rule && c.rule.source==="local"){
+    const rule = seedRule(c.rule);
+    const a = activeBounds(rule);
+    const dr = 'data-rowid="'+row.id+'"';
+    const inclSel = (i, side, b)=> '<select '+dr+' data-band="'+i+'" data-side="'+side+'" class="critIncl" style="width:64px;">'
+        + '<option value="1"'+(b.inclusive?" selected":"")+'>'+(side==="lower"?"&ge;":"&le;")+'</option>'
+        + '<option value="0"'+(!b.inclusive?" selected":"")+'>'+(side==="lower"?"&gt;":"&lt;")+'</option>'
+      + '</select>';
+    const num = (i, side, b)=> '<input '+dr+' data-band="'+i+'" data-side="'+side+'" class="critNum" type="text" value="'+esc(b.value||"")+'" style="width:80px;">';
+    const outSel = (i, b)=> '<select '+dr+' data-band="'+i+'" class="critOut" style="width:145px;">'
+        + outcomeLabels.map(o=>'<option value="'+o.id+'"'+(o.id===b.outcome?" selected":"")+'>'+esc(o.label)+'</option>').join("")
+      + '</select>';
+
+    // basis is a property of the RULE, not of each bound — one control applying to
+    // both ends, because "−5% of standard to +6 mm" is not a rule anyone means.
+    // Both of its options are relative to the standard: there is no "absolute"
+    // basis, because no standard already means the bands are actual values.
+    // On a chart target there is no standard to type and no basis to choose: every
+    // POM supplies its own standard, and % of it is the only comparable basis
+    // across POMs that need not share a unit.
+    const perPom = isFromMC(row);
+    if (perPom) rule.basis = "percent";
+    const rel = perPom || hasStandard(rule);
+    if (perPom){
+      html += '<div class="row-line" style="margin-top:10px;">'
+        + '<span class="soft">Bands are % of each POM’s own standard value, applied to every POM in the chart.</span>'
+        + '</div>';
+    } else if (a.standardField){
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">'
+        + '<span class="inline-label" style="width:auto;">Standard'+(a.standardRequired?"":" (optional)")+'</span>'
+        + '<input '+dr+' class="critStd" type="text" value="'+esc(rule.standard||"")+'" style="width:80px;">'
+        + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>';
+      if (rel){
+        html += '<span class="inline-label" style="width:auto; margin-left:12px;">Bands are</span>'
+          + '<select '+dr+' class="critBasis" style="width:190px;">'
+            + BASES.map(b=>'<option value="'+b.id+'"'+(b.id===rule.basis?" selected":"")+'>'+b.label+'</option>').join("")
+          + '</select>';
+      } else if (!a.standardRequired){
+        html += '<span class="soft" style="margin-left:8px;">No standard, so the bands below are actual values</span>';
+      }
+      html += '</div>';
+    }
+
+    rule.bands.forEach((band,i)=>{
+      if (!a.graded && i>0) return;   // non-graded presets read only the first band
+      const bErr = bandError(rule, band);
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">';
+      if (a.graded) html += '<span class="inline-label" style="width:auto;">Band '+(i+1)+'</span>';
+      if (rel){
+        html += num(i,"lower",band.lower) + '<span style="font-size:13px; color:var(--mut);">to</span>' + num(i,"upper",band.upper)
+          + '<span style="font-size:13px; color:var(--mut);">'+(rule.basis==="percent"?"%":esc(unit))+'</span>';
+      } else if (a.lower && a.upper){
+        html += inclSel(i,"lower",band.lower) + num(i,"lower",band.lower)
+          + '<span style="font-size:13px; color:var(--mut);">and</span>'
+          + inclSel(i,"upper",band.upper) + num(i,"upper",band.upper)
+          + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>';
+      } else {
+        const side = a.lower ? "lower" : "upper";
+        html += inclSel(i,side,band[side]) + num(i,side,band[side])
+          + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>';
+      }
+      if (a.graded){
+        html += '<span style="font-size:13px; color:var(--mut);">&rarr;</span>' + outSel(i,band)
+          + (rule.bands.length>1 ? '<span '+dr+' data-band="'+i+'" class="ct-remove critBandDel" title="Remove band">&times;</span>' : '');
+      }
+      html += '</div>';
+      if (bErr) html += '<div class="warn-note">'+esc(bErr)+'</div>';
+    });
+
+    if (a.graded){
+      const ordErr = bandOrderError(rule);
+      if (ordErr) html += '<div class="warn-note">'+esc(ordErr)+'</div>';
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">'
+        + '<span class="inline-label" style="width:auto;">Anything else</span>'
+        + '<span style="font-size:13px; color:var(--mut);">&rarr;</span>'
+        + '<select '+dr+' class="critFallback" style="width:110px;">'
+          + outcomeLabels.map(o=>'<option value="'+o.id+'"'+(o.id===rule.fallback?" selected":"")+'>'+esc(o.label)+'</option>').join("")
+        + '</select>'
+        + '<button class="btn critBandAdd" '+dr+' style="margin-left:12px;">+ Add band</button>'
+        + '</div>';
+    }
+  }
+
+  html += '<p class="calc-note">'+esc(plainEnglish(d, row))+'</p></div>';
+  return html;
+}
+
+// Reads the same structure the summary does, so the two can never disagree.
+function plainEnglish(d, row){
+  const c = ensureCriteria(row);
+  if (c.mode==="none")      return "Recorded but not judged — typically because it only feeds a formula elsewhere.";
+  if (c.mode==="inspector") return "No rule to compute. The inspector picks a result label directly, on their own judgment.";
+
+  const rule = c.rule || {};
+  if (rule.source==="pom") return "Each POM in the chart carries its own standard value and tolerance bands. Pass when the measured value's variation from that standard falls inside them. Nothing to set here.";
+
+  seedRule(rule);
+  const u = inlineUnit(d, row);
+  const suf = u ? " "+u : "";
+  const a = activeBounds(rule);
+  // On a chart target the bands are always % of each POM's own standard — there is
+  // no single standard to type, and no shared unit they could be absolute in.
+  const perPom = isFromMC(row);
+  const rel = perPom || hasStandard(rule);
+  const uSuf = perPom ? "% of each POM's standard"
+             : (rel ? (rule.basis==="percent" ? "% of the standard" : suf+" from the standard") : suf);
+  const v = (b)=> (b && b.value!=="" ? b.value : "?");
+  const b0 = rule.bands[0];
+  const verdict = (id)=>{ const o = outcomeDef(id); return o.label+" ("+(o.passes?"passes":"fails")+")"; };
+
+  if (a.graded){
+    return "Applied to every POM in the chart. ".slice(0, perPom?undefined:0)
+      + "Checked in order, first match wins. "
+      + rule.bands.map((b,i)=>"Band "+(i+1)+": "+v(b.lower)+uSuf+" to "+v(b.upper)+uSuf+" → "+verdict(b.outcome)).join(". ")
+      + ". Anything outside every band → "+verdict(rule.fallback)
+      + ". Bands may nest or sit side by side; a band only breaks if an earlier one already covers all of it."
+      + (rel ? "" : " No standard value is set, so these are actual measured values.");
+  }
+  if (rel){
+    return "Standard value "+(rule.standard||"?")+suf+". Pass when the measured value falls between "
+      + v(b0.lower)+uSuf+" and "+v(b0.upper)+uSuf+".";
+  }
+  if (a.lower && a.upper){
+    return "Pass when this value is "+(b0.lower.inclusive?"at least":"greater than")+" "+v(b0.lower)
+      + " and "+(b0.upper.inclusive?"at most":"less than")+" "+v(b0.upper)+suf+".";
+  }
+  if (a.lower) return "Pass when this value is "+(b0.lower.inclusive?"greater than or equal to":"greater than")+" "+v(b0.lower)+uSuf+".";
+  if (a.upper) return "Pass when this value is "+(b0.upper.inclusive?"less than or equal to":"less than")+" "+v(b0.upper)+uSuf+".";
+  return "";
+}
+
+function renderRowHtml(d, row, showHandle){
+  const handle = showHandle
+    ? '<span class="drag-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+    : "";
+  const remove = showHandle
+    ? '<span data-rowid="'+row.id+'" class="ct-remove row-remove" title="Remove value">&times;</span>'
+    : "";
+
+  return '<div class="row-card" data-rowid="'+row.id+'" draggable="false">'
+    + '<div class="row-header">'
+      + handle
+      + '<input type="text" data-rowid="'+row.id+'" class="nameInp" value="'+esc(row.name)+'" style="flex:1; min-width:0;">'
+      + remove
+    + '</div>'
+    + specificationHtml(d, row)
+    + valueHtml(d, row)
+    + evaluationHtml(d, row)
+    + '</div>';
+}
+
+function renderRows(){
+  const d = data[active];
+  const rowsCard = document.getElementById("rowsCard");
+  if (!d){ rowsCard.style.display = "none"; document.getElementById("rowsList").innerHTML = ""; return; }
+  rowsCard.style.display = "";
+
+  // A chart step has no value list at all — that is the point of the split.
+  if (isChartStep(d)){
+    document.getElementById("rowsLabel").innerHTML = 'Measurement Chart <span class="note">— the inspector measures every POM in the chart, per sample</span>';
+    document.getElementById("addValueBtn").style.display = "none";
+    document.getElementById("rowsList").innerHTML = chartPanelHtml(d);
+    wireRowEvents(d);
+    return;
+  }
+
+  document.getElementById("rowsLabel").innerHTML = 'Values <span class="note">— each one is a single number the inspector records per sample</span>';
+  document.getElementById("addValueBtn").style.display = "";
+  const showHandle = d.rows.length > 1;
+  // "Not evaluated" is the right default for a single plumbing row but wrong for
+  // a whole step — a step that judges nothing produces no pass/fail. Flag
+  // it here rather than per row, since one unevaluated row is normal and all of
+  // them is not. A soft note, not an error: a data-collection-only step is
+  // legitimate.
+  const noneEvaluated = d.rows.length>0 && d.rows.every(r=>ensureCriteria(r).mode==="none");
+  const templateNote = noneEvaluated
+    ? '<div class="warn-note" style="margin-top:0; margin-bottom:10px;">No value in this step is evaluated, so it cannot produce a pass or fail. Fine if it exists only to record readings — otherwise give at least one value an evaluation.</div>'
+    : "";
+  document.getElementById("rowsList").innerHTML = templateNote + d.rows.map(row=>renderRowHtml(d, row, showHandle)).join("");
+  wireRowEvents(d);
+  if (showHandle) wireDragDrop(d);
+}
+
+// Renders the step-shape choice. A radio pair rather than a dropdown, because the
+// two options are different in KIND and a radio shows both at once.
+function renderStepKind(){
+  const d = data[active];
+  const box = document.getElementById("stepKindBody");
+  if (!d){ box.innerHTML = ""; return; }
+  if (!d.kind) d.kind = "custom";
+  const opt = (id, title, blurb)=>
+    '<label class="kind-opt'+(d.kind===id?" on":"")+'">'
+      + '<input type="radio" name="stepkind" value="'+id+'" class="stepKindRadio"'+(d.kind===id?" checked":"")+'>'
+      + '<span><b>'+title+'</b><br><span class="soft">'+blurb+'</span></span>'
+    + '</label>';
+  box.innerHTML = '<div style="display:flex; gap:10px; flex-wrap:wrap;">'
+    + opt("chart", "Every POM in a Measurement Chart", "A table of POMs, measured per sample. The POM list comes from the style’s chart.")
+    + opt("custom", "Values defined here", "A short list of individual numbers, each recorded once per sample.")
+    + '</div>';
+  box.querySelectorAll(".stepKindRadio").forEach(r=>{
+    r.addEventListener("change", ()=>{
+      // Non-destructive: rows and chart config both stay put, so switching back
+      // restores whichever side was configured. Same rule as everywhere else.
+      d.kind = r.value;
+      if (d.kind==="chart" && !d.chart){
+        d.chart = {id:"chart", isChart:true, name:"Chart POMs", mcTypes:[], unit:"", formula:null, criteria:R.pom()};
+      }
+      if (d.kind==="custom" && (!d.rows || !d.rows.length)) d.rows = [newRow()];
+      openEval.clear();
+      renderAll();
+    });
+  });
+}
+
+function wireDragDrop(d){
+  const list = document.getElementById("rowsList");
+  const cards = [...list.querySelectorAll(".row-card")];
+  let draggedId = null;
+
+  cards.forEach(card=>{
+    const handle = card.querySelector(".drag-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ card.setAttribute("draggable","true"); });
+
+    card.addEventListener("dragstart", (e)=>{
+      draggedId = parseInt(card.getAttribute("data-rowid"));
+      card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(draggedId));
+    });
+    card.addEventListener("dragend", ()=>{
+      card.setAttribute("draggable","false");
+      card.classList.remove("dragging");
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+    });
+    card.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (draggedId===null) return;
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+      card.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    card.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (draggedId===null || targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      const fromIdx = rowIndex(d, draggedId);
+      const moved = d.rows.splice(fromIdx,1)[0];
+      const toIdx = rowIndex(d, targetId);
+      d.rows.splice(isAbove ? toIdx : toIdx+1, 0, moved);
+      draggedId = null;
+      renderRows();
+    });
+  });
+}
+
+function wireRowEvents(d){
+  // "chart" is a valid id, so it must not go through parseInt.
+  const rowOf = (el)=>{
+    const raw = el.getAttribute("data-rowid");
+    return findRow(d, raw==="chart" ? "chart" : parseInt(raw));
+  };
+
+  document.querySelectorAll(".nameInp").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const row = rowOf(inp);
+      if (row) row.name = inp.value.trim() || row.name;
+      renderRows(); renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".row-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = parseInt(btn.getAttribute("data-rowid"));
+      if (d.rows.length<=1) return;
+      d.rows.splice(rowIndex(d,id),1);
+      d.rows.forEach(r=>{
+        if (!r.formula) return;
+        if (r.formula.op1===id) r.formula.op1 = null;
+        if (r.formula.op2===id) r.formula.op2 = null;
+        if (r.formula.operandIds) r.formula.operandIds = r.formula.operandIds.filter(x=>x!==id);
+      });
+      openEval.delete(id);
+      renderRows(); renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".specSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      row.spec = sel.value;
+      if (row.spec==="manual" && !row.unit) row.unit = "cm";
+      if (row.spec==="mc" && !row.mcTypes) row.mcTypes = [];
+      syncCriteriaToSpec(row);
+      renderRows(); renderHeader();
+    });
+  });
+
+  document.querySelectorAll(".unitSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ rowOf(sel).unit = sel.value; renderRows(); });
+  });
+
+  document.querySelectorAll(".mctype-trigger").forEach(trigger=>{
+    trigger.addEventListener("click", ()=>{
+      const id = trigger.getAttribute("data-rowid");
+      const panel = document.querySelector('.mctype-panel[data-rowid="'+id+'"]');
+      if (!panel) return;
+      const isOpen = panel.style.display === "block";
+      document.querySelectorAll(".mctype-panel").forEach(p=>{ p.style.display = "none"; });
+      panel.style.display = isOpen ? "none" : "block";
+    });
+  });
+
+  document.querySelectorAll(".mcTypeCheck").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const row = rowOf(chk);
+      const cat = chk.getAttribute("data-mctype");
+      row.mcTypes = row.mcTypes || [];
+      if (chk.checked){ if (!row.mcTypes.includes(cat)) row.mcTypes.push(cat); }
+      else { row.mcTypes = row.mcTypes.filter(x=>x!==cat); }
+      const summaryEl = document.querySelector('.mctype-summary[data-rowid="'+row.id+'"]');
+      if (summaryEl) summaryEl.textContent = mcTypeSummary(row.mcTypes);
+      // The unit-compatibility warning depends on the selected types, so refresh
+      // it in place without closing the panel.
+      const card = document.querySelector('.row-card[data-rowid="'+row.id+'"]');
+      const existing = card.querySelector(".warn-note");
+      const warn = mcUnitWarning(d, row);
+      if (existing) existing.remove();
+      if (warn){
+        const el = document.createElement("div");
+        el.className = "warn-note";
+        el.textContent = warn;
+        card.appendChild(el);
+      }
+    });
+  });
+
+  document.querySelectorAll(".valueSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      if (sel.value==="inspector"){
+        // Toggling back is non-destructive — the formula is kept aside so
+        // switching to Calculated again restores it. Only the modal's
+        // "Remove formula" actually discards it.
+        if (row.formula){ row.stashedFormula = row.formula; row.formula = null; }
+        ensureCriteria(row);
+        renderRows(); renderHeader();
+      } else if (row.stashedFormula){
+        row.formula = row.stashedFormula;
+        row.stashedFormula = null;
+        renderRows(); renderHeader();
+      } else {
+        // Nothing to restore, so go straight to the editor. Cancelling leaves
+        // row.formula null, and the re-render drops the select back to
+        // "Entered by inspector".
+        openFormulaModal(d, row, true);
+      }
+    });
+  });
+  document.querySelectorAll(".formula-chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{ openFormulaModal(d, rowOf(chip), false); });
+  });
+
+  document.querySelectorAll(".eval-summary").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const raw = el.getAttribute("data-rowid");
+      const id = raw==="chart" ? "chart" : parseInt(raw);
+      if (openEval.has(id)) openEval.delete(id); else openEval.add(id);
+      renderRows();
+    });
+  });
+
+  // Every control below writes into the same structure — there is no per-preset
+  // branch, which is the whole point of having one structure.
+  const ruleOf = (el)=> seedRule(rowOf(el).criteria.rule);
+  const bandOf = (el)=> ruleOf(el).bands[parseInt(el.getAttribute("data-band"))];
+  const boundOf = (el)=> bandOf(el)[el.getAttribute("data-side")];
+
+  document.querySelectorAll(".critTypeSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      setCritChoice(rowOf(sel), sel.value);
+      renderRows(); renderHeader();
+    });
+  });
+  document.querySelectorAll(".critIncl").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ boundOf(sel).inclusive = sel.value==="1"; renderRows(); });
+  });
+  document.querySelectorAll(".critNum").forEach(inp=>{
+    inp.addEventListener("change", ()=>{ boundOf(inp).value = inp.value; renderRows(); });
+  });
+  document.querySelectorAll(".critOut").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ bandOf(sel).outcome = sel.value; renderRows(); });
+  });
+  // basis is on the rule, so one handler sets it for every band at once.
+  document.querySelectorAll(".critBasis").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ ruleOf(sel).basis = sel.value; renderRows(); });
+  });
+  document.querySelectorAll(".critFallback").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ ruleOf(sel).fallback = sel.value; renderRows(); });
+  });
+  document.querySelectorAll(".critStd").forEach(inp=>{
+    inp.addEventListener("change", ()=>{ ruleOf(inp).standard = inp.value; renderRows(); });
+  });
+  document.querySelectorAll(".critBandAdd").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const rule = ruleOf(btn);
+      // New band starts as the current fallback outcome — the usual reason to add
+      // one is to carve a milder grade out of what was previously the catch-all.
+      rule.bands.push(newBand(rule.fallback));
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".critBandDel").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const rule = ruleOf(btn);
+      if (rule.bands.length<=1) return;
+      rule.bands.splice(parseInt(btn.getAttribute("data-band")),1);
+      renderRows();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Formula modal
+// ---------------------------------------------------------------------------
+
+function openFormulaModal(d, row, isNew){
+  modal = {
+    rowId: row.id,
+    isNew: isNew,
+    formula: row.formula
+      ? JSON.parse(JSON.stringify(row.formula))
+      : {type:"difference", op1:null, op2:null, operandIds:[], customExpr:""}
+  };
+  renderModal();
+}
+
+// Rows are re-rendered too: cancelling a never-saved formula must snap the Value
+// select back to "Entered by inspector".
+function closeModal(){ modal = null; renderModal(); renderRows(); }
+
+function modalValid(fm){
+  const f = formulaDef(fm);
+  if (!f) return "Pick a formula.";
+  if (f.arity==="many"){
+    if ((fm.operandIds||[]).length < 2) return "Include at least two values.";
+    return null;
+  }
+  if (fm.op1==null || fm.op2==null) return "Pick both values (A and B).";
+  if (fm.op1===fm.op2) return "A and B must be different values.";
+  if (f.custom && !(fm.customExpr||"").trim()) return "Enter an expression using A and B.";
+  return null;
+}
+
+function renderModal(){
+  const root = document.getElementById("modalRoot");
+  if (!modal){ root.innerHTML = ""; return; }
+
+  const d = data[active];
+  const row = findRow(d, modal.rowId);
+  if (!row){ root.innerHTML = ""; modal = null; return; }
+
+  const fm = modal.formula;
+  const f = formulaDef(fm) || FORMULAS[0];
+  const candidates = eligibleOperands(d, row.id);
+  const blockedCount = d.rows.length - 1 - candidates.length;
+
+  const formulaSelect = '<label class="field-label">Formula</label>'
+    + '<select id="mFormulaSel" style="width:100%;">'
+      + FORMULAS.map(x=>{
+          const disabled = candidates.length < 2;
+          return '<option value="'+x.id+'"'+(x.id===fm.type?" selected":"")+(disabled?" disabled":"")+'>'
+            + x.label + (disabled ? " (needs 2 other values)" : "") + '</option>';
+        }).join("")
+    + '</select>';
+
+  let operandHtml = "";
+  if (f.arity==="many"){
+    operandHtml = '<div style="margin-top:14px;"><p class="field-label" style="margin-bottom:6px;">Included values</p>'
+      + candidates.map(r=>{
+          const checked = (fm.operandIds||[]).includes(r.id);
+          return '<label style="display:flex; align-items:center; gap:7px; font-size:13px; padding:4px 0;">'
+            + '<input type="checkbox" class="mOperandChk" data-optid="'+r.id+'" '+(checked?"checked":"")+'>'
+            + esc(r.name) + '</label>';
+        }).join("")
+      + '</div>';
+  } else {
+    const opts = (selected)=> '<option value="">Select…</option>'
+      + candidates.map(r=>'<option value="'+r.id+'"'+(r.id===selected?" selected":"")+'>'+esc(r.name)+'</option>').join("");
+    operandHtml = '<div style="display:flex; gap:16px; margin-top:14px; flex-wrap:wrap;">'
+      + '<div style="flex:1; min-width:180px;"><label class="field-label">First value (A)</label>'
+        + '<select id="mOp1" style="width:100%;">'+opts(fm.op1)+'</select></div>'
+      + '<div style="flex:1; min-width:180px;"><label class="field-label">Second value (B)</label>'
+        + '<select id="mOp2" style="width:100%;">'+opts(fm.op2)+'</select></div>'
+      + '</div>';
+    if (f.custom){
+      operandHtml += '<div style="margin-top:14px;"><label class="field-label">Expression — use A and B for the values above</label>'
+        + '<input id="mCustom" type="text" value="'+esc(fm.customExpr||"")+'" placeholder="e.g. A / B × 10,000" '
+        + 'style="width:100%; font-family:\'Courier New\',monospace;"></div>';
+    }
+  }
+
+  const draftRow = Object.assign({}, row, {formula: fm});
+  const chip = formulaChipText(d, draftRow);
+  const abstract = f.arity==="many"
+    ? (f.id==="sum" ? "Sum of the included values" : "Average of the included values")
+    : (f.custom ? (fm.customExpr||"A … B") : f.expr);
+  const du = derivedUnit(d, draftRow);
+  const unitLine = du
+    ? "Result unit: " + du
+    : (isFromMC(row)
+        ? "Result unit: cannot be derived — the POM supplies it"
+        : "Result unit: cannot be derived — state it on the row (currently " + (row.unit||"unset") + ")");
+  const previewHtml = '<div class="preview-box">'
+    + '<div class="expr">'+esc(abstract)+'</div>'
+    + '<div class="label">'+esc(chip.text)+'</div>'
+    + '<div class="label">'+esc(unitLine)+'</div>'
+    + '</div>';
+
+  const err = modalValid(fm);
+  const blockedNote = blockedCount>0
+    ? '<p class="calc-note">'+blockedCount+' value'+(blockedCount===1?" is":"s are")+' hidden because '
+      + (blockedCount===1?"it depends":"they depend")+' on this one — selecting '+(blockedCount===1?"it":"them")+' would create a loop.</p>'
+    : "";
+  const specNote = isFromMC(row)
+    ? '<p class="calc-note">This value takes its specification from a POM, so the formula result is judged against that POM’s own tolerance bands.</p>'
+    : "";
+
+  root.innerHTML = '<div class="modal-backdrop" id="mBackdrop"><div class="modal">'
+    + '<div class="modal-head"><h3>Formula for “'+esc(row.name)+'”</h3>'
+      + '<p>The formula replaces inspector entry for this value. It does not change where its specification comes from.</p></div>'
+    + '<div class="modal-body">' + formulaSelect + operandHtml + previewHtml + specNote + blockedNote
+      + (err ? '<p class="hint">'+esc(err)+'</p>' : "")
+    + '</div>'
+    + '<div class="modal-foot">'
+      + (modal.isNew ? "" : '<button class="btn btn-danger" id="mRemove">Remove formula</button>')
+      + '<span class="spacer"></span>'
+      + '<button class="btn" id="mCancel">Cancel</button>'
+      + '<button class="btn btn-primary" id="mSave"'+(err?" disabled":"")+'>Save</button>'
+    + '</div>'
+    + '</div></div>';
+
+  document.getElementById("mFormulaSel").addEventListener("change", (e)=>{ fm.type = e.target.value; renderModal(); });
+  const op1 = document.getElementById("mOp1");
+  if (op1) op1.addEventListener("change", ()=>{ fm.op1 = op1.value ? parseInt(op1.value) : null; renderModal(); });
+  const op2 = document.getElementById("mOp2");
+  if (op2) op2.addEventListener("change", ()=>{ fm.op2 = op2.value ? parseInt(op2.value) : null; renderModal(); });
+  const cust = document.getElementById("mCustom");
+  if (cust) cust.addEventListener("input", ()=>{ fm.customExpr = cust.value; });
+  document.querySelectorAll(".mOperandChk").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const oid = parseInt(chk.getAttribute("data-optid"));
+      fm.operandIds = fm.operandIds || [];
+      if (chk.checked){ if (!fm.operandIds.includes(oid)) fm.operandIds.push(oid); }
+      else { fm.operandIds = fm.operandIds.filter(x=>x!==oid); }
+      renderModal();
+    });
+  });
+
+  document.getElementById("mCancel").addEventListener("click", closeModal);
+  document.getElementById("mBackdrop").addEventListener("click", (e)=>{ if (e.target.id==="mBackdrop") closeModal(); });
+  const rm = document.getElementById("mRemove");
+  if (rm) rm.addEventListener("click", ()=>{
+    // The destructive path — unlike toggling the Value select, this discards the
+    // formula for good rather than stashing it.
+    row.formula = null;
+    row.stashedFormula = null;
+    ensureCriteria(row);
+    closeModal(); renderRows(); renderHeader();
+  });
+  document.getElementById("mSave").addEventListener("click", ()=>{
+    row.formula = fm;
+    // A formula never changes where the row's specification comes from, so the
+    // criteria are left alone — including "Within POM tolerance".
+    ensureCriteria(row);
+    closeModal(); renderRows(); renderHeader();
+  });
+}
+
+document.addEventListener("keydown", (e)=>{ if (e.key==="Escape" && modal) closeModal(); });
+
+// ---------------------------------------------------------------------------
+// Result labels — workflow-level, referenced by every band
+// ---------------------------------------------------------------------------
+
+// How many bands across the whole workflow point at a given label. Deleting a
+// label those bands depend on would silently re-grade them, so it is blocked.
+function labelUsage(id){
+  let n = 0;
+  for (const k of order){
+    for (const row of data[k].rows){
+      const c = row.criteria;
+      if (!c || c.mode!=="rule" || !c.rule) continue;
+      if (c.rule.fallback===id) n++;
+      (c.rule.bands||[]).forEach(b=>{ if (b.outcome===id) n++; });
+    }
+  }
+  return n;
+}
+
+function renderLabels(){
+  const el = document.getElementById("labelsList");
+  if (!outcomeLabels.length){
+    el.innerHTML = '<p class="soft">No result labels yet — bands have nothing to point at.</p>';
+    return;
+  }
+  el.innerHTML = outcomeLabels.map(o=>{
+    const c = labelColor(o.color);
+    const used = labelUsage(o.id);
+    return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">'
+      + '<input data-lid="'+o.id+'" class="lblName" type="text" value="'+esc(o.label)+'" style="width:180px;">'
+      + '<select data-lid="'+o.id+'" class="lblPasses" style="width:150px;">'
+        + '<option value="1"'+(o.passes?" selected":"")+'>Counts as a pass</option>'
+        + '<option value="0"'+(!o.passes?" selected":"")+'>Counts as a fail</option>'
+      + '</select>'
+      + '<select data-lid="'+o.id+'" class="lblColor" style="width:110px;">'
+        + LABEL_COLORS.map(x=>'<option value="'+x.id+'"'+(x.id===o.color?" selected":"")+'>'+x.label+'</option>').join("")
+      + '</select>'
+      + '<span class="out-chip" style="color:'+c.fg+'; background:'+c.bg+'; border-color:'+c.bd+';">'+esc(o.label)+'</span>'
+      + '<span class="soft">'+(used ? "used by "+used+" band"+(used===1?"":"s") : "unused")+'</span>'
+      + (used ? '' : '<span data-lid="'+o.id+'" class="ct-remove lblDel" title="Remove label">&times;</span>')
+      + '</div>';
+  }).join("");
+
+  el.querySelectorAll(".lblName").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const o = outcomeDef(inp.getAttribute("data-lid"));
+      o.label = inp.value.trim() || o.label;
+      renderAll();
+    });
+  });
+  el.querySelectorAll(".lblPasses").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      outcomeDef(sel.getAttribute("data-lid")).passes = sel.value==="1";
+      renderAll();
+    });
+  });
+  el.querySelectorAll(".lblColor").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      outcomeDef(sel.getAttribute("data-lid")).color = sel.value;
+      renderAll();
+    });
+  });
+  el.querySelectorAll(".lblDel").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = btn.getAttribute("data-lid");
+      if (labelUsage(id)>0) return;
+      const i = outcomeLabels.findIndex(o=>o.id===id);
+      if (i>-1) outcomeLabels.splice(i,1);
+      renderAll();
+    });
+  });
+}
+
+document.getElementById("addLabelBtn").addEventListener("click", ()=>{
+  outcomeLabels.push({id:"l"+(nextLabelId++), label:"New label", passes:false, color:"grey"});
+  renderAll();
+});
+
+// ---------------------------------------------------------------------------
+// Top-level actions
+// ---------------------------------------------------------------------------
+
+function newRow(){
+  // Inside a custom step there is no specification choice to default — every value
+  // is hand-defined. The unit is the only thing to guess at.
+  const row = {id: nextRowId++, name:"New value", unit:"cm", formula:null};
+  ensureCriteria(row);
+  return row;
+}
+
+document.getElementById("addValueBtn").addEventListener("click", ()=>{
+  const d = data[active]; if (!d) return;
+  d.rows.push(newRow());
+  renderRows(); renderHeader();
+});
+
+document.getElementById("ctName").addEventListener("change", (e)=>{
+  if (!active || !data[active]) return;
+  data[active].name = e.target.value.trim() || "Untitled step";
+  e.target.value = data[active].name;
+  renderList();
+});
+
+document.getElementById("addCheckTypeBtn").addEventListener("click", ()=>{
+  const key = "custom"+(nextId++);
+  data[key] = {name:"New measurement step", rows:[newRow()]};
+  order.push(key);
+  active = key;
+  openEval.clear();
+  renderAll();
+  const nameInput = document.getElementById("ctName");
+  nameInput.focus(); nameInput.select();
+});
+
+document.addEventListener("click", (e)=>{
+  document.querySelectorAll(".mctype-panel").forEach(panel=>{
+    if (panel.style.display!=="block") return;
+    const wrap = panel.closest(".mctype-wrap");
+    if (wrap && !wrap.contains(e.target)) panel.style.display = "none";
+  });
+});
+
+function renderAll(){ renderList(); renderHeader(); renderStepKind(); renderSampling(); renderRows(); renderLabels(); renderModal(); }
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection workflow — measurement steps (mockup v12)</title>
+<style>
+  :root{
+    --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
+    --green:#2E7D32; --green-l:#E5F2E6;
+    --amber:#B57A00; --amber-l:#FBF0D9; --amber-line:#E8D5A8;
+    --red:#C8102E;
+    --text:#333333; --mut:#667085; --muted2:#98A2B3;
+    --line:#C9D4E4; --surface1:#F5F7FA; --surface2:#FFFFFF; --page:#F0F2F5;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--page); color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.5;}
+  .page{max-width:1120px; margin:0 auto; padding:28px 20px 60px;}
+  header.top{margin-bottom:22px;}
+  header.top h1{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px;}
+  header.top p{font-size:13px; color:var(--mut); margin:0 0 10px;}
+  .badge-draft{display:inline-block; background:var(--tint); color:var(--blue); font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--radius); margin-left:8px; vertical-align:2px;}
+  .changelog{background:var(--surface2); border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px; font-size:12.5px; color:var(--mut);}
+  .changelog b{color:var(--navy); font-size:11px; text-transform:uppercase; letter-spacing:.03em; display:block; margin-bottom:5px;}
+  .axes{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;}
+  .axis{flex:1; min-width:210px; background:var(--surface1); border:1px solid var(--line); border-radius:var(--radius); padding:8px 11px;}
+  .axis .t{font-weight:700; color:var(--navy); font-size:12px;}
+  .axis .k{display:block; font-size:11px; color:var(--muted2); margin-top:3px;}
+  .layout{display:flex; gap:18px; align-items:flex-start;}
+  .sidebar{width:220px; flex-shrink:0; background:var(--surface1); border-radius:12px; padding:14px; border:1px solid var(--line);}
+  .sidebar h2{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:700;}
+  .ct-row{display:flex; align-items:center; gap:2px; margin-bottom:3px;}
+  .step-row{border-radius:var(--radius);}
+  .step-row.dragging{opacity:0.4;}
+  .step-row.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .step-row.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .step-row .drag-handle{width:14px; height:20px; grid-template-columns:repeat(2,3px); grid-template-rows:repeat(3,3px);}
+  .step-row .drag-handle span{width:3px; height:3px;}
+  .step-num{flex-shrink:0; font-size:11px; font-weight:700; color:var(--muted2); width:13px; text-align:right;}
+  .ct-item{flex:1; min-width:0; display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ct-item.active{background:var(--tint); color:var(--blue); font-weight:700;}
+  .ct-item:not(.active){color:var(--text);}
+  .ct-item:not(.active):hover{background:#EDEFF3;}
+  .ct-remove{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .ct-remove:hover{background:#FCEBEB; color:var(--red);}
+  .main{flex:1; min-width:0;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:18px 22px; margin-bottom:14px;}
+  .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:3px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
+  .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
+  .ct-name-input:disabled{color:var(--muted2);}
+  .card .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
+  .section-label{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.02em; margin:0 0 10px; font-weight:700;}
+  .section-label .note{text-transform:none; font-weight:400; color:var(--muted2);}
+  .drag-handle{width:18px; height:22px; display:grid; grid-template-columns:repeat(2,4px); grid-template-rows:repeat(3,4px); gap:2px; cursor:grab; flex-shrink:0; align-content:center; justify-content:center;}
+  .drag-handle span{width:4px; height:4px; border-radius:50%; background:var(--muted2);}
+  input[type=text]{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text);}
+  select{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); background:#fff;}
+  select:disabled{background:var(--surface1); color:var(--mut);}
+  button.btn{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--text); font-family:inherit;}
+  button.btn:hover{background:var(--surface1);}
+  button.btn:disabled{color:var(--muted2); cursor:not-allowed; background:var(--surface1);}
+  button.btn-primary{background:var(--blue); border-color:var(--blue); color:#fff;}
+  button.btn-primary:hover{background:#00408A;}
+  button.btn-primary:disabled{background:var(--muted2); border-color:var(--muted2); color:#fff;}
+  button.btn-danger{color:var(--red); border-color:var(--line);}
+  button.btn-danger:hover{background:#FCEBEB;}
+  .req{color:var(--red); margin-right:3px;}
+  .field-label{font-size:12px; color:var(--mut); display:block; margin-bottom:4px;}
+  .inline-label{font-size:12px; color:var(--mut); flex-shrink:0; width:88px;}
+  .calc-note{font-size:12.5px; color:var(--mut); margin:10px 0 0;}
+  .soft{font-size:12px; color:var(--muted2);}
+  .warn-note{font-size:12px; color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:var(--radius); padding:6px 10px; margin-top:8px;}
+
+  /* ---- value row ---- */
+  .row-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .row-card.dragging{opacity:0.4;}
+  .row-card.drop-above{box-shadow: inset 0 3px 0 var(--blue);}
+  .row-card.drop-below{box-shadow: inset 0 -3px 0 var(--blue);}
+  .row-header{display:flex; align-items:center; gap:10px;}
+  .row-line{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:9px;}
+
+  /* ---- occasions ---- */
+  .occ-chip{display:inline-flex; align-items:center; gap:4px; background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:3px 4px 3px 7px; font-size:12.5px;}
+  .occ-chip input{border:none; padding:2px 0; width:84px; font-size:12.5px; font-family:inherit; background:transparent;}
+  .occ-chip input:focus{outline:none; border-bottom:1px solid var(--blue);}
+  .occ-x{cursor:pointer; color:var(--muted2); font-size:13px; padding:0 2px;}
+  .occ-x:hover{color:var(--red);}
+  .occ-add{font-size:11.5px; color:var(--blue); cursor:pointer;}
+  .occ-add:hover{text-decoration:underline;}
+  .chk{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--mut);}
+
+  /* ---- formula chip ---- */
+  .formula-chip{display:inline-flex; align-items:center; gap:7px; background:var(--tint); border:1px solid #C3D8F0; color:var(--blue); border-radius:var(--radius); padding:6px 10px; font-size:12.5px; cursor:pointer; max-width:100%;}
+  .formula-chip:hover{background:#DDEAF8;}
+  .formula-chip .fx{font-style:italic; font-weight:700; flex-shrink:0;}
+  .formula-chip .expr{font-family:'Courier New',monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .formula-chip.warn{background:var(--amber-l); border-color:var(--amber-line); color:var(--amber);}
+
+  /* ---- evaluation ---- */
+  .eval-summary{display:inline-flex; align-items:center; gap:8px; border:1px solid transparent; border-radius:var(--radius); padding:5px 8px; margin-left:-8px; cursor:pointer; font-size:13px;}
+  .eval-summary:hover{border-color:var(--line); background:#fff;}
+  .eval-summary .edit{font-size:11.5px; color:var(--blue);}
+  .eval-summary.muted{color:var(--mut);}
+  .eval-summary.warn{color:var(--amber);}
+  .eval-summary.from-spec{color:var(--green); background:var(--green-l); border-color:#CBE4CC;}
+  .eval-summary.graded{color:var(--navy); background:var(--tint); border-color:#C3D8F0;}
+  .out-chip{display:inline-block; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:var(--radius); border:1px solid;}
+  .step-chip{display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:var(--radius); margin-right:6px; vertical-align:1px;}
+  .chip-mc{background:var(--tint); color:var(--blue);}
+  .chip-custom{background:var(--surface1); color:var(--mut); border:1px solid var(--line);}
+
+  /* ---- grid preview ---- */
+  .grid-preview{border-collapse:collapse; font-size:12px; width:100%;}
+  .grid-preview th{text-align:center; font-weight:700; color:var(--navy); background:var(--surface1); border:1px solid var(--line); padding:6px 10px; white-space:nowrap;}
+  .grid-preview th.axis-h{text-align:left;}
+  .grid-preview th.sub{font-weight:400; color:var(--mut); font-size:11px; background:#fff;}
+  .grid-preview td{border:1px solid var(--line); padding:6px 10px; color:var(--mut); white-space:nowrap; text-align:center;}
+  .grid-preview td.axis-c{text-align:left; color:var(--text); font-weight:600;}
+  .grid-preview td.ell{color:var(--muted2); font-style:italic;}
+  .grid-preview td.coarse{background:var(--surface1); vertical-align:middle;}
+  .grid-preview td.auto{background:#F7FAFC;}
+  .grid-preview .opt{font-weight:400; color:var(--muted2); font-size:10.5px;}
+
+  /* ---- level badges & preview cells (V12 ENHANCEMENTS) ---- */
+  .level-badge{display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:4px; margin-left:4px; vertical-align:middle; letter-spacing:0.02em;}
+  .badge-lot{background:#E9ECEF; color:#495057; border:1px solid #CED4DA;}
+  .badge-sample{background:#E3F2FD; color:#0D47A1; border:1px solid #BBDEFB;}
+  .badge-pom{background:#E8F5E9; color:#1B5E20; border:1px solid #C8E6C9;}
+
+  /* Realistic empty form field for inspector entry cells */
+  .cell-input-field{
+    width:72px;
+    height:25px;
+    padding:2px 6px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    background:#FFFFFF;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,0.05);
+    outline:none;
+    font-size:12px;
+    text-align:center;
+    color:var(--text);
+  }
+  .cell-input-field:disabled{
+    background:#FFFFFF;
+    cursor:default;
+  }
+
+  .cell-auto{display:inline-flex; align-items:center; gap:3px; padding:3px 8px; border:1px solid #C3D8F0; border-radius:5px; background:var(--tint); color:var(--blue); font-size:11.5px; font-weight:600;}
+  .cell-na{color:var(--muted2); font-size:13px;}
+  .cell-coarse-tag{display:inline-block; padding:3px 8px; border:1px solid var(--amber-line); border-radius:5px; background:var(--amber-l); color:var(--amber); font-size:11px; font-weight:600;}
+
+  .eval-open{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-top:6px;}
+
+  /* ---- chart type popover ---- */
+  .mctype-wrap{position:relative;}
+  .mctype-trigger{border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:13px; background:#fff; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-between; gap:8px; min-width:180px;}
+  .mctype-trigger:hover{background:var(--surface1);}
+  .mctype-caret{color:var(--muted2); font-size:10px; flex-shrink:0;}
+  .mctype-panel{display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 4px 14px rgba(10,42,85,0.14); min-width:230px;}
+  .mctype-panel label{display:flex; align-items:center; gap:6px; font-size:13px; padding:5px 4px; cursor:pointer; white-space:nowrap; border-radius:4px;}
+  .mctype-panel label:hover{background:var(--surface1);}
+
+  /* ---- modal ---- */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(10,42,85,0.35); display:flex; align-items:flex-start; justify-content:center; padding:60px 20px; z-index:100; overflow:auto;}
+  .modal{background:#fff; border-radius:12px; width:100%; max-width:600px; box-shadow:0 12px 40px rgba(10,42,85,0.28);}
+  .modal-head{padding:16px 20px 12px; border-bottom:1px solid var(--line);}
+  .modal-head h3{margin:0; font-size:16px; color:var(--navy);}
+  .modal-head p{margin:3px 0 0; font-size:12.5px; color:var(--mut);}
+  .modal-body{padding:16px 20px;}
+  .modal-foot{padding:12px 20px 16px; border-top:1px solid var(--line); display:flex; align-items:center; gap:8px;}
+  .modal-foot .spacer{flex:1;}
+  .preview-box{background:var(--surface1); border:1px solid var(--line); border-radius:var(--radius); padding:10px 12px; margin-top:14px;}
+  .preview-box .expr{font-family:'Courier New',monospace; font-size:13.5px; color:var(--navy);}
+  .preview-box .label{font-size:11.5px; color:var(--mut); margin-top:4px;}
+  .op-line{display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;}
+  .op-line .nm{font-size:13px; min-width:150px;}
+  .hint{font-size:12px; color:var(--amber); margin:10px 0 0;}
+  footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Inspection workflow — measurement steps <span class="badge-draft">Mockup v12 — for review</span></h1>
+    <p>The measurement part of one inspection workflow. Each step is a group of measurements the inspector performs; the list on the left is the order they happen in.</p>
+    <div class="changelog">
+      <b>v12 Enhancements: Realistic Text Inputs & Generic POM Placeholders</b>
+      <div class="axes">
+        <div class="axis"><span class="t">Lot</span> — once for the whole lot.<span class="k">garment: order line · fabric: dye lot</span></div>
+        <div class="axis"><span class="t">Sample</span> — once per sampled unit.<span class="k">garment: piece · fabric: roll</span></div>
+        <div class="axis"><span class="t">POM</span> — once per point of measure in MC.<span class="k">only when step has a Measurement Chart</span></div>
+        <div class="axis"><span class="t">Repeat</span> — multiple readings per unit.<span class="k">1st/3rd wash · readings 1, 2, 3</span></div>
+      </div>
+      <p style="margin:9px 0 0;"><b style="display:inline; text-transform:none; letter-spacing:0; font-size:12.5px;">Changed in v12:</b>
+      1) <b>Generic POM Placeholders:</b> Replaced specific POM names with generic placeholders (<code style="background:#F0F2F5; padding:1px 4px; border-radius:3px;">{POM 1}</code>, <code style="background:#F0F2F5; padding:1px 4px; border-radius:3px;">{POM 2}</code>, <code style="background:#F0F2F5; padding:1px 4px; border-radius:3px;">… (every POM in chart)</code>) to reflect that POMs are resolved per style at inspection time.<br>
+      2) <b>Form-Fillable Text Inputs:</b> Replaced <code style="background:#F0F2F5; padding:1px 4px; border-radius:3px;">[ enter ]</code> badges with actual empty form inputs (<code style="background:#fff; border:1px solid #ccc; padding:1px 8px; border-radius:3px;">&nbsp;&nbsp;&nbsp;&nbsp;</code>) for inspector entry cells.<br>
+      3) <b>Uniform POM Row Preview:</b> Cells on the summary row (<code style="background:#F0F2F5; padding:1px 4px; border-radius:3px;">… (every POM in chart)</code>) now display the exact same form controls as the preceding POM rows instead of dashes.</p>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <h2>Inspection order</h2>
+      <div id="checkList"></div>
+      <p style="font-size:11px; color:var(--muted2); margin:8px 0 0; line-height:1.4;">Steps run top to bottom during the inspection. Drag a handle to reorder.</p>
+      <button class="btn" id="addChartStepBtn" style="width:100%; margin-top:8px;">+ Measurement Chart step</button>
+      <button class="btn" id="addCustomStepBtn" style="width:100%; margin-top:6px;">+ Custom values step</button>
+    </div>
+    <div class="main">
+      <div class="card">
+        <input type="text" id="ctName" class="ct-name-input">
+        <p class="meta" id="ctMeta" style="margin-bottom:14px;"></p>
+        <div id="mcBody"></div>
+      </div>
+      <div class="card" id="previewCard">
+        <p class="section-label">What the inspector fills in <span class="note">— one table row per <span id="axisWord"></span></span></p>
+        <div id="previewBody"></div>
+      </div>
+      <div class="card" id="rowsCard">
+        <p class="section-label" id="rowsLabel"></p>
+        <div id="rowsList"></div>
+        <div style="margin-top:10px;">
+          <button class="btn" id="addValueBtn">+ Add value</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <p class="section-label">Result labels <span class="note">— defined by you, shared by every band in this workflow. Each label says whether it counts as a pass.</span></p>
+    <div id="labelsList"></div>
+    <button class="btn" id="addLabelBtn" style="margin-top:10px;">+ Add result label</button>
+  </div>
+
+  <footer class="foot">
+    Drag the handle on a row to reorder it. Formulas reference other values by name, so order never affects which value feeds a formula — it is only for reading top to bottom.
+  </footer>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Reference data
+// ---------------------------------------------------------------------------
+
+const UNIT_GROUPS = [
+  {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Weight", units:["g","kg","MT","oz","lb","st"]},
+  {category:"Volume", units:["mL","L","mm³","cm³","m³","in³","gal","ft³"]},
+  {category:"Temperature", units:["°C","°F"]},
+  {category:"Area", units:["nm²","cm²","m²","in²","yd²","ft²"]},
+  {category:"Area Density", units:["GSM","oz/yd²"]},
+  {category:"Quantity", units:["EACH","PCS","PAIR","DOZ","SET","PACK"]},
+  {category:"Scale", units:["grade (1–5)"]},
+  {category:"Other", units:["%"]}
+];
+
+const SQUARE_UNITS = {cm:"cm²", m:"m²", in:"in²", yd:"yd²"};
+
+const MC_TYPES = [
+  {id:"Dimension",   unitCategory:"Dimension"},
+  {id:"Weight",      unitCategory:"Weight"},
+  {id:"Volume",      unitCategory:"Volume"},
+  {id:"Temperature", unitCategory:"Temperature"}
+];
+
+const LEVELS = [
+  {id:"lot",    label:"Once for the lot",    short:"per lot"},
+  {id:"sample", label:"Once per sample",     short:"per sample"},
+  {id:"pom",    label:"Once per POM",        short:"per POM", chartOnly:true}
+];
+function levelDef(id){ return LEVELS.find(l=>l.id===id) || LEVELS[1]; }
+
+const AGGS = [
+  {id:"average", label:"Average of them"},
+  {id:"min",     label:"Lowest of them"},
+  {id:"max",     label:"Highest of them"},
+  {id:"sum",     label:"Total of them"},
+  {id:"only",    label:"The single recorded value"}
+];
+function aggDef(id){ return AGGS.find(a=>a.id===id) || null; }
+
+const FORMULAS = [
+  {id:"passthrough",  label:"Take another value",                  arity:1, unit:"sameAsOperands"},
+  {id:"pctchange",    label:"Percent change — (B − A) / A × 100",   arity:2, expr:"(B − A) / A × 100", unit:"%"},
+  {id:"difference",   label:"Difference — A − B",                   arity:2, expr:"A − B",             unit:"sameAsOperands"},
+  {id:"ratio",        label:"Ratio — A / B",                        arity:2, expr:"A / B",             unit:"unitless"},
+  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",    arity:2, expr:"A / B × 100",       unit:"%"},
+  {id:"product",      label:"Product — A × B",                      arity:2, expr:"A × B",             unit:"product"},
+  {id:"sum",          label:"Total of the included values",          arity:"many",                     unit:"sameAsOperands"},
+  {id:"average",      label:"Average of the included values",        arity:"many",                     unit:"sameAsOperands"},
+  {id:"custom",       label:"Custom expression using A and B",       arity:2, custom:true,             unit:"custom"}
+];
+
+const LABEL_COLORS = [
+  {id:"green", label:"Green", fg:"#2E7D32", bg:"#E5F2E6", bd:"#CBE4CC"},
+  {id:"blue",  label:"Blue",  fg:"#0050AA", bg:"#EAF1FA", bd:"#C3D8F0"},
+  {id:"amber", label:"Amber", fg:"#B57A00", bg:"#FBF0D9", bd:"#E8D5A8"},
+  {id:"red",   label:"Red",   fg:"#C8102E", bg:"#FCEBEB", bd:"#F3C9CE"},
+  {id:"grey",  label:"Grey",  fg:"#667085", bg:"#F5F7FA", bd:"#C9D4E4"}
+];
+function labelColor(id){ return LABEL_COLORS.find(c=>c.id===id) || LABEL_COLORS[4]; }
+
+let nextLabelId = 6;
+const outcomeLabels = [
+  {id:"l1", label:"Pass",       passes:true,  color:"green"},
+  {id:"l2", label:"CRF",        passes:false, color:"amber"},
+  {id:"l3", label:"CRF-Passed", passes:true,  color:"blue"},
+  {id:"l4", label:"Warning",    passes:true,  color:"amber"},
+  {id:"l5", label:"Hard Fail",  passes:false, color:"red"}
+];
+function outcomeDef(id){
+  return outcomeLabels.find(o=>o.id===id) || outcomeLabels[0] || {id:"", label:"(no label)", passes:false, color:"grey"};
+}
+function defaultPassLabel(){ const o = outcomeLabels.find(x=>x.passes); return o ? o.id : (outcomeLabels[0]||{}).id; }
+function defaultFailLabel(){ const o = outcomeLabels.find(x=>!x.passes); return o ? o.id : (outcomeLabels[0]||{}).id; }
+
+const PRESETS = [
+  {id:"pom",       label:"Within POM tolerance",                  pomOnly:true},
+  {id:"tolerance", label:"Tolerance around a standard value",     lower:true, upper:true, standard:"required"},
+  {id:"range",     label:"Range between two values",              lower:true, upper:true},
+  {id:"min",       label:"Minimum (lower limit)",                 lower:true},
+  {id:"max",       label:"Maximum (upper limit)",                 upper:true},
+  {id:"graded",    label:"Graded bands (multiple result labels)", lower:true, upper:true, standard:"optional", graded:true}
+];
+const CHOICE_INSPECTOR = {id:"inspector", label:"Inspector decides (pass / fail)"};
+const CHOICE_NONE      = {id:"none",      label:"Not evaluated"};
+
+function preset(id){ return PRESETS.find(p=>p.id===id); }
+function newBound(){ return {value:"", inclusive:true}; }
+function newBand(outcomeId){ return {lower:newBound(), upper:newBound(), outcome:outcomeId||defaultPassLabel()}; }
+
+function activeBounds(rule){
+  const p = preset(rule && rule.preset);
+  if (!p) return {lower:false, upper:false, standardField:false, standardRequired:false, graded:false};
+  return {
+    lower:!!p.lower, upper:!!p.upper,
+    standardField: !!p.standard,
+    standardRequired: p.standard==="required",
+    graded: !!p.graded
+  };
+}
+
+function hasStandard(rule){
+  return !!(rule && rule.standard!=null && String(rule.standard).trim()!=="");
+}
+const BASES = [
+  {id:"percent",    label:"% of standard"},
+  {id:"difference", label:"difference from standard"}
+];
+
+function bandError(rule, band){
+  const a = activeBounds(rule);
+  if (!(a.lower && a.upper)) return null;
+  const lo = band.lower, hi = band.upper;
+  if (!lo || !hi || lo.value==="" || hi.value==="") return null;
+  const l = parseFloat(lo.value), u = parseFloat(hi.value);
+  if (isNaN(l) || isNaN(u)) return null;
+  if (l > u) return "Lower limit is above the upper limit.";
+  if (l === u && !(lo.inclusive && hi.inclusive)) return "Nothing can pass: the limits are equal and at least one end is exclusive.";
+  return null;
+}
+
+function bandOrderError(rule){
+  const a = activeBounds(rule);
+  if (!a.graded || !rule.bands) return null;
+  for (let i=1; i<rule.bands.length; i++){
+    const cur = rule.bands[i];
+    const cl = parseFloat(cur.lower.value), cu = parseFloat(cur.upper.value);
+    if (isNaN(cl) || isNaN(cu)) continue;
+    for (let j=0; j<i; j++){
+      const prev = rule.bands[j];
+      const pl = parseFloat(prev.lower.value), pu = parseFloat(prev.upper.value);
+      if (isNaN(pl) || isNaN(pu)) continue;
+      if (pl <= cl && pu >= cu){
+        return "Band "+(i+1)+" sits entirely inside band "+(j+1)+", so it can never be reached — bands are checked in order and the first match wins.";
+      }
+    }
+  }
+  return null;
+}
+
+function ruleError(rule){
+  if (!rule || !rule.bands) return null;
+  for (const b of rule.bands){ const e = bandError(rule, b); if (e) return e; }
+  return bandOrderError(rule);
+}
+
+// ---------------------------------------------------------------------------
+// Sample data
+// ---------------------------------------------------------------------------
+
+const bd = (lo,hi,out,loInc,hiInc)=>({
+  lower:{value:lo==null?"":String(lo), inclusive: loInc!==false},
+  upper:{value:hi==null?"":String(hi), inclusive: hiInc!==false},
+  outcome: out || "l1"
+});
+const R = {
+  pom:  ()=>({mode:"rule", rule:{source:"pom", preset:"pom"}}),
+  none: ()=>({mode:"none"}),
+  insp: ()=>({mode:"inspector"}),
+  range:(a,b,ai,bi)=>({mode:"rule", rule:{source:"local", preset:"range",
+          bands:[bd(a,b,"l1",ai,bi)], fallback:"l5"}}),
+  min:  (a,inc)=>({mode:"rule", rule:{source:"local", preset:"min",
+          bands:[bd(a,null,"l1",inc)], fallback:"l5"}}),
+  max:  (b,inc)=>({mode:"rule", rule:{source:"local", preset:"max",
+          bands:[bd(null,b,"l1",true,inc)], fallback:"l5"}}),
+  tol:  (std,lo,hi,basis)=>({mode:"rule", rule:{source:"local", preset:"tolerance",
+          standard:String(std), basis:basis||"percent",
+          bands:[bd(lo,hi,"l1")], fallback:"l5"}}),
+  graded:(std,list,basis,fb)=>({mode:"rule", rule:{source:"local", preset:"graded",
+          standard: std==null ? "" : String(std), basis:basis||"percent",
+          bands:list.map(x=>bd(x[0],x[1],x[2])), fallback:fb||"l5"}})
+};
+
+function col(id, name, o){
+  o = o || {};
+  return {
+    id:id, name:name,
+    capture: o.cap || "sample",
+    occasions: o.occ || [],
+    required: o.opt ? false : true,
+    source: o.src || "custom",
+    unit: o.unit || "",
+    formula: o.f || null,
+    criteria: o.crit || R.none()
+  };
+}
+const op = (id, agg)=>({id:id, agg:agg||null});
+
+const data = {
+  chartpoms: {
+    name: "All chart measurements",
+    mc: {types:["Dimension"]},
+    rows: [ col(1, "Measurement", {cap:"pom", src:"pom", crit:R.pom()}) ]
+  },
+  chartshrinkage: {
+    name: "Shrinkage on chart POMs",
+    mc: {types:["Dimension"]},
+    rows: [
+      col(21, "Before wash", {cap:"pom", src:"pom", crit:R.pom()}),
+      col(22, "After wash",  {cap:"pom", src:"pom", crit:R.none()}),
+      col(23, "% Shrinkage", {cap:"pom", unit:"%",
+        f:{type:"pctchange", ops:[op(21), op(22)]},
+        crit:R.min(-5)})
+    ]
+  },
+  chartgraded: {
+    name: "Critical POMs (graded)",
+    mc: {types:["Dimension","Weight"]},
+    rows: [
+      col(24, "Measurement", {cap:"pom", src:"pom",
+        crit:R.graded(null,[[-5,5,"l1"],[-10,10,"l2"]],"percent","l5")}),
+      col(25, "Room temperature", {cap:"sample", unit:"°C", crit:R.tol(21,-3,3,"difference")})
+    ]
+  },
+
+  moisture: {
+    name: "09 Moisture Check",
+    mc: null,
+    rows: [
+      col(30, "Moisture Content", {cap:"sample", unit:"%",
+        crit:R.graded(null, [[0,8,"l1"],[8,12,"l4"]], null, "l5")}),
+      col(31, "Air moisture",     {cap:"lot", unit:"%"}),
+      col(32, "Air temperature",  {cap:"lot", unit:"°C"})
+    ]
+  },
+
+  komarshrinkage: {
+    name: "Shrinkage (per dye lot)",
+    mc: null,
+    rows: [
+      col(40, "Length shrinkage", {cap:"sample", occ:["1st wash","3rd wash"], opt:true,
+        unit:"%", crit:R.min(-5)}),
+      col(41, "Width shrinkage",  {cap:"sample", occ:["1st wash","3rd wash"], opt:true,
+        unit:"%", crit:R.min(-5)}),
+      col(42, "Lot length shrinkage", {cap:"lot", unit:"%",
+        f:{type:"passthrough", ops:[op(40,"only")]}, crit:R.min(-5)}),
+      col(43, "Lot width shrinkage",  {cap:"lot", unit:"%",
+        f:{type:"passthrough", ops:[op(41,"only")]}, crit:R.min(-5)})
+    ]
+  },
+  crocking: {
+    name: "Colorfastness — crocking",
+    mc: null,
+    rows: [
+      col(44, "Dry crocking", {cap:"sample", opt:true, unit:"grade (1–5)", crit:R.min(4)}),
+      col(45, "Wet crocking", {cap:"sample", opt:true, unit:"grade (1–5)", crit:R.min(3)})
+    ]
+  },
+
+  avgweight: {
+    name: "Average weight (3 readings)",
+    mc: null,
+    rows: [
+      col(5, "Weight", {cap:"sample", occ:["Reading 1","Reading 2","Reading 3"], unit:"g"}),
+      col(8, "Average weight", {cap:"sample", unit:"g",
+        f:{type:"passthrough", ops:[op(5,"average")]},
+        crit:R.tol(200,-5,5,"percent")})
+    ]
+  },
+  twisting: {
+    name: "Side seam twisting",
+    mc: null,
+    rows: [
+      col(9,  "Twist / displacement value", {unit:"cm"}),
+      col(10, "Side seam length",           {unit:"cm"}),
+      col(11, "% Twisting", {unit:"%",
+        f:{type:"ratiopercent", ops:[op(9), op(10)]}, crit:R.max(5,false)})
+    ]
+  },
+  fabricweight: {
+    name: "Fabric weight (from swatch)",
+    mc: null,
+    rows: [
+      col(12, "Swatch length", {unit:"cm"}),
+      col(13, "Swatch width",  {unit:"cm"}),
+      col(14, "Swatch area",   {unit:"cm²", f:{type:"product", ops:[op(12), op(13)]}}),
+      col(15, "Swatch weight", {unit:"g"}),
+      col(16, "Fabric weight (GSM)", {unit:"GSM",
+        f:{type:"custom", ops:[op(15), op(14)], customExpr:"A / B × 10,000"},
+        crit:R.graded(160,[[-5,5,"l1"],[-10,10,"l2"]],"percent","l5")})
+    ]
+  }
+};
+
+const order = ["chartpoms","chartshrinkage","chartgraded","moisture","komarshrinkage","crocking","avgweight","twisting","fabricweight"];
+let active = "moisture";
+let nextId = 1;
+let nextRowId = 50;
+
+const openEval = new Set();
+let modal = null;
+
+// ---------------------------------------------------------------------------
+// Model helpers
+// ---------------------------------------------------------------------------
+
+function curStep(){ return data[active]; }
+function findRow(d, id){ return d.rows.find(r=>r.id===id); }
+function rowIndex(d, id){ return d.rows.findIndex(r=>r.id===id); }
+function rowName(d, id){ const r = findRow(d,id); return r ? r.name : null; }
+
+function hasChart(d){ d = d || curStep(); return !!(d && d.mc); }
+function chartTypes(d){ return (d && d.mc && d.mc.types) || []; }
+
+function capOf(d, row){
+  const c = row.capture || "sample";
+  if (c==="pom" && !hasChart(d)) return "sample";
+  return c;
+}
+function levelOptions(d){ return LEVELS.filter(l=>!l.chartOnly || hasChart(d)); }
+
+function axesOf(d, row){
+  const s = new Set();
+  const cap = capOf(d, row);
+  if (cap==="sample" || cap==="pom") s.add("sample");
+  if (cap==="pom") s.add("pom");
+  if ((row.occasions||[]).length) s.add("occasion");
+  return s;
+}
+const AXIS_WORD = {sample:"sample", pom:"POM", occasion:"repeat"};
+
+function missingAxes(d, opRow, tgtRow){
+  if (!opRow || !tgtRow) return [];
+  const o = axesOf(d, opRow), t = axesOf(d, tgtRow);
+  return [...o].filter(x=>!t.has(x));
+}
+function axesPhrase(list){
+  const w = list.map(x=>AXIS_WORD[x]);
+  if (w.length===1) return w[0];
+  return w.slice(0,-1).join(", ")+" and "+w[w.length-1];
+}
+
+function canBePom(d, row){ return hasChart(d) && capOf(d,row)==="pom" && !row.formula; }
+function isFromMC(d, row){ return !!row && row.source==="pom" && canBePom(d, row); }
+
+function formulaDef(fm){ return fm ? FORMULAS.find(x=>x.id===fm.type) : null; }
+function mcType(id){ return MC_TYPES.find(t=>t.id===id); }
+
+function opsOf(fm){ return (fm && fm.ops) ? fm.ops : []; }
+function operandIdsOf(fm){ return opsOf(fm).map(o=>o.id).filter(x=>x!=null); }
+
+function dependsOn(d, candidateId, targetId, seen){
+  if (candidateId===targetId) return true;
+  seen = seen || new Set();
+  if (seen.has(candidateId)) return false;
+  seen.add(candidateId);
+  const r = findRow(d, candidateId);
+  if (!r || !r.formula) return false;
+  return operandIdsOf(r.formula).some(id=>dependsOn(d, id, targetId, seen));
+}
+function eligibleOperands(d, rowId){
+  return d.rows.filter(r=>!dependsOn(d, r.id, rowId));
+}
+
+function derivedUnit(d, row, seen){
+  if (!row || !row.formula) return null;
+  seen = seen || new Set();
+  if (seen.has(row.id)) return null;
+  seen.add(row.id);
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return null;
+  if (f.unit==="%") return "%";
+  if (f.unit==="unitless") return "unitless (ratio)";
+  if (f.unit==="custom") return null;
+
+  const units = operandIdsOf(fm).map(id=>unitOf(d, findRow(d,id), seen));
+  const allSame = units.length>0 && units.every(u=>u && u===units[0]);
+  if (f.unit==="product"){
+    if (!allSame) return null;
+    return SQUARE_UNITS[units[0]] || (units[0]+" × "+units[0]);
+  }
+  return allSame ? units[0] : null;
+}
+
+function unitOf(d, row, seen){
+  if (!row) return null;
+  if (row.formula){
+    const u = derivedUnit(d, row, seen);
+    if (u) return u;
+  }
+  if (isFromMC(d, row)) return null;
+  return row.unit || null;
+}
+function unitIsDerived(d, row){ return !!(row.formula && derivedUnit(d, row)); }
+function inlineUnit(d, row){
+  const u = unitOf(d, row);
+  return (!u || u.indexOf(" ")!==-1) ? "" : u;
+}
+
+function critOptions(d, row){
+  if (isFromMC(d, row)){
+    return [preset("pom"), preset("graded"), CHOICE_INSPECTOR, CHOICE_NONE];
+  }
+  const list = PRESETS.filter(p=>!p.pomOnly).slice();
+  return list.concat([CHOICE_INSPECTOR, CHOICE_NONE]);
+}
+
+function critChoice(d, row){
+  const c = ensureCriteria(d, row);
+  if (c.mode==="none") return "none";
+  if (c.mode==="inspector") return "inspector";
+  return c.rule && c.rule.source==="pom" ? "pom" : ((c.rule && c.rule.preset) || "range");
+}
+
+function ensureCriteria(d, row){
+  if (!row.criteria) row.criteria = isFromMC(d, row) ? R.pom() : R.none();
+  const c = row.criteria;
+  if (c.mode==="rule" && c.rule && c.rule.source==="pom" && !isFromMC(d, row)){
+    c.mode = "none";
+    c.rule = null;
+  }
+  return c;
+}
+
+function seedRule(rule){
+  const a = activeBounds(rule);
+  if (a.standardField && rule.standard==null) rule.standard = "";
+  if (!a.standardField) rule.standard = "";
+  if (!rule.basis) rule.basis = "percent";
+  if (!rule.bands || !rule.bands.length) rule.bands = [newBand()];
+  rule.bands.forEach(b=>{
+    if (!b.lower) b.lower = newBound();
+    if (!b.upper) b.upper = newBound();
+    if (!b.outcome || !outcomeLabels.some(o=>o.id===b.outcome)) b.outcome = defaultPassLabel();
+  });
+  if (a.graded && rule.bands.length < 2) rule.bands.push(newBand(defaultFailLabel()));
+  if (!rule.fallback || !outcomeLabels.some(o=>o.id===rule.fallback)) rule.fallback = defaultFailLabel();
+  return rule;
+}
+
+function setCritChoice(d, row, choice){
+  const c = ensureCriteria(d, row);
+  if (choice==="none"){ c.mode = "none"; return; }
+  if (choice==="inspector"){ c.mode = "inspector"; return; }
+  c.mode = "rule";
+  c.rule = c.rule || {};
+  if (choice==="pom"){ c.rule.source = "pom"; c.rule.preset = "pom"; return; }
+  c.rule.source = "local";
+  c.rule.preset = choice;
+  seedRule(c.rule);
+}
+
+function revalidateCriteria(d, row){
+  if (!row.criteria){ ensureCriteria(d, row); return; }
+  const c = row.criteria;
+  const isPomRule = c.mode==="rule" && c.rule && c.rule.source==="pom";
+  if (isPomRule && !isFromMC(d, row)){
+    row.stashedPomCriteria = JSON.parse(JSON.stringify(c));
+    c.mode = "none";
+    c.rule = null;
+    return;
+  }
+  if (!isPomRule && isFromMC(d, row) && row.stashedPomCriteria){
+    row.criteria = row.stashedPomCriteria;
+    row.stashedPomCriteria = null;
+  }
+  ensureCriteria(d, row);
+}
+
+function syncCriteriaToSource(d, row){
+  const c = row.criteria;
+  if (!c){ ensureCriteria(d, row); return; }
+  const wasPom = c.mode==="rule" && c.rule && c.rule.source==="pom";
+  if (isFromMC(d, row)){
+    if (!wasPom){
+      row.stashedCriteria = JSON.parse(JSON.stringify(c));
+      setCritChoice(d, row, "pom");
+    }
+  } else if (wasPom){
+    if (row.stashedCriteria){
+      row.criteria = row.stashedCriteria;
+      row.stashedCriteria = null;
+    } else {
+      c.mode = "none";
+      c.rule = null;
+    }
+  }
+  ensureCriteria(d, row);
+}
+
+// ---------------------------------------------------------------------------
+// Formula text
+// ---------------------------------------------------------------------------
+
+function opText(d, o){
+  const nm = rowName(d, o.id);
+  if (!nm) return null;
+  if (!o.agg) return nm;
+  const a = aggDef(o.agg);
+  if (o.agg==="only") return "the recorded "+nm;
+  return (a ? a.label.replace(/ of them$/,"") : o.agg)+" "+nm;
+}
+
+function formulaChipText(d, row){
+  const fm = row.formula;
+  const f = formulaDef(fm);
+  if (!f) return {text:"Unrecognised formula", warn:true};
+  const ops = opsOf(fm);
+
+  if (f.arity==="many"){
+    const names = ops.map(o=>opText(d,o));
+    if (names.length<2 || names.some(n=>!n)) return {text:(f.id==="sum"?"Total":"Average")+" — pick at least 2 values", warn:true};
+    return f.id==="sum"
+      ? {text: names.join(" + ")}
+      : {text: "("+names.join(" + ")+") / "+names.length};
+  }
+  if (f.arity===1){
+    const a = ops[0] ? opText(d, ops[0]) : null;
+    if (!a) return {text:"Pick a value to take", warn:true};
+    return {text:a};
+  }
+  const a = ops[0] ? opText(d, ops[0]) : null;
+  const b = ops[1] ? opText(d, ops[1]) : null;
+  if (!a || !b) return {text:"Formula — pick both values", warn:true};
+  const tpl = f.custom ? (fm.customExpr||"") : f.expr;
+  if (!tpl) return {text:"Custom formula — enter an expression", warn:true};
+  return {text: tpl.replace(/\b[AB]\b/g, m=> m==="A" ? a : b)};
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation summary
+// ---------------------------------------------------------------------------
+
+function evalSummary(d, row){
+  const c = ensureCriteria(d, row);
+  if (c.mode==="none")      return {text:"Not evaluated", muted:true};
+  if (c.mode==="inspector") return {text:"Inspector decides", inspector:true};
+
+  const rule = c.rule || {};
+  if (rule.source==="pom") return {text:"Within POM tolerance", fromSpec:true};
+
+  seedRule(rule);
+  const err = ruleError(rule);
+  if (err) return {text: err, warn:true};
+
+  const u = inlineUnit(d, row);
+  const suf = u ? " "+u : "";
+  const a = activeBounds(rule);
+  const perPom = isFromMC(d, row);
+  const rel = perPom || hasStandard(rule);
+  const uSuf = perPom ? "%" : (rel ? (rule.basis==="percent" ? "%" : suf) : suf);
+  const sign = (v)=> String(v).trim().startsWith("-") ? "" : "+";
+
+  const bandText = (band)=>{
+    const lo = a.lower ? band.lower : null, hi = a.upper ? band.upper : null;
+    if (rel && lo && hi) return sign(lo.value)+lo.value+uSuf+" to "+sign(hi.value)+hi.value+uSuf;
+    if (a.lower && a.upper){
+      return (lo.inclusive && hi.inclusive)
+        ? lo.value+" to "+hi.value+suf
+        : (lo.inclusive?"≥ ":"> ")+lo.value+" and "+(hi.inclusive?"≤ ":"< ")+hi.value+suf;
+    }
+    if (a.lower) return (lo.inclusive?"≥ ":"> ")+lo.value+uSuf;
+    return (hi.inclusive?"≤ ":"< ")+hi.value+uSuf;
+  };
+  const filled = (band)=>{
+    const lo = a.lower ? band.lower : null, hi = a.upper ? band.upper : null;
+    return (!a.lower || (lo && lo.value!=="")) && (!a.upper || (hi && hi.value!==""));
+  };
+
+  if (a.standardRequired && !hasStandard(rule)) return {text:"Needs a standard value", warn:true};
+  if (!rule.bands.every(filled)) return {text: a.graded ? "Bands — every band needs both limits" : (rel ? "Tolerance — needs both bands" : (a.lower && a.upper ? "Range — needs both limits" : "Needs a limit")), warn:true};
+
+  if (a.graded){
+    const parts = rule.bands.map(b=>bandText(b)+" → "+outcomeDef(b.outcome).label);
+    const head = perPom ? "per POM · " : (rel ? rule.standard+suf+" · " : "");
+    return {text: head+parts.join(" · ")+" · else "+outcomeDef(rule.fallback).label, graded:true};
+  }
+  const one = bandText(rule.bands[0]);
+  return {text: perPom ? one : (rel ? rule.standard+suf+", "+one : one)};
+}
+
+// ---------------------------------------------------------------------------
+// Column cardinality
+// ---------------------------------------------------------------------------
+
+function cardinalityText(d, row){
+  const cap = capOf(d, row);
+  const occ = row.occasions || [];
+  const lbl = levelDef(cap).label;
+  let s = lbl.charAt(0).toLowerCase() + lbl.slice(1);
+  if (occ.length) s += " × "+occ.length+" repeat"+(occ.length===1?"":"s");
+  if (!row.required) s += " · optional";
+  return s;
+}
+
+function computeMeta(d){
+  const n = d.rows.length;
+  const nCalc = d.rows.filter(r=>r.formula).length;
+  const nEval = d.rows.filter(r=>ensureCriteria(d,r).mode!=="none").length;
+  const parts = [n+" value"+(n===1?"":"s")];
+  if (hasChart(d)){
+    const t = chartTypes(d);
+    parts.push("over every POM in "+(t.length ? t.join(" / ") : "any type")+" chart");
+  }
+  if (nCalc) parts.push(nCalc+" from a formula");
+  parts.push(nEval+" evaluated");
+  return parts.join(" · ");
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ---- Grid Preview (V12 REFINEMENTS) ---------------------------------------
+function rowAxisOf(d){ return hasChart(d) ? "pom" : "lot"; }
+function axisWord(d){ return hasChart(d) ? "POM" : "lot (e.g. one order line, or one dye lot)"; }
+
+function subLabels(d, row){
+  const occ = row.occasions || [];
+  const cap = capOf(d, row);
+  const axis = rowAxisOf(d);
+  const fanSample = (cap==="sample" && axis==="lot") || (cap==="pom" && axis==="pom");
+  if (occ.length && fanSample) return {labels:occ, sampleNote:true};
+  if (occ.length)              return {labels:occ, sampleNote:false};
+  if (fanSample)               return {labels:["Sample 1","Sample 2","…"], sampleNote:false};
+  return {labels:[""], sampleNote:false};
+}
+
+function isCoarserThanAxis(d, row){
+  return hasChart(d) && capOf(d,row)!=="pom";
+}
+
+function renderPreview(){
+  const d = data[active];
+  const body = document.getElementById("previewBody");
+  const word = document.getElementById("axisWord");
+  const card = document.getElementById("previewCard");
+  if (!d){ card.style.display="none"; body.innerHTML=""; return; }
+  card.style.display = "";
+  word.textContent = axisWord(d);
+
+  const chart = hasChart(d);
+  const bodyRows = chart
+    ? [{label:"POM 1"}, {label:"POM 2"}, {label:"… (every POM in chart)", ell:true}]
+    : [{label:"Item 1"}];
+  const axisHead = chart ? "POM" : "Lot";
+
+  const subs = d.rows.map(r=>subLabels(d, r));
+  const anySub = subs.some(s=>s.labels.length>1 || s.labels[0]!=="");
+
+  let head1 = '<th class="axis-h" rowspan="'+(anySub?2:1)+'">'+esc(axisHead)+'</th>';
+  d.rows.forEach((r,i)=>{
+    const s = subs[i];
+    const opt = r.required ? "" : ' <span class="opt">optional</span>';
+    head1 += '<th colspan="'+s.labels.length+'">'+esc(r.name)+opt+'</th>';
+  });
+
+  let head2 = "";
+  if (anySub){
+    d.rows.forEach((r,i)=>{
+      subs[i].labels.forEach(l=>{ head2 += '<th class="sub">'+esc(l||"—")+'</th>'; });
+    });
+    head2 = '<tr>'+head2+'</tr>';
+  }
+
+  const bodyHtml = bodyRows.map((br,bi)=>{
+    const axisStyle = chart ? ' style="font-weight:400; color:var(--mut);"' : '';
+    let tds = '<td class="axis-c'+(br.ell?" ell":"")+'"'+axisStyle+'>'+esc(br.label)+'</td>';
+    d.rows.forEach((r,i)=>{
+      const coarse = isCoarserThanAxis(d, r);
+      if (coarse && bi>0) return;                 // covered by rowspan above
+      const span = coarse ? ' rowspan="'+bodyRows.length+'"' : '';
+      
+      if (r.formula) {
+        cellContent = '<span class="cell-auto">&fnof; auto</span>';
+      } else {
+        cellContent = '<input type="text" class="cell-input-field" disabled placeholder="">';
+      }
+
+      const cls = "td-cell" + (coarse ? " coarse" : "") + (r.formula ? " auto" : "");
+      subs[i].labels.forEach(()=>{ tds += '<td class="'+cls+'"'+span+'>'+cellContent+'</td>'; });
+    });
+    return '<tr>'+tds+'</tr>';
+  }).join("");
+
+  const coarseNames = d.rows.filter(r=>isCoarserThanAxis(d,r)).map(r=>r.name);
+  const coarseNote = coarseNames.length
+    ? '<p class="calc-note">'+esc(coarseNames.join(", "))+' '+(coarseNames.length===1?"is":"are")
+      + ' recorded above the POM level, so the shaded cell'+(coarseNames.length===1?"":"s")
+      + ' appl'+(coarseNames.length===1?"ies":"y")+' to every POM in the chart.</p>'
+    : "";
+  const optNames = d.rows.filter(r=>!r.required).map(r=>r.name);
+  const optNote = optNames.length
+    ? '<p class="calc-note">'+esc(optNames.join(", "))+' may be left blank — typically a destructive test on one unit only.</p>'
+    : "";
+
+  body.innerHTML = '<div style="overflow-x:auto;">'
+    + '<table class="grid-preview"><thead><tr>'+head1+'</tr>'+head2+'</thead>'
+    + '<tbody>'+bodyHtml+'</tbody></table></div>'
+    + (chart
+        ? '<p class="calc-note">The POM list is not known here — a chart resolves from the item being inspected, so it is only known at inspection time.</p>'
+        : "")
+    + '<p class="calc-note">Sample count is not set here either. It is derived from lot size upstream.</p>'
+    + coarseNote + optNote;
+}
+
+// ---------------------------------------------------------------------------
+// Measurement Chart control
+// ---------------------------------------------------------------------------
+
+function mcTypeSummary(selected){
+  if (!selected || selected.length===0) return "Any type";
+  if (selected.length < 3) return selected.join(", ");
+  return selected.length + " types selected";
+}
+
+function renderMc(){
+  const d = data[active];
+  const body = document.getElementById("mcBody");
+  if (!d){ body.innerHTML=""; return; }
+  const on = hasChart(d);
+  let html = '<div class="row-line" style="margin-top:0;">'
+    + '<span class="inline-label" style="width:auto;">Measurement Chart</span>'
+    + '<select id="mcModeSel" style="min-width:210px;">'
+      + '<option value="none"'+(!on?" selected":"")+'>None — no POM level</option>'
+      + '<option value="chart"'+(on?" selected":"")+'>Every POM in the chart</option>'
+    + '</select>';
+  if (on){
+    const sel = chartTypes(d);
+    html += '<span class="soft">of type</span>'
+      + '<div class="mctype-wrap" data-rowid="step">'
+        + '<div class="mctype-trigger" data-rowid="step" tabindex="0">'
+          + '<span class="mctype-summary" data-rowid="step">'+esc(mcTypeSummary(sel))+'</span>'
+          + '<span class="mctype-caret">&#9662;</span>'
+        + '</div>'
+        + '<div class="mctype-panel" data-rowid="step">'
+          + MC_TYPES.map(t=>'<label><input type="checkbox" data-mctype="'+t.id+'" class="mcTypeCheck" '
+              + (sel.includes(t.id)?"checked":"")+'>'+t.id+'</label>').join("")
+        + '</div>'
+      + '</div>';
+  }
+  html += '</div>';
+  html += '<p class="calc-note">'+(on
+    ? "Columns in this step may be recorded once per POM. The chart carries no unit — each POM inside it carries its own."
+    : "Without a chart there is no POM level, so columns are recorded per sample or once for the lot.")+'</p>';
+  body.innerHTML = html;
+
+  const sel = document.getElementById("mcModeSel");
+  if (sel) sel.addEventListener("change", ()=>{
+    d.mc = sel.value==="chart" ? (d.mc || {types:[]}) : null;
+    d.rows.forEach(r=>revalidateCriteria(d, r));
+    openEval.clear();
+    renderAll();
+  });
+
+  document.querySelectorAll('.mctype-trigger[data-rowid="step"]').forEach(trigger=>{
+    trigger.addEventListener("click", ()=>{
+      const panel = document.querySelector('.mctype-panel[data-rowid="step"]');
+      if (!panel) return;
+      const isOpen = panel.style.display === "block";
+      document.querySelectorAll(".mctype-panel").forEach(p=>{ p.style.display = "none"; });
+      panel.style.display = isOpen ? "none" : "block";
+    });
+  });
+  document.querySelectorAll(".mcTypeCheck").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const cat = chk.getAttribute("data-mctype");
+      d.mc = d.mc || {types:[]};
+      d.mc.types = d.mc.types || [];
+      if (chk.checked){ if (!d.mc.types.includes(cat)) d.mc.types.push(cat); }
+      else { d.mc.types = d.mc.types.filter(x=>x!==cat); }
+      const summaryEl = document.querySelector('.mctype-summary[data-rowid="step"]');
+      if (summaryEl) summaryEl.textContent = mcTypeSummary(d.mc.types);
+      renderHeader();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Step list & header
+// ---------------------------------------------------------------------------
+
+function renderList(){
+  const el = document.getElementById("checkList");
+  if (order.length===0){
+    el.innerHTML = '<p style="font-size:12px; color:var(--muted2); padding:6px 2px;">No measurement steps yet.</p>';
+    return;
+  }
+  const showHandle = order.length > 1;
+  el.innerHTML = order.map((k,i)=>{
+    const d = data[k];
+    const handle = showHandle
+      ? '<span class="drag-handle step-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+      : '';
+    return '<div class="ct-row step-row" data-key="'+k+'" draggable="false">'
+      + handle
+      + '<span class="step-num">'+(i+1)+'</span>'
+      + '<div data-key="'+k+'" class="ct-item'+(k===active?" active":"")+'" title="'+esc(d.name)+'">'+esc(d.name)+'</div>'
+      + '<span data-key="'+k+'" class="ct-remove" title="Remove step">&times;</span>'
+      + '</div>';
+  }).join("");
+  el.querySelectorAll(".ct-item").forEach(item=>{
+    item.addEventListener("click", ()=>{ active = item.getAttribute("data-key"); openEval.clear(); renderAll(); });
+  });
+  el.querySelectorAll(".ct-remove").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{ e.stopPropagation(); removeStep(btn.getAttribute("data-key")); });
+  });
+  if (showHandle) wireStepDragDrop(el);
+}
+
+function wireStepDragDrop(el){
+  const rows = [...el.querySelectorAll(".step-row")];
+  let draggedKey = null;
+  rows.forEach(rowEl=>{
+    const handle = rowEl.querySelector(".step-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ rowEl.setAttribute("draggable","true"); });
+    rowEl.addEventListener("dragstart", (e)=>{
+      draggedKey = rowEl.getAttribute("data-key");
+      rowEl.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", draggedKey);
+    });
+    rowEl.addEventListener("dragend", ()=>{
+      rowEl.setAttribute("draggable","false");
+      rowEl.classList.remove("dragging");
+      rows.forEach(r=>r.classList.remove("drop-above","drop-below"));
+    });
+    rowEl.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (!draggedKey) return;
+      const targetKey = rowEl.getAttribute("data-key");
+      if (targetKey===draggedKey) return;
+      const rect = rowEl.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      rows.forEach(r=>r.classList.remove("drop-above","drop-below"));
+      rowEl.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    rowEl.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetKey = rowEl.getAttribute("data-key");
+      if (!draggedKey || targetKey===draggedKey) return;
+      const rect = rowEl.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      order.splice(order.indexOf(draggedKey), 1);
+      const toIdx = order.indexOf(targetKey);
+      order.splice(isAbove ? toIdx : toIdx+1, 0, draggedKey);
+      draggedKey = null;
+      renderList();
+    });
+  });
+}
+
+function removeStep(key){
+  const d = data[key];
+  if (!d) return;
+  if (!confirm('Remove "'+d.name+'"? This cannot be undone.')) return;
+  delete data[key];
+  const idx = order.indexOf(key);
+  if (idx>-1) order.splice(idx,1);
+  if (active===key) active = order.length ? order[0] : null;
+  renderAll();
+}
+
+function renderHeader(){
+  const d = data[active];
+  const nameInput = document.getElementById("ctName");
+  const metaEl = document.getElementById("ctMeta");
+  if (!d){
+    nameInput.value = "";
+    nameInput.placeholder = "No steps yet — add one from the left";
+    nameInput.disabled = true;
+    metaEl.innerHTML = "";
+    return;
+  }
+  nameInput.disabled = false;
+  nameInput.value = d.name;
+  const chip = hasChart(d)
+    ? '<span class="step-chip chip-mc">Measurement Chart step</span>'
+    : '<span class="step-chip chip-custom">Custom values step</span>';
+  metaEl.innerHTML = chip + ' ' + esc(computeMeta(d));
+}
+
+// ---------------------------------------------------------------------------
+// Value rows (columns)
+// ---------------------------------------------------------------------------
+
+function unitSelectHtml(row, disabled){
+  return '<select data-rowid="'+row.id+'" class="unitSel"'+(disabled?" disabled":"")+' style="min-width:150px;">'
+    + UNIT_GROUPS.map(g=>'<optgroup label="'+g.category+'">'
+        + g.units.map(u=>'<option'+(u===row.unit?" selected":"")+'>'+u+'</option>').join("")
+      + '</optgroup>').join("")
+    + '</select>';
+}
+
+function captureHtml(d, row){
+  const cap = capOf(d, row);
+  const occ = row.occasions || [];
+  let html = '<div class="row-line">'
+    + '<span class="inline-label">Recorded</span>'
+    + '<select data-rowid="'+row.id+'" class="capSel" style="min-width:170px;">'
+      + levelOptions(d).map(l=>'<option value="'+l.id+'"'+(l.id===cap?" selected":"")+'>'+l.label+'</option>').join("")
+    + '</select>';
+
+  if (occ.length){
+    html += '<span class="soft">repeated:</span>'
+      + occ.map((o,i)=>'<span class="occ-chip">'
+          + '<input type="text" data-rowid="'+row.id+'" data-occ="'+i+'" class="occInp" value="'+esc(o)+'">'
+          + '<span class="occ-x" data-rowid="'+row.id+'" data-occ="'+i+'" title="Remove this repeat">&times;</span>'
+        + '</span>').join("");
+  }
+  html += '<span class="occ-add" data-rowid="'+row.id+'" title="Use for wash milestones (1st/3rd wash), multi-location reads (left/center/right), or test trials">'+(occ.length?"+ another":"+ measured more than once")+'</span>'
+    + '<label class="chk" style="margin-left:8px;">'
+      + '<input type="checkbox" data-rowid="'+row.id+'" class="reqChk" '+(row.required?"":"checked")+'> optional'
+    + '</label>'
+    + '</div>';
+  return html;
+}
+
+function specificationHtml(d, row){
+  let html = "";
+  if (canBePom(d, row)){
+    html += '<div class="row-line">'
+      + '<span class="inline-label">Specification</span>'
+      + '<select data-rowid="'+row.id+'" class="srcSel" style="min-width:230px;">'
+        + '<option value="pom"'+(row.source==="pom"?" selected":"")+'>This POM’s own spec</option>'
+        + '<option value="custom"'+(row.source!=="pom"?" selected":"")+'>Defined here</option>'
+      + '</select>'
+      + '<span class="soft">'+(row.source==="pom"
+          ? "Unit, standard value and tolerance all come from the POM"
+          : "A value recorded against each POM, but specified here")+'</span>'
+      + '</div>';
+  }
+
+  let dependent, hint;
+  if (isFromMC(d, row)){
+    dependent = '<span class="soft">each POM’s own unit</span>';
+    hint = "";
+  } else if (unitIsDerived(d, row)){
+    dependent = '<span class="soft"><b>'+esc(derivedUnit(d,row))+'</b> — set by the formula</span>';
+    hint = "";
+  } else if (row.formula){
+    dependent = unitSelectHtml(row, false);
+    hint = '<span class="soft">The formula’s unit cannot be derived — state it here</span>';
+  } else {
+    dependent = unitSelectHtml(row, false);
+    hint = "";
+  }
+  html += '<div class="row-line">'
+    + '<span class="inline-label">Unit</span>'
+    + dependent + hint
+    + '</div>';
+  return html;
+}
+
+function valueHtml(d, row){
+  const isFormula = !!row.formula;
+  let html = '<div class="row-line"><span class="inline-label">Value</span>'
+    + '<select data-rowid="'+row.id+'" class="valueSel" style="min-width:200px;">'
+      + '<option value="inspector"'+(!isFormula?" selected":"")+'>Entered by inspector</option>'
+      + '<option value="formula"'+(isFormula?" selected":"")+'>Calculated by formula</option>'
+    + '</select>';
+  if (isFormula){
+    const t = formulaChipText(d, row);
+    html += '<span class="formula-chip'+(t.warn?" warn":"")+'" data-rowid="'+row.id+'" title="Edit formula">'
+      + '<span class="fx">&fnof;</span><span class="expr">'+esc(t.text)+'</span></span>';
+  }
+  const err = formulaGrainError(d, row);
+  if (err) html += '<div class="warn-note">'+esc(err)+'</div>';
+  return html + '</div>';
+}
+
+function formulaGrainError(d, row){
+  if (!row.formula) return null;
+  for (const o of opsOf(row.formula)){
+    const opRow = findRow(d, o.id);
+    if (!opRow) continue;
+    const miss = missingAxes(d, opRow, row);
+    if (miss.length && !o.agg){
+      return '“'+opRow.name+'” varies by '+axesPhrase(miss)+' and this value does not, so the formula must say how those are combined. Open it to pick one.';
+    }
+    if (!miss.length && o.agg){
+      return '“'+opRow.name+'” has the same cardinality as this value, so there is nothing for “'+(aggDef(o.agg)||{}).label+'” to combine. Open the formula to clear it.';
+    }
+  }
+  return null;
+}
+
+function evaluationHtml(d, row){
+  const c = ensureCriteria(d, row);
+  const isOpen = openEval.has(row.id);
+  const s = evalSummary(d, row);
+  const cls = s.warn ? " warn" : (s.muted ? " muted" : (s.fromSpec ? " from-spec" : (s.graded ? " graded" : "")));
+
+  const occN = (row.occasions||[]).length;
+  const scopeNote = c.mode==="none" ? ""
+    : (occN ? "one rule for all "+occN+" repeats" : "applied to every cell of this column");
+
+  let html = '<div class="row-line">'
+    + '<span class="inline-label">Evaluation</span>'
+    + '<span class="eval-summary'+cls+'" data-rowid="'+row.id+'">'
+      + esc(s.text) + '<span class="edit">'+(isOpen?"close":"change")+'</span>'
+    + '</span>'
+    + (scopeNote ? '<span class="soft">'+esc(scopeNote)+'</span>' : "")
+    + '</div>';
+
+  if (!isOpen) return html;
+
+  const unit = inlineUnit(d, row);
+  const choice = critChoice(d, row);
+  html += '<div class="eval-open">'
+    + '<select data-rowid="'+row.id+'" class="critTypeSel" style="width:100%;">'
+      + critOptions(d, row).map(x=>'<option value="'+x.id+'"'+(x.id===choice?" selected":"")+'>'+x.label+'</option>').join("")
+    + '</select>';
+
+  if (c.mode==="rule" && c.rule && c.rule.source==="local"){
+    const rule = seedRule(c.rule);
+    const a = activeBounds(rule);
+    const dr = 'data-rowid="'+row.id+'"';
+    const inclSel = (i, side, b)=> '<select '+dr+' data-band="'+i+'" data-side="'+side+'" class="critIncl" style="width:64px;">'
+        + '<option value="1"'+(b.inclusive?" selected":"")+'>'+(side==="lower"?"&ge;":"&le;")+'</option>'
+        + '<option value="0"'+(!b.inclusive?" selected":"")+'>'+(side==="lower"?"&gt;":"&lt;")+'</option>'
+      + '</select>';
+    const num = (i, side, b)=> '<input '+dr+' data-band="'+i+'" data-side="'+side+'" class="critNum" type="text" value="'+esc(b.value||"")+'" style="width:80px;">';
+    const outSel = (i, b)=> '<select '+dr+' data-band="'+i+'" class="critOut" style="width:145px;">'
+        + outcomeLabels.map(o=>'<option value="'+o.id+'"'+(o.id===b.outcome?" selected":"")+'>'+esc(o.label)+'</option>').join("")
+      + '</select>';
+
+    const perPom = isFromMC(d, row);
+    if (perPom) rule.basis = "percent";
+    const rel = perPom || hasStandard(rule);
+    if (perPom){
+      html += '<div class="row-line" style="margin-top:10px;">'
+        + '<span class="soft">Bands are % of each POM’s own standard value, applied to every POM in the chart.</span>'
+        + '</div>';
+    } else if (a.standardField){
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">'
+        + '<span class="inline-label" style="width:auto;">Standard'+(a.standardRequired?"":" (optional)")+'</span>'
+        + '<input '+dr+' class="critStd" type="text" value="'+esc(rule.standard||"")+'" style="width:80px;">'
+        + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>';
+      if (rel){
+        html += '<span class="inline-label" style="width:auto; margin-left:12px;">Bands are</span>'
+          + '<select '+dr+' class="critBasis" style="width:190px;">'
+            + BASES.map(b=>'<option value="'+b.id+'"'+(b.id===rule.basis?" selected":"")+'>'+b.label+'</option>').join("")
+          + '</select>';
+      } else if (!a.standardRequired){
+        html += '<span class="soft" style="margin-left:8px;">No standard, so the bands below are actual values</span>';
+      }
+      html += '</div>';
+    }
+
+    rule.bands.forEach((band,i)=>{
+      if (!a.graded && i>0) return;
+      const bErr = bandError(rule, band);
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">';
+      if (a.graded) html += '<span class="inline-label" style="width:auto;">Band '+(i+1)+'</span>';
+      if (rel){
+        html += num(i,"lower",band.lower) + '<span style="font-size:13px; color:var(--mut);">to</span>' + num(i,"upper",band.upper)
+          + '<span style="font-size:13px; color:var(--mut);">'+(rule.basis==="percent"?"%":esc(unit))+'</span>';
+      } else if (a.lower && a.upper){
+        html += inclSel(i,"lower",band.lower) + num(i,"lower",band.lower)
+          + '<span style="font-size:13px; color:var(--mut);">and</span>'
+          + inclSel(i,"upper",band.upper) + num(i,"upper",band.upper)
+          + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>';
+      } else {
+        const side = a.lower ? "lower" : "upper";
+        html += inclSel(i,side,band[side]) + num(i,side,band[side])
+          + '<span style="font-size:13px; color:var(--mut);">'+esc(unit)+'</span>';
+      }
+      if (a.graded){
+        html += '<span style="font-size:13px; color:var(--mut);">&rarr;</span>' + outSel(i,band)
+          + (rule.bands.length>1 ? '<span '+dr+' data-band="'+i+'" class="ct-remove critBandDel" title="Remove band">&times;</span>' : '');
+      }
+      html += '</div>';
+      if (bErr) html += '<div class="warn-note">'+esc(bErr)+'</div>';
+    });
+
+    if (a.graded){
+      const ordErr = bandOrderError(rule);
+      if (ordErr) html += '<div class="warn-note">'+esc(ordErr)+'</div>';
+      html += '<div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">'
+        + '<span class="inline-label" style="width:auto;">Anything else</span>'
+        + '<span style="font-size:13px; color:var(--mut);">&rarr;</span>'
+        + '<select '+dr+' class="critFallback" style="width:110px;">'
+          + outcomeLabels.map(o=>'<option value="'+o.id+'"'+(o.id===rule.fallback?" selected":"")+'>'+esc(o.label)+'</option>').join("")
+        + '</select>'
+        + '<button class="btn critBandAdd" '+dr+' style="margin-left:12px;">+ Add band</button>'
+        + '</div>';
+    }
+  }
+
+  html += '<p class="calc-note">'+esc(plainEnglish(d, row))+'</p></div>';
+  return html;
+}
+
+function plainEnglish(d, row){
+  const c = ensureCriteria(d, row);
+  const each = "Judged once for every cell of this column ("+cardinalityText(d,row)+"). ";
+  if (c.mode==="none")      return "Recorded but not judged — typically because it only feeds a formula elsewhere, or because it is context for the record like an ambient reading.";
+  if (c.mode==="inspector") return each+"No rule to compute: the inspector picks a result label directly, on their own judgment.";
+
+  const rule = c.rule || {};
+  if (rule.source==="pom") return each+"Each POM carries its own standard value and tolerance bands. Pass when the measured value's variation from that standard falls inside them. Nothing to set here.";
+
+  seedRule(rule);
+  const u = inlineUnit(d, row);
+  const suf = u ? " "+u : "";
+  const a = activeBounds(rule);
+  const perPom = isFromMC(d, row);
+  const rel = perPom || hasStandard(rule);
+  const uSuf = perPom ? "% of each POM's standard"
+             : (rel ? (rule.basis==="percent" ? "% of the standard" : suf+" from the standard") : suf);
+  const v = (b)=> (b && b.value!=="" ? b.value : "?");
+  const b0 = rule.bands[0];
+  const verdict = (id)=>{ const o = outcomeDef(id); return o.label+" ("+(o.passes?"passes":"fails")+")"; };
+
+  if (a.graded){
+    return each+"Checked in order, first match wins. "
+      + rule.bands.map((b,i)=>"Band "+(i+1)+": "+v(b.lower)+uSuf+" to "+v(b.upper)+uSuf+" → "+verdict(b.outcome)).join(". ")
+      + ". Anything outside every band → "+verdict(rule.fallback)
+      + ". Bands may nest or sit side by side; a band only breaks if an earlier one already covers all of it."
+      + (rel ? "" : " No standard value is set, so these are actual measured values.");
+  }
+  if (rel){
+    return each+"Standard value "+(rule.standard||"?")+suf+". Pass when the measured value falls between "
+      + v(b0.lower)+uSuf+" and "+v(b0.upper)+uSuf+".";
+  }
+  if (a.lower && a.upper){
+    return each+"Pass when this value is "+(b0.lower.inclusive?"at least":"greater than")+" "+v(b0.lower)
+      + " and "+(b0.upper.inclusive?"at most":"less than")+" "+v(b0.upper)+suf+".";
+  }
+  if (a.lower) return each+"Pass when this value is "+(b0.lower.inclusive?"greater than or equal to":"greater than")+" "+v(b0.lower)+uSuf+".";
+  if (a.upper) return each+"Pass when this value is "+(b0.upper.inclusive?"less than or equal to":"less than")+" "+v(b0.upper)+uSuf+".";
+  return each;
+}
+
+function renderRowHtml(d, row, showHandle){
+  const handle = showHandle
+    ? '<span class="drag-handle" title="Drag to reorder"><span></span><span></span><span></span><span></span><span></span><span></span></span>'
+    : "";
+  const remove = showHandle
+    ? '<span data-rowid="'+row.id+'" class="ct-remove row-remove" title="Remove value">&times;</span>'
+    : "";
+
+  return '<div class="row-card" data-rowid="'+row.id+'" draggable="false">'
+    + '<div class="row-header">'
+      + handle
+      + '<input type="text" data-rowid="'+row.id+'" class="nameInp" value="'+esc(row.name)+'" style="flex:1; min-width:0;">'
+      + remove
+    + '</div>'
+    + captureHtml(d, row)
+    + specificationHtml(d, row)
+    + valueHtml(d, row)
+    + evaluationHtml(d, row)
+    + '</div>';
+}
+
+function renderRows(){
+  const d = data[active];
+  const rowsCard = document.getElementById("rowsCard");
+  if (!d){ rowsCard.style.display = "none"; document.getElementById("rowsList").innerHTML = ""; return; }
+  rowsCard.style.display = "";
+
+  document.getElementById("rowsLabel").innerHTML =
+    'Values <span class="note">— each one is a column of the table above. “Recorded” says how many cells it has.</span>';
+  const showHandle = d.rows.length > 1;
+  const noneEvaluated = d.rows.length>0 && d.rows.every(r=>ensureCriteria(d,r).mode==="none");
+  const templateNote = noneEvaluated
+    ? '<div class="warn-note" style="margin-top:0; margin-bottom:10px;">No value in this step is evaluated, so it cannot produce a pass or fail. Fine if it exists only to record readings — otherwise give at least one value an evaluation.</div>'
+    : "";
+  document.getElementById("rowsList").innerHTML = templateNote + d.rows.map(row=>renderRowHtml(d, row, showHandle)).join("");
+  wireRowEvents(d);
+  if (showHandle) wireDragDrop(d);
+}
+
+function wireDragDrop(d){
+  const list = document.getElementById("rowsList");
+  const cards = [...list.querySelectorAll(".row-card")];
+  let draggedId = null;
+  cards.forEach(card=>{
+    const handle = card.querySelector(".drag-handle");
+    if (handle) handle.addEventListener("mousedown", ()=>{ card.setAttribute("draggable","true"); });
+    card.addEventListener("dragstart", (e)=>{
+      draggedId = parseInt(card.getAttribute("data-rowid"));
+      card.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(draggedId));
+    });
+    card.addEventListener("dragend", ()=>{
+      card.setAttribute("draggable","false");
+      card.classList.remove("dragging");
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+    });
+    card.addEventListener("dragover", (e)=>{
+      e.preventDefault();
+      if (draggedId===null) return;
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      cards.forEach(c=>c.classList.remove("drop-above","drop-below"));
+      card.classList.add(isAbove ? "drop-above" : "drop-below");
+    });
+    card.addEventListener("drop", (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(card.getAttribute("data-rowid"));
+      if (draggedId===null || targetId===draggedId) return;
+      const rect = card.getBoundingClientRect();
+      const isAbove = (e.clientY - rect.top) < rect.height/2;
+      const fromIdx = rowIndex(d, draggedId);
+      const moved = d.rows.splice(fromIdx,1)[0];
+      const toIdx = rowIndex(d, targetId);
+      d.rows.splice(isAbove ? toIdx : toIdx+1, 0, moved);
+      draggedId = null;
+      renderRows(); renderPreview();
+    });
+  });
+}
+
+function wireRowEvents(d){
+  const rowOf = (el)=> findRow(d, parseInt(el.getAttribute("data-rowid")));
+
+  document.querySelectorAll(".nameInp").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const row = rowOf(inp);
+      if (row) row.name = inp.value.trim() || row.name;
+      renderRows(); renderHeader(); renderPreview();
+    });
+  });
+
+  document.querySelectorAll(".row-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = parseInt(btn.getAttribute("data-rowid"));
+      if (d.rows.length<=1) return;
+      d.rows.splice(rowIndex(d,id),1);
+      d.rows.forEach(r=>{
+        if (!r.formula) return;
+        r.formula.ops = opsOf(r.formula).filter(o=>o.id!==id);
+      });
+      openEval.delete(id);
+      renderRows(); renderHeader(); renderPreview();
+    });
+  });
+
+  document.querySelectorAll(".capSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      row.capture = sel.value;
+      revalidateCriteria(d, row);
+      renderRows(); renderHeader(); renderPreview();
+    });
+  });
+  document.querySelectorAll(".occ-add").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const row = rowOf(el);
+      row.occasions = row.occasions || [];
+      row.occasions.push("Reading "+(row.occasions.length+1));
+      renderRows(); renderHeader(); renderPreview();
+    });
+  });
+  document.querySelectorAll(".occInp").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const row = rowOf(inp);
+      const i = parseInt(inp.getAttribute("data-occ"));
+      row.occasions[i] = inp.value.trim() || row.occasions[i];
+      renderRows(); renderPreview();
+    });
+  });
+  document.querySelectorAll(".occ-x").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const row = rowOf(el);
+      row.occasions.splice(parseInt(el.getAttribute("data-occ")),1);
+      renderRows(); renderHeader(); renderPreview();
+    });
+  });
+  document.querySelectorAll(".reqChk").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      rowOf(chk).required = !chk.checked;
+      renderRows(); renderPreview();
+    });
+  });
+
+  document.querySelectorAll(".srcSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      row.source = sel.value;
+      syncCriteriaToSource(d, row);
+      renderRows(); renderHeader(); renderPreview();
+    });
+  });
+
+  document.querySelectorAll(".unitSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ rowOf(sel).unit = sel.value; renderRows(); });
+  });
+
+  document.querySelectorAll(".valueSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const row = rowOf(sel);
+      if (sel.value==="inspector"){
+        if (row.formula){ row.stashedFormula = row.formula; row.formula = null; }
+        syncCriteriaToSource(d, row);
+        renderRows(); renderHeader(); renderPreview();
+      } else if (row.stashedFormula){
+        row.formula = row.stashedFormula;
+        row.stashedFormula = null;
+        syncCriteriaToSource(d, row);
+        renderRows(); renderHeader(); renderPreview();
+      } else {
+        openFormulaModal(d, row, true);
+      }
+    });
+  });
+  document.querySelectorAll(".formula-chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{ openFormulaModal(d, rowOf(chip), false); });
+  });
+
+  document.querySelectorAll(".eval-summary").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const id = parseInt(el.getAttribute("data-rowid"));
+      if (openEval.has(id)) openEval.delete(id); else openEval.add(id);
+      renderRows();
+    });
+  });
+
+  const ruleOf = (el)=> seedRule(rowOf(el).criteria.rule);
+  const bandOf = (el)=> ruleOf(el).bands[parseInt(el.getAttribute("data-band"))];
+  const boundOf = (el)=> bandOf(el)[el.getAttribute("data-side")];
+
+  document.querySelectorAll(".critTypeSel").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      setCritChoice(d, rowOf(sel), sel.value);
+      renderRows(); renderHeader();
+    });
+  });
+  document.querySelectorAll(".critIncl").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ boundOf(sel).inclusive = sel.value==="1"; renderRows(); });
+  });
+  document.querySelectorAll(".critNum").forEach(inp=>{
+    inp.addEventListener("change", ()=>{ boundOf(inp).value = inp.value; renderRows(); });
+  });
+  document.querySelectorAll(".critOut").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ bandOf(sel).outcome = sel.value; renderRows(); });
+  });
+  document.querySelectorAll(".critBasis").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ ruleOf(sel).basis = sel.value; renderRows(); });
+  });
+  document.querySelectorAll(".critFallback").forEach(sel=>{
+    sel.addEventListener("change", ()=>{ ruleOf(sel).fallback = sel.value; renderRows(); });
+  });
+  document.querySelectorAll(".critStd").forEach(inp=>{
+    inp.addEventListener("change", ()=>{ ruleOf(inp).standard = inp.value; renderRows(); });
+  });
+  document.querySelectorAll(".critBandAdd").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const rule = ruleOf(btn);
+      rule.bands.push(newBand(rule.fallback));
+      renderRows();
+    });
+  });
+  document.querySelectorAll(".critBandDel").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const rule = ruleOf(btn);
+      if (rule.bands.length<=1) return;
+      rule.bands.splice(parseInt(btn.getAttribute("data-band")),1);
+      renderRows();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Formula modal
+// ---------------------------------------------------------------------------
+
+function openFormulaModal(d, row, isNew){
+  modal = {
+    rowId: row.id,
+    isNew: isNew,
+    formula: row.formula
+      ? JSON.parse(JSON.stringify(row.formula))
+      : {type:"passthrough", ops:[], customExpr:""}
+  };
+  renderModal();
+}
+
+function closeModal(){ modal = null; renderModal(); renderRows(); renderPreview(); }
+
+function opSlots(fm){
+  const f = formulaDef(fm) || FORMULAS[0];
+  if (f.arity==="many") return opsOf(fm);
+  const n = f.arity===1 ? 1 : 2;
+  const ops = opsOf(fm).slice(0, n);
+  while (ops.length < n) ops.push(op(null));
+  fm.ops = ops;
+  return ops;
+}
+
+function modalValid(d, row, fm){
+  const f = formulaDef(fm);
+  if (!f) return "Pick a formula.";
+  const ops = opSlots(fm);
+  if (f.arity==="many"){
+    if (ops.length < 2) return "Include at least two values.";
+  } else {
+    if (ops.some(o=>o.id==null)) return f.arity===1 ? "Pick a value to take." : "Pick both values (A and B).";
+    if (f.arity===2 && ops[0].id===ops[1].id) return "A and B must be different values.";
+    if (f.custom && !(fm.customExpr||"").trim()) return "Enter an expression using A and B.";
+  }
+  for (const o of ops){
+    const opRow = findRow(d, o.id);
+    if (!opRow) continue;
+    const miss = missingAxes(d, opRow, row);
+    if (miss.length && !o.agg) return "“"+opRow.name+"” varies by "+axesPhrase(miss)+" and this value does not. Say how those are combined.";
+  }
+  return null;
+}
+
+function renderModal(){
+  const root = document.getElementById("modalRoot");
+  if (!modal){ root.innerHTML = ""; return; }
+
+  const d = data[active];
+  const row = findRow(d, modal.rowId);
+  if (!row){ root.innerHTML = ""; modal = null; return; }
+
+  const fm = modal.formula;
+  const f = formulaDef(fm) || FORMULAS[0];
+  const candidates = eligibleOperands(d, row.id);
+  const blockedCount = d.rows.length - 1 - candidates.length;
+
+  const formulaSelect = '<label class="field-label">Formula</label>'
+    + '<select id="mFormulaSel" style="width:100%;">'
+      + FORMULAS.map(x=>{
+          const need = x.arity==="many" ? 2 : x.arity;
+          const disabled = candidates.length < need;
+          return '<option value="'+x.id+'"'+(x.id===fm.type?" selected":"")+(disabled?" disabled":"")+'>'
+            + x.label + (disabled ? " (needs "+need+" other value"+(need===1?"":"s")+")" : "") + '</option>';
+        }).join("")
+    + '</select>';
+
+  const aggControl = (o, idx)=>{
+    const opRow = findRow(d, o.id);
+    if (!opRow) return "";
+    const miss = missingAxes(d, opRow, row);
+    if (!miss.length){
+      return '<span class="soft">same cardinality — used cell by cell</span>';
+    }
+    return '<span class="soft">varies by '+esc(axesPhrase(miss))+' →</span>'
+      + '<select class="mAgg" data-idx="'+idx+'" style="min-width:190px;">'
+        + '<option value="">Combine how?</option>'
+        + AGGS.map(a=>'<option value="'+a.id+'"'+(a.id===o.agg?" selected":"")+'>'+a.label+'</option>').join("")
+      + '</select>';
+  };
+
+  let operandHtml = "";
+  if (f.arity==="many"){
+    operandHtml = '<div style="margin-top:14px;"><p class="field-label" style="margin-bottom:6px;">Included values</p>'
+      + candidates.map(r=>{
+          const idx = opsOf(fm).findIndex(o=>o.id===r.id);
+          const checked = idx>-1;
+          return '<div class="op-line">'
+            + '<label class="nm" style="display:flex; align-items:center; gap:7px;">'
+              + '<input type="checkbox" class="mOperandChk" data-optid="'+r.id+'" '+(checked?"checked":"")+'>'
+              + esc(r.name) + '</label>'
+            + (checked ? aggControl(opsOf(fm)[idx], idx) : '<span class="soft">'+esc(cardinalityText(d,r))+'</span>')
+            + '</div>';
+        }).join("")
+      + '</div>';
+  } else {
+    const ops = opSlots(fm);
+    const labels = f.arity===1 ? ["Value to take"] : ["First value (A)", "Second value (B)"];
+    operandHtml = '<div style="margin-top:14px;">';
+    ops.forEach((o,i)=>{
+      operandHtml += '<div style="margin-top:'+(i?12:0)+'px;">'
+        + '<label class="field-label">'+labels[i]+'</label>'
+        + '<select class="mOp" data-idx="'+i+'" style="width:100%;">'
+          + '<option value="">Select…</option>'
+          + candidates.map(r=>'<option value="'+r.id+'"'+(r.id===o.id?" selected":"")+'>'+esc(r.name)+' — '+esc(cardinalityText(d,r))+'</option>').join("")
+        + '</select>'
+        + '<div class="op-line">'+aggControl(o,i)+'</div>'
+        + '</div>';
+    });
+    operandHtml += '</div>';
+    if (f.custom){
+      operandHtml += '<div style="margin-top:14px;"><label class="field-label">Expression — use A and B for the values above</label>'
+        + '<input id="mCustom" type="text" value="'+esc(fm.customExpr||"")+'" placeholder="e.g. A / B × 10,000" '
+        + 'style="width:100%; font-family:\'Courier New\',monospace;"></div>';
+    }
+  }
+
+  const draftRow = Object.assign({}, row, {formula: fm});
+  const chip = formulaChipText(d, draftRow);
+  const abstract = f.arity==="many"
+    ? (f.id==="sum" ? "Sum of the included values" : "Average of the included values")
+    : (f.arity===1 ? "The value of A" : (f.custom ? (fm.customExpr||"A … B") : f.expr));
+  const du = derivedUnit(d, draftRow);
+  const unitLine = du
+    ? "Result unit: " + du
+    : "Result unit: cannot be derived — state it on the row (currently " + (row.unit||"unset") + ")";
+  const previewHtml = '<div class="preview-box">'
+    + '<div class="expr">'+esc(abstract)+'</div>'
+    + '<div class="label">'+esc(chip.text)+'</div>'
+    + '<div class="label">'+esc(unitLine)+'</div>'
+    + '<div class="label">Written into: '+esc(row.name)+' — '+esc(cardinalityText(d,row))+'</div>'
+    + '</div>';
+
+  const err = modalValid(d, row, fm);
+  const blockedNote = blockedCount>0
+    ? '<p class="calc-note">'+blockedCount+' value'+(blockedCount===1?" is":"s are")+' hidden because '
+      + (blockedCount===1?"it depends":"they depend")+' on this one — selecting '+(blockedCount===1?"it":"them")+' would create a loop.</p>'
+    : "";
+
+  root.innerHTML = '<div class="modal-backdrop" id="mBackdrop"><div class="modal">'
+    + '<div class="modal-head"><h3>Formula for “'+esc(row.name)+'”</h3>'
+      + '<p>The formula replaces inspector entry for this value. A value with more cells than this one has to say how they are combined.</p></div>'
+    + '<div class="modal-body">' + formulaSelect + operandHtml + previewHtml + blockedNote
+      + (err ? '<p class="hint">'+esc(err)+'</p>' : "")
+    + '</div>'
+    + '<div class="modal-foot">'
+      + (modal.isNew ? "" : '<button class="btn btn-danger" id="mRemove">Remove formula</button>')
+      + '<span class="spacer"></span>'
+      + '<button class="btn" id="mCancel">Cancel</button>'
+      + '<button class="btn btn-primary" id="mSave"'+(err?" disabled":"")+'>Save</button>'
+    + '</div>'
+    + '</div></div>';
+
+  document.getElementById("mFormulaSel").addEventListener("change", (e)=>{
+    fm.type = e.target.value;
+    opSlots(fm);
+    renderModal();
+  });
+  document.querySelectorAll(".mOp").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const i = parseInt(sel.getAttribute("data-idx"));
+      fm.ops[i] = op(sel.value ? parseInt(sel.value) : null);
+      renderModal();
+    });
+  });
+  document.querySelectorAll(".mAgg").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      const i = parseInt(sel.getAttribute("data-idx"));
+      if (fm.ops[i]) fm.ops[i].agg = sel.value || null;
+      renderModal();
+    });
+  });
+  const cust = document.getElementById("mCustom");
+  if (cust) cust.addEventListener("input", ()=>{ fm.customExpr = cust.value; });
+  document.querySelectorAll(".mOperandChk").forEach(chk=>{
+    chk.addEventListener("change", ()=>{
+      const oid = parseInt(chk.getAttribute("data-optid"));
+      fm.ops = opsOf(fm);
+      if (chk.checked){ if (!fm.ops.some(o=>o.id===oid)) fm.ops.push(op(oid)); }
+      else { fm.ops = fm.ops.filter(o=>o.id!==oid); }
+      renderModal();
+    });
+  });
+
+  document.getElementById("mCancel").addEventListener("click", closeModal);
+  document.getElementById("mBackdrop").addEventListener("click", (e)=>{ if (e.target.id==="mBackdrop") closeModal(); });
+  const rm = document.getElementById("mRemove");
+  if (rm) rm.addEventListener("click", ()=>{
+    row.formula = null;
+    row.stashedFormula = null;
+    syncCriteriaToSource(d, row);
+    closeModal(); renderRows(); renderHeader(); renderPreview();
+  });
+  document.getElementById("mSave").addEventListener("click", ()=>{
+    opsOf(fm).forEach(o=>{
+      const opRow = findRow(d, o.id);
+      if (opRow && !missingAxes(d, opRow, row).length) o.agg = null;
+    });
+    row.formula = fm;
+    if (row.source==="pom") row.source = "custom";
+    syncCriteriaToSource(d, row);
+    closeModal(); renderRows(); renderHeader(); renderPreview();
+  });
+}
+
+document.addEventListener("keydown", (e)=>{ if (e.key==="Escape" && modal) closeModal(); });
+
+// ---------------------------------------------------------------------------
+// Result labels
+// ---------------------------------------------------------------------------
+
+function labelUsage(id){
+  let n = 0;
+  for (const k of order){
+    for (const row of data[k].rows){
+      const c = row.criteria;
+      if (!c || c.mode!=="rule" || !c.rule) continue;
+      if (c.rule.fallback===id) n++;
+      (c.rule.bands||[]).forEach(b=>{ if (b.outcome===id) n++; });
+    }
+  }
+  return n;
+}
+
+function renderLabels(){
+  const el = document.getElementById("labelsList");
+  if (!outcomeLabels.length){
+    el.innerHTML = '<p class="soft">No result labels yet — bands have nothing to point at.</p>';
+    return;
+  }
+  el.innerHTML = outcomeLabels.map(o=>{
+    const c = labelColor(o.color);
+    const used = labelUsage(o.id);
+    return '<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">'
+      + '<input data-lid="'+o.id+'" class="lblName" type="text" value="'+esc(o.label)+'" style="width:180px;">'
+      + '<select data-lid="'+o.id+'" class="lblPasses" style="width:150px;">'
+        + '<option value="1"'+(o.passes?" selected":"")+'>Counts as a pass</option>'
+        + '<option value="0"'+(!o.passes?" selected":"")+'>Counts as a fail</option>'
+      + '</select>'
+      + '<select data-lid="'+o.id+'" class="lblColor" style="width:110px;">'
+        + LABEL_COLORS.map(x=>'<option value="'+x.id+'"'+(x.id===o.color?" selected":"")+'>'+x.label+'</option>').join("")
+      + '</select>'
+      + '<span class="out-chip" style="color:'+c.fg+'; background:'+c.bg+'; border-color:'+c.bd+';">'+esc(o.label)+'</span>'
+      + '<span class="soft">'+(used ? "used by "+used+" band"+(used===1?"":"s") : "unused")+'</span>'
+      + (used ? '' : '<span data-lid="'+o.id+'" class="ct-remove lblDel" title="Remove label">&times;</span>')
+      + '</div>';
+  }).join("");
+
+  el.querySelectorAll(".lblName").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const o = outcomeDef(inp.getAttribute("data-lid"));
+      o.label = inp.value.trim() || o.label;
+      renderAll();
+    });
+  });
+  el.querySelectorAll(".lblPasses").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      outcomeDef(sel.getAttribute("data-lid")).passes = sel.value==="1";
+      renderAll();
+    });
+  });
+  el.querySelectorAll(".lblColor").forEach(sel=>{
+    sel.addEventListener("change", ()=>{
+      outcomeDef(sel.getAttribute("data-lid")).color = sel.value;
+      renderAll();
+    });
+  });
+  el.querySelectorAll(".lblDel").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const id = btn.getAttribute("data-lid");
+      if (labelUsage(id)>0) return;
+      const i = outcomeLabels.findIndex(o=>o.id===id);
+      if (i>-1) outcomeLabels.splice(i,1);
+      renderAll();
+    });
+  });
+}
+
+document.getElementById("addLabelBtn").addEventListener("click", ()=>{
+  outcomeLabels.push({id:"l"+(nextLabelId++), label:"New label", passes:false, color:"grey"});
+  renderAll();
+});
+
+// ---------------------------------------------------------------------------
+// Top-level actions
+// ---------------------------------------------------------------------------
+
+function newRow(forChart){
+  const chart = forChart===undefined ? hasChart() : !!forChart;
+  return col(nextRowId++, "New value", chart
+    ? {cap:"pom", src:"pom", crit:R.pom()}
+    : {cap:"sample", unit:"cm"});
+}
+
+document.getElementById("addValueBtn").addEventListener("click", ()=>{
+  const d = data[active]; if (!d) return;
+  d.rows.push(newRow());
+  renderRows(); renderHeader(); renderPreview();
+});
+
+document.getElementById("ctName").addEventListener("change", (e)=>{
+  if (!active || !data[active]) return;
+  data[active].name = e.target.value.trim() || "Untitled step";
+  e.target.value = data[active].name;
+  renderList();
+});
+
+function addStep(withChart){
+  const key = "step"+(nextId++);
+  data[key] = withChart
+    ? {name:"New chart step", mc:{types:[]}, rows:[newRow(true)]}
+    : {name:"New measurement step", mc:null, rows:[newRow(false)]};
+  order.push(key);
+  active = key;
+  openEval.clear();
+  renderAll();
+  const nameInput = document.getElementById("ctName");
+  nameInput.focus(); nameInput.select();
+}
+document.getElementById("addChartStepBtn").addEventListener("click", ()=>addStep(true));
+document.getElementById("addCustomStepBtn").addEventListener("click", ()=>addStep(false));
+
+document.addEventListener("click", (e)=>{
+  document.querySelectorAll(".mctype-panel").forEach(panel=>{
+    if (panel.style.display!=="block") return;
+    const wrap = panel.closest(".mctype-wrap");
+    if (wrap && !wrap.contains(e.target)) panel.style.display = "none";
+  });
+});
+
+function renderAll(){ renderList(); renderHeader(); renderMc(); renderPreview(); renderRows(); renderLabels(); renderModal(); }
+renderAll();
+</script>
+</body>
+</html>

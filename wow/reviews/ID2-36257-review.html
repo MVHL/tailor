@@ -1,0 +1,641 @@
+<!--
+  Ticket Execution Review — ID2-36257 (single ticket)
+  Generated from live Jira data 2026-07-20. Renderer from assets/dashboard-template.html
+  plus a verdict block and multi-MR list support.
+-->
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --panel:#ffffff;
+    --border:#e1e4e9;
+    --text:#1c2128;
+    --text-dim:#5b616b;
+    --text-faint:#8b909a;
+    --good:#1a7f37;
+    --good-bg:#dafbe1;
+    --good-bg-soft:#eefcf1;
+    --bad:#cf222e;
+    --bad-bg:#ffebe9;
+    --bad-bg-soft:#fff2f1;
+    --pending:#8b909a;
+    --pending-bg:#eceef1;
+    --pending-bg-soft:#f4f5f7;
+    --progress:#9a6700;
+    --progress-bg:#fff8c5;
+    --progress-bg-soft:#fffbe6;
+    --accent:#0969da;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04);
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);padding:32px 16px 80px;}
+  .wrap{max-width:880px;margin:0 auto;}
+
+  .app-header{margin-bottom:20px;}
+  .app-title{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);font-weight:600;margin:0 0 10px;}
+  .tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:0;flex-wrap:wrap;}
+  .tab{appearance:none;border:none;background:none;cursor:pointer;padding:10px 14px 12px;font-size:14px;font-weight:600;color:var(--text-dim);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:8px;font-family:inherit;text-align:left;}
+  .tab .key{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text-faint);}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent);}
+
+  .ticket-summary{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin:20px 0 18px;box-shadow:var(--shadow);}
+  .ticket-summary-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  .ticket-key{font-family:var(--mono);font-size:13px;color:var(--text-faint);}
+  .ticket-key a{color:inherit;}
+  .ticket-title{font-size:17px;font-weight:650;margin:2px 0 0;}
+  .stage-pill{font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:.02em;white-space:nowrap;}
+  .overall-line{margin-top:14px;font-size:13.5px;color:var(--text-dim);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .overall-line b{color:var(--text);}
+  .overall-counts{display:flex;gap:14px;font-size:13px;flex-wrap:wrap;}
+  .count-chip{display:flex;align-items:center;gap:5px;}
+  .count-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+
+  .verdict{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--progress);border-radius:var(--radius);padding:14px 18px;margin:0 0 18px;font-size:13.5px;color:var(--text-dim);line-height:1.55;box-shadow:var(--shadow);}
+  .verdict b{color:var(--text);}
+  .verdict .v-head{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);font-weight:700;margin-bottom:6px;}
+
+  .gate{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+  .gate-header{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none;}
+  .gate-header:hover{background:var(--pending-bg-soft);}
+  .gate-chevron{width:14px;height:14px;flex:none;color:var(--text-faint);transition:transform .15s ease;}
+  .gate.open .gate-chevron{transform:rotate(90deg);}
+  .gate-icon{width:22px;height:22px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .gate-icon svg{width:13px;height:13px;}
+  .gate-name{font-size:15px;font-weight:650;flex:none;}
+  .gate-sub{font-size:12.5px;color:var(--text-faint);flex:1;min-width:120px;}
+  .gate-status-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;flex:none;white-space:nowrap;}
+  .gate-score{font-size:12px;font-weight:800;padding:3px 9px;border-radius:20px;flex:none;white-space:nowrap;font-family:var(--mono);}
+  .score-good{background:var(--good-bg);color:var(--good);}
+  .score-mid{background:var(--progress-bg);color:var(--progress);}
+  .score-bad{background:var(--bad-bg);color:var(--bad);}
+  .score-na{background:var(--pending-bg);color:var(--text-faint);}
+  .section-scores{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .sec-score{display:flex;align-items:center;gap:7px;font-size:12.5px;border:1px solid var(--border);border-radius:8px;padding:6px 10px;background:var(--pending-bg-soft);}
+  .sec-score b{font-weight:700;color:var(--text);}
+  .sec-score .sc-pill{font-family:var(--mono);font-weight:800;padding:1px 8px;border-radius:12px;font-size:11.5px;}
+  .gate-body{border-top:1px solid var(--border);}
+  .gate.collapsed .gate-body{display:none;}
+
+  .check{border-bottom:1px solid var(--border);}
+  .check:last-child{border-bottom:none;}
+  .check-row{display:flex;align-items:flex-start;gap:10px;padding:13px 18px;cursor:pointer;}
+  .check-row:hover{background:var(--pending-bg-soft);}
+  .check-icon{width:18px;height:18px;border-radius:50%;flex:none;margin-top:1px;display:flex;align-items:center;justify-content:center;}
+  .check-icon svg{width:11px;height:11px;}
+  .type-abbr{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:18px;padding:0 5px;border-radius:5px;font-size:10.5px;font-weight:800;color:#fff;flex:none;margin-top:1px;font-family:var(--mono);}
+  .check-main{flex:1;min-width:0;}
+  .check-title-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .check-title{font-size:14px;font-weight:600;}
+  .check-badge{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em;}
+  .check-meta{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
+  .check-chevron{width:12px;height:12px;color:var(--text-faint);flex:none;margin-top:4px;transition:transform .15s ease;}
+  .check.open .check-chevron{transform:rotate(90deg);}
+  .check-detail{display:none;padding:2px 18px 16px 50px;font-size:13px;color:var(--text-dim);line-height:1.55;}
+  .check.open .check-detail{display:block;}
+  .check-detail > p{margin:0 0 10px;}
+  .check-detail a{color:var(--accent);}
+
+  .items{display:flex;flex-direction:column;gap:6px;}
+  .item{border:1px solid var(--border);border-radius:10px;background:var(--pending-bg-soft);cursor:pointer;transition:background .15s,border-color .15s,opacity .15s,outline-color .15s;overflow:hidden;}
+  .item:hover{background:var(--panel);border-color:var(--text-faint);}
+  .item.open{background:var(--panel);border-color:var(--accent);}
+  .item.lit{outline:2px solid var(--accent);outline-offset:-1px;}
+  .item.dim{opacity:.32;}
+  .item-row{display:flex;align-items:center;gap:9px;padding:9px 12px;}
+  .item-icon{width:15px;height:15px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .item-icon svg{width:9px;height:9px;}
+  .item-tag{font-family:var(--mono);font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;flex:none;}
+  .item-title{font-size:13px;font-weight:600;flex:1;min-width:0;}
+  .item-badge{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;text-transform:uppercase;letter-spacing:.03em;flex:none;}
+  .item-chevron{width:11px;height:11px;color:var(--text-faint);flex:none;transition:transform .15s ease;}
+  .item.open .item-chevron{transform:rotate(90deg);}
+  .item-detail{display:none;padding:0 14px 12px 40px;font-size:12.5px;color:var(--text-dim);line-height:1.5;}
+  .item.open .item-detail{display:block;}
+  .item-issue{color:var(--bad);font-weight:600;margin-top:6px;display:block;}
+  .item-note{color:var(--text-faint);font-style:italic;margin-top:6px;display:block;}
+  .item-refs{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+  .ref-label{font-size:10.5px;color:var(--text-faint);margin-right:1px;}
+  .ref-chip{font-family:var(--mono);font-size:10px;font-weight:800;border-radius:4px;padding:1px 6px;}
+  code{font-family:var(--mono);font-size:.92em;background:rgba(0,0,0,0.07);padding:1px 5px;border-radius:4px;}
+
+  .mr-list{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .mr-item{border:1px solid var(--border);border-radius:9px;padding:9px 12px;background:var(--pending-bg-soft);}
+  .mr-item a{color:var(--accent);font-weight:600;font-size:12.5px;text-decoration:none;}
+  .mr-item a:hover{text-decoration:underline;}
+  .mr-item .mr-sub{font-size:11.5px;color:var(--text-faint);margin-top:3px;font-family:var(--mono);}
+  .mr-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .mr-chip{font-size:12px;background:var(--pending-bg);color:var(--text-dim);padding:4px 10px;border-radius:14px;display:flex;align-items:center;gap:5px;font-weight:600;}
+
+  .st-good-bg{background:var(--good-bg);color:var(--good);}
+  .st-good-icon{background:var(--good);color:#fff;}
+  .st-bad-bg{background:var(--bad-bg);color:var(--bad);}
+  .st-bad-icon{background:var(--bad);color:#fff;}
+  .st-pending-bg{background:var(--pending-bg);color:var(--text-dim);}
+  .st-pending-icon{background:transparent;color:var(--text-faint);border:1.5px dashed var(--text-faint);}
+  .st-progress-bg{background:var(--progress-bg);color:var(--progress);}
+  .st-progress-icon{background:var(--progress);color:#fff;}
+
+  .missing-overdue-row{background:var(--bad-bg-soft);}
+  .missing-na-row{opacity:.72;}
+
+  .item.inferred{border-color:var(--progress);border-style:dashed;}
+  .infer-chip{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;
+    padding:1px 6px;border-radius:8px;background:var(--progress-bg);color:var(--progress);
+    border:1px dashed var(--progress);flex:none;}
+  .infer-banner{background:var(--progress-bg-soft);border:1px solid var(--progress);
+    border-radius:var(--radius);padding:12px 16px;margin:0 0 16px;font-size:12.5px;
+    color:var(--text-dim);line-height:1.5;}
+  .infer-banner b{color:var(--progress);}
+
+  footer.legend{margin-top:28px;padding:16px 18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);font-size:12.5px;color:var(--text-dim);}
+  .legend-title{font-weight:700;color:var(--text);margin-bottom:10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;}
+  .legend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;}
+  .legend-item{display:flex;align-items:center;gap:8px;}
+  .legend-icon{width:16px;height:16px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;}
+  .legend-icon svg{width:10px;height:10px;}
+  .legend-types{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+  .legend-footnote{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);font-size:11.5px;color:var(--text-faint);line-height:1.5;}
+  .legend-footnote b{color:var(--text-dim);}
+</style>
+
+<div class="wrap">
+  <div class="app-header">
+    <p class="app-title">Artifact Health &mdash; Ticket Checks (live Jira data)</p>
+    <div class="tabs" id="tabs"></div>
+  </div>
+
+  <div id="ticket-summary"></div>
+  <div id="verdict"></div>
+  <div id="gates"></div>
+
+  <footer class="legend">
+    <div class="legend-title">State legend</div>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="legend-icon st-good-icon">&#10003;</span> Good &mdash; exists, passes checks</div>
+      <div class="legend-item"><span class="legend-icon st-bad-icon">&#10005;</span> Problematic &mdash; exists, fails a DoR check</div>
+      <div class="legend-item"><span class="legend-icon st-pending-icon"></span> Pending &mdash; stage not started yet (calm)</div>
+      <div class="legend-item"><span class="legend-icon st-bad-icon">!</span> Missing &amp; overdue &mdash; should exist now (alarming)</div>
+      <div class="legend-item"><span class="legend-icon st-pending-icon">t</span> N/A for this issue type (calm)</div>
+      <div class="legend-item"><span class="legend-icon st-pending-icon">?</span> Not fetched &mdash; source unreachable (calm, not asserted-missing)</div>
+    </div>
+    <div class="legend-types" id="legend-types"></div>
+    <div class="legend-footnote">
+      <b>Scope:</b> ticket-level only. This view reports Merge-Request <em>metadata</em>, not code review, and does not assess the parent Epic / PRD. Grading follows <code>wow/playbook.html</code> §2–3 and <code>wow/lifecycle-drivers.html</code>, not invented heuristics.
+      <br><b>Stage-aware:</b> this ticket is <b>In Code Review</b> (mid-flight, not Done), so it is graded against the build/review stage — absence is judged where the ticket actually is, not against a Definition of Done.
+      <br><b>Confidence:</b> labeled <code>AC1&ndash;AC5</code> (high confidence); no explicit <code>P/R/T#/IM#</code> tags. The Requirement and the Implementation Plan were inferred from the developer-authored description (dashed yellow border). Running <code>jira-problem-framing</code> would add the tags for a high-confidence next review.
+      <br><b>Not fetched:</b> the Test Plan lives in this org's <b>AIO Tests</b> panel (AC5 demands 100% coverage, so unit tests certainly exist in the MR). The MR itself is confirmed to exist by the "In Code Review" status, but the dev-panel remote-links call returned no GitLab link for it, so its URL / branch / approvals could not be retrieved — shown "not fetched," never faked.
+      <br><b>Section scores:</b> each section (Framing / Planning / Building) is the mean of its <em>assessable</em> checks — good = 100%, exists-but-flagged = 50%, overdue = 0%. Checks that are N/A for a Story or "not fetched" are excluded, so a section with nothing assessable shows "n/a". Scores reflect artifact/traceability health only — not whether the code is correct.
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ---------------- ICONS ---------------- */
+const ICONS = {
+  check: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-6.5 6.5a.75.75 0 01-1.06 0l-3-3a.75.75 0 111.06-1.06l2.47 2.47 5.97-5.97a.75.75 0 011.06 0z"/></svg>',
+  x: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/></svg>',
+  clock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>',
+  dash: '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="7" width="10" height="2" rx="1"/></svg>',
+  bang: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a1 1 0 011 1v6a1 1 0 01-2 0v-6a1 1 0 011-1zM8 12a1.15 1.15 0 100 2.3A1.15 1.15 0 008 12z"/></svg>',
+  q: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 00-4.9 4h1.7A3.3 3.3 0 018 2.7c1.7 0 3 1.2 3 2.6 0 1.1-.6 1.7-1.7 2.5C8.1 8.6 7.3 9.3 7.3 11h1.6c0-1 .5-1.5 1.5-2.2 1.2-.9 2.1-1.8 2.1-3.4C12.5 3 10.5 1 8 1zM7.2 12.6v1.7h1.7v-1.7H7.2z"/></svg>',
+  chevron: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>'
+};
+
+const STATE = {
+  good:        {label:'Passing',   icon:ICONS.check, iconClass:'st-good-icon',     badgeClass:'st-good-bg'},
+  problematic: {label:'Issues',    icon:ICONS.x,     iconClass:'st-bad-icon',       badgeClass:'st-bad-bg'},
+  pending:     {label:'Pending',   icon:ICONS.dash,  iconClass:'st-pending-icon',   badgeClass:'st-pending-bg'},
+  overdue:     {label:'Overdue',   icon:ICONS.bang,  iconClass:'st-bad-icon',       badgeClass:'st-bad-bg'},
+  progress:    {label:'In progress', icon:ICONS.clock, iconClass:'st-progress-icon', badgeClass:'st-progress-bg'},
+  'na-type':   {label:'N/A (type)',  icon:ICONS.dash, iconClass:'st-pending-icon',  badgeClass:'st-pending-bg'},
+  unknown:     {label:'Not fetched', icon:ICONS.q,    iconClass:'st-pending-icon',  badgeClass:'st-pending-bg'}
+};
+
+const GATE_STATE = {
+  passed:    {label:'Passed',      cls:'st-good-bg',     icon:ICONS.check, iconCls:'st-good-icon'},
+  issues:    {label:'Has issues',  cls:'st-bad-bg',       icon:ICONS.x,     iconCls:'st-bad-icon'},
+  overdue:   {label:'Overdue',     cls:'st-bad-bg',       icon:ICONS.bang,  iconCls:'st-bad-icon'},
+  progress:  {label:'In progress', cls:'st-progress-bg',  icon:ICONS.clock, iconCls:'st-progress-icon'},
+  pending:   {label:'Not started', cls:'st-pending-bg',   icon:ICONS.dash,  iconCls:'st-pending-icon'}
+};
+
+/* ---------------- ARTIFACT TYPES ---------------- */
+const TYPES = {
+  P:  {abbr:'P',  label:'Problem Statement(s)',  hue:'#DC2626'},
+  R:  {abbr:'R',  label:'Requirements',          hue:'#2563EB'},
+  NG: {abbr:'NG', label:'Non-Goals',             hue:'#6B7280'},
+  AC: {abbr:'AC', label:'Acceptance Criteria',   hue:'#059669'},
+  TP: {abbr:'TP', label:'Test Plan',             hue:'#7C3AED'},
+  IP: {abbr:'IP', label:'Implementation Plan',   hue:'#7C3AED'},
+  MR: {abbr:'MR', label:'Merge Request',         hue:'#BE185D'}
+};
+
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+function hueForTag(tag){
+  const m = tag.match(/^[A-Za-z]+/);
+  return (TYPES[m ? m[0] : ''] || {}).hue || '#64748B';
+}
+
+/* ---------------- REVIEW DATA — ID2-36257, fetched live from Jira 2026-07-20 ---------------- */
+const TICKETS = {
+  A: {
+    key:'ID2-36257', issueType:'Story',
+    title:'[BE-1] Add submitted_by and meta (Product Identifiers) to CpscImportLog + wire into submission service',
+    url:'https://inspectorio.atlassian.net/browse/ID2-36257',
+    stage:'In Code Review', stageColor:'#B45309',
+    verdict:{
+      dod:'In-flight and well-authored — a couple of hygiene flags.',
+      body:'A technical BE slice (the "[BE-1]" prefix implies a split series) currently <b>In Code Review</b>. It is unusually well-specified for a story: the description carries a genuine, file-level <b>Implementation Plan</b> ("What:" — named functions, the migration, and a verified <code>cpsc_models.py:154-217</code> check), and the ACs are concrete and testable, including a sharp edge case (AC4: an auto-submission blocked by SurveyJS validation before any CPSC call still logs Automation + product identifiers). Flags: <b>AC5 ("100% test coverage") is a Definition-of-Done gate, not a product acceptance criterion</b>; the PRD up-link points to a catch-all Epic <a href="https://inspectorio.atlassian.net/browse/ID2-35978" target="_blank">ID2-35978</a> ("Other Epics") that is still <em>In Ideation</em>; and an <b>open question is unresolved</b> ("Ask Balaji what is the current org of CpscImportLog?"). Tags are absent, so R and the Impl Plan are inferred. Test Plan and MR metadata could not be fetched.'
+    },
+    gates: [
+      { id:'framing', name:'Framing', stageOrder:0, checks: [
+        { id:'p', kind:'itemgroup', type:'P', items:[], naType:true,
+          naNote:'Calm N/A. A Story\'s Problem is canonical at the Epic/PRD level. The description\'s opening line ("so the eFiling History drawer can show who submitted each attempt") states the local <em>why</em>, but the canonical home is the parent Epic <a href="https://inspectorio.atlassian.net/browse/ID2-35978" target="_blank">ID2-35978</a>. Caveat: that Epic is a catch-all ("Other Epics") still in <em>In Ideation</em>, so the up-link resolves to an un-framed parent — noted under Requirements.' },
+        { id:'r', kind:'itemgroup', type:'R', items:[
+          { id:'R1', text:'The eFiling History drawer can attribute each CPSC submission attempt to who submitted it — a user for user-triggered submissions, or the Automation user (null → "Automation") for auto/retry submissions — with the submitted product identifiers recorded.', inferred:true, state:'good',
+            note:'Inferred from the description\'s opening + the ACs — no explicit R# tag. Well-formed and fully covered by AC1–AC4. Weak up-link: DoR gate 1 wants a link to a framed PRD/Epic, but parent Epic ID2-35978 is a catch-all still "In Ideation" — the trace exists but points at an un-framed parent. Not blocking at code-review stage, worth tightening.' }
+        ]},
+        { id:'ng', kind:'itemgroup', type:'NG', items:[], naType:true,
+          naNote:'Calm N/A. Non-Goals are canonical at Epic/PRD level for a Story. A scoping boundary is actually stated inline (AC2: "no backfill" of old rows), which is good practice even though a formal NG section is not expected here.' },
+        { id:'ac', kind:'itemgroup', type:'AC',
+          headNote:'AC1–AC5 are explicitly labeled (high confidence). None carries a <code>covers: R#</code> tag, so they are orphan-by-tag; the coverage of R1 shown here is inferred from content (AC1–AC4 fully cover it). AC5 is flagged — it is a process gate, not a product criterion.',
+          items:[
+            { id:'AC1', text:'A user-triggered submission records submitted_by = request.user and meta with Product Identifiers (list of string).', refs:[{label:'covers',tag:'R1'}], state:'good' },
+            { id:'AC2', text:'Old rows remain null after migration (no backfill).', refs:[{label:'covers',tag:'R1'}], state:'good',
+              note:'Doubles as an inline non-goal (explicitly excludes a backfill) — good scoping.' },
+            { id:'AC3', text:'Save the Automation PK to submitted_by if the job is automatically submitted.', refs:[{label:'covers',tag:'R1'}], state:'good' },
+            { id:'AC4', text:'When an automatic submission (retry cron or auto-submit) is blocked by SurveyJS validation before any CPSC API call, the resulting CpscImportLog (status=FAILED, should_retry=False) still records submitted_by = Automation and meta with the blocked products\' identifiers.', refs:[{label:'covers',tag:'R1'}], state:'good',
+              note:'Strongest AC on the ticket — pins down a specific failure path (pre-API validation block) and the exact row state it must still produce. Exactly the kind of edge case that otherwise leaks to production.' },
+            { id:'AC5', text:'100% test coverage.', state:'problematic',
+              issue:'Fails "observable & testable product criterion" — this is a Definition-of-Done / quality-gate line, not an acceptance criterion about the product\'s behavior. Per wow/playbook.html §2 coverage belongs in the DoD, not the AC list. Quote: "AC5: 100% test coverage". Harmless in practice (this org enforces a 100% coverage gate in CI) but it inflates the AC set and should be moved to DoD.' }
+          ]}
+      ]},
+      { id:'planning', name:'Planning / Solutioning', stageOrder:1, checks: [
+        { id:'tp', kind:'itemgroup', type:'TP', items:[], blindSpot:true,
+          detail:'Not fetched — not a confirmed gap. Formal test cases live in this org\'s separate <b>AIO Tests</b> panel, which the Jira API does not return. Given AC5 demands 100% coverage and the ticket is already In Code Review, unit tests certainly exist in the MR diff. Provide an AIO export (or the MR test files) to grade the Test Plan.' },
+        { id:'ip', kind:'itemgroup', type:'IP', items:[
+          { id:'1', text:'Migration: add nullable submitted_by FK + meta to cpsc_import_log (on_delete=SET_NULL, related_name="cpsc_import_logs").', refs:[{label:'implements',tag:'AC1'},{label:'implements',tag:'AC2'}], inferred:true, state:'good' },
+          { id:'2', text:'create_product_registry_submit_request: add optional submitted_by_id: int | None = None; write to CpscImportLog on creation.', refs:[{label:'implements',tag:'AC1'}], inferred:true, state:'good' },
+          { id:'3', text:'send_products_for_cpsc_registry: accept and forward submitted_by_id.', refs:[{label:'implements',tag:'AC3'}], inferred:true, state:'good' },
+          { id:'4', text:'View submit_product_registry: pass request.user.id. Retry job: passes nothing (defaults to None → auto-submission).', refs:[{label:'implements',tag:'AC3'},{label:'implements',tag:'AC4'}], inferred:true, state:'good',
+            note:'Open question surfaced (good DoR practice, but still unresolved): a comment asks "Ask Balaji what is the current org of the CpscImportLog?" — worth confirming resolved before merge, since org scoping affects the migration/related_name.' }
+        ], headNote:'Inferred from the description\'s "What:" section — no explicit IM# tags, but this is a real, file-level Implementation Plan: named functions, the migration shape, and a verified current-state check (submitted_by absent today, per cpsc_models.py:154-217). Coverage links to AC1–AC4 are inferred from content. This is the ticket\'s strongest artifact.' }
+      ]},
+      { id:'building', name:'Building / Code Review', stageOrder:2, checks: [
+        { id:'mr', kind:'mr', state:'unknown', meta:'Exists (status = In Code Review) · URL/metadata not fetched',
+          detail:'<b>Presence is confirmed indirectly:</b> the ticket status is <b>In Code Review</b>, which in this workflow means a merge request is open and under active review. However, unlike sibling ID2-35915, the dev-panel remote-links call returned <b>no GitLab MR link</b> for this ticket, so the URL, source branch, merged-vs-open state, approvals, review-comment count and reviewer names could not be retrieved (no clone of the BE repo here, and no GitLab token). Marked "not fetched" — no review verdict is asserted. To complete this row, open the ticket\'s Development panel in Jira or the GitLab project directly.'
+        }
+      ]}
+    ]
+  }
+};
+
+/* ---------------- RENDER ---------------- */
+let activeKey = 'A';
+let highlightId = null;
+
+function checkRawState(check, ticket){
+  if(check.kind === 'itemgroup'){
+    if(check.onlyForType && !check.onlyForType.includes(ticket.issueType)) return 'na-type';
+    if(check.naType) return 'na-type';
+    if(!check.items.length) return check.blindSpot ? 'unknown' : 'pending';
+    return check.items.some(i=>i.state==='problematic') ? 'problematic' : 'good';
+  }
+  return check.state;
+}
+
+function currentStageOrder(ticket){
+  let max = 0;
+  ticket.gates.forEach(g=>{
+    const hasReal = g.checks.some(c => checkRawState(c, ticket) !== 'pending');
+    if(hasReal) max = Math.max(max, g.stageOrder);
+  });
+  return max;
+}
+
+function computeVisual(rawState, gate, ticket){
+  if(rawState !== 'pending') return rawState;
+  const curStage = currentStageOrder(ticket);
+  return gate.stageOrder <= curStage ? 'overdue' : 'pending';
+}
+
+function gateRollup(gate, ticket){
+  const calm = s => s==='pending' || s==='na-type' || s==='unknown';
+  const raws = gate.checks.map(c=>checkRawState(c, ticket));
+  const curStage = currentStageOrder(ticket);
+  const isFutureGate = gate.stageOrder > curStage && raws.every(calm);
+  if(isFutureGate) return 'pending';
+  if(raws.some(s=>computeVisual(s, gate, ticket)==='overdue')) return 'overdue';
+  if(raws.some(s=>s==='problematic')) return 'issues';
+  if(raws.some(s=>s==='progress')) return 'progress';
+  if(raws.every(s=>s==='good'||s==='na-type'||s==='unknown')) return raws.some(s=>s==='unknown') ? 'pending' : 'passed';
+  if(raws.some(calm)) return 'progress';
+  return 'passed';
+}
+
+function checkScoreUnit(check, gate, ticket){
+  if(check.kind === 'mr'){
+    if(check.state==='good') return 1;
+    if(check.state==='problematic') return 0.5;
+    if(check.state==='overdue') return 0;
+    return null; // unknown / pending — not assessable
+  }
+  const raw = checkRawState(check, ticket);
+  const vis = computeVisual(raw, gate, ticket);
+  if(vis==='na-type' || vis==='unknown' || vis==='pending') return null;
+  const items = check.items||[];
+  if(!items.length) return vis==='overdue' ? 0 : null;
+  let s=0,c=0;
+  items.forEach(it=>{
+    if(it.state==='good'){s+=1;c++;}
+    else if(it.state==='problematic'){s+=0.5;c++;}
+    else if(it.state==='overdue'){s+=0;c++;}
+  });
+  return c? s/c : null;
+}
+function gateScore(gate, ticket){
+  let sum=0,n=0;
+  gate.checks.forEach(c=>{ const u=checkScoreUnit(c,gate,ticket); if(u!==null){sum+=u;n++;} });
+  return n? Math.round((sum/n)*100) : null;
+}
+function scoreClass(pct){
+  if(pct===null) return 'score-na';
+  if(pct>=80) return 'score-good';
+  if(pct>=50) return 'score-mid';
+  return 'score-bad';
+}
+function scoreText(pct){ return pct===null ? 'n/a' : pct+'%'; }
+function sectionScoresHtml(ticket){
+  const cells = ticket.gates.map(g=>{
+    const pct = gateScore(g, ticket);
+    return `<span class="sec-score"><b>${g.name}</b> <span class="sc-pill ${scoreClass(pct)}">${scoreText(pct)}</span></span>`;
+  }).join('');
+  return `<div class="section-scores">${cells}</div>`;
+}
+
+function renderTabs(){
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = Object.keys(TICKETS).map(k=>{
+    const t = TICKETS[k];
+    return `<button class="tab ${k===activeKey?'active':''}" data-key="${k}">
+      <span class="key">${t.key}</span> <span>${t.issueType}</span>
+    </button>`;
+  }).join('');
+  tabs.querySelectorAll('.tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ activeKey = btn.dataset.key; highlightId = null; renderAll(); });
+  });
+}
+
+function overallSummary(ticket){
+  let passed=0, issues=0, overdue=0, prog=0, pend=0;
+  ticket.gates.forEach(g=>{
+    const r = gateRollup(g, ticket);
+    if(r==='passed') passed++;
+    else if(r==='issues') issues++;
+    else if(r==='overdue') overdue++;
+    else if(r==='progress') prog++;
+    else pend++;
+  });
+  return {passed, issues, overdue, prog, pend};
+}
+
+function renderSummary(ticket){
+  const s = overallSummary(ticket);
+  const el = document.getElementById('ticket-summary');
+  el.innerHTML = `
+    <div class="ticket-summary">
+      <div class="ticket-summary-top">
+        <div>
+          <div class="ticket-key"><a href="${ticket.url}" target="_blank" rel="noopener">${ticket.key}</a> &middot; ${ticket.issueType}</div>
+          <div class="ticket-title">${ticket.title}</div>
+        </div>
+        <span class="stage-pill" style="background:${hexA(ticket.stageColor,0.13)};color:${ticket.stageColor};border:1px solid ${hexA(ticket.stageColor,0.35)};">${ticket.stage}</span>
+      </div>
+      <div class="overall-line">
+        <b>Pipeline summary:</b>
+        <div class="overall-counts">
+          ${s.passed? `<span class="count-chip"><span class="dot" style="background:var(--good)"></span>${s.passed} passed</span>`:''}
+          ${s.issues? `<span class="count-chip"><span class="dot" style="background:var(--bad)"></span>${s.issues} has issues</span>`:''}
+          ${s.overdue? `<span class="count-chip"><span class="dot" style="background:var(--bad)"></span>${s.overdue} overdue</span>`:''}
+          ${s.prog? `<span class="count-chip"><span class="dot" style="background:var(--progress)"></span>${s.prog} in progress</span>`:''}
+          ${s.pend? `<span class="count-chip"><span class="dot" style="background:var(--text-faint)"></span>${s.pend} not started / n·a</span>`:''}
+        </div>
+      </div>
+      ${sectionScoresHtml(ticket)}
+    </div>
+  `;
+}
+
+function renderVerdict(ticket){
+  const el = document.getElementById('verdict');
+  if(!ticket.verdict){ el.innerHTML=''; return; }
+  el.innerHTML = `<div class="verdict">
+    <div class="v-head">Readiness roll-up (in-flight)</div>
+    <div><b>${ticket.verdict.dod}</b> ${ticket.verdict.body}</div>
+  </div>`;
+}
+
+function itemTagStyle(tag){
+  const hue = hueForTag(tag);
+  return `background:${hexA(hue,0.14)};color:${hue};`;
+}
+
+function itemHtml(item, gi, ci, ii){
+  const st = STATE[item.state];
+  const domId = `item-${gi}-${ci}-${ii}`;
+  const autoOpen = item.state === 'problematic' || item.state === 'overdue';
+  const refsHtml = (item.refs||[]).map(r=>{
+    const hue = hueForTag(r.tag);
+    return `<span class="ref-label">${r.label}</span><span class="ref-chip" style="background:${hexA(hue,0.14)};color:${hue}">${r.tag}</span>`;
+  }).join('');
+  const shortText = item.text.length > 62 ? item.text.slice(0,62)+'…' : item.text;
+  return `
+    <div class="item ${autoOpen?'open':''} ${item.inferred?'inferred':''}" id="${domId}" data-item-id="${item.id}">
+      <div class="item-row" onclick="selectItem('${domId}', 'item-${gi}-${ci}-', '${item.id}')">
+        <span class="item-icon ${st.iconClass}">${st.icon}</span>
+        <span class="item-tag" style="${itemTagStyle(item.id)}">${item.id}</span>
+        <span class="item-title">${shortText}</span>
+        ${item.inferred?`<span class="infer-chip" title="Inferred from prose — not an explicit tag. Verify.">⚠ inferred</span>`:''}
+        <span class="item-badge ${st.badgeClass}">${st.label}</span>
+        <span class="item-chevron">${ICONS.chevron}</span>
+      </div>
+      <div class="item-detail">
+        <div>${item.text}</div>
+        ${item.issue ? `<span class="item-issue">${item.issue}</span>` : ''}
+        ${item.note ? `<span class="item-note">${item.note}</span>` : ''}
+        ${refsHtml ? `<div class="item-refs">${refsHtml}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function collectAllItems(ticket){
+  const all = [];
+  ticket.gates.forEach(g=>g.checks.forEach(c=>{ if(c.kind==='itemgroup') c.items.forEach(it=>all.push(it)); }));
+  return all;
+}
+function relatedIds(ticket, id){
+  const all = collectAllItems(ticket);
+  const set = new Set([id]);
+  const self = all.find(it=>it.id===id);
+  (self && self.refs || []).forEach(r=>set.add(r.tag));
+  all.forEach(it=>{ if((it.refs||[]).some(r=>r.tag===id)) set.add(it.id); });
+  return set;
+}
+
+function selectItem(domId, groupPrefix, itemId){
+  const el = document.getElementById(domId);
+  const willOpen = !el.classList.contains('open');
+  document.querySelectorAll(`.item[id^="${groupPrefix}"]`).forEach(s=>s.classList.remove('open'));
+  document.querySelectorAll('.item').forEach(s=>s.classList.remove('lit','dim'));
+  if(willOpen){
+    el.classList.add('open');
+    highlightId = itemId;
+    const rel = relatedIds(TICKETS[activeKey], itemId);
+    document.querySelectorAll('.item[data-item-id]').forEach(elm=>{
+      if(rel.has(elm.dataset.itemId)){
+        elm.classList.add('lit');
+        const chk = elm.closest('.check');
+        if(chk) chk.classList.add('open');
+      } else {
+        elm.classList.add('dim');
+      }
+    });
+  } else {
+    highlightId = null;
+  }
+}
+
+function checkMeta(check){
+  if(check.kind !== 'itemgroup') return check.meta || '';
+  const items = check.items || [];
+  const n = items.length;
+  const flagged = items.filter(i=>i.state==='problematic').length;
+  if(n === 0) return check.naType ? 'Not applicable' : (check.blindSpot ? 'Not fetched' : 'No items yet');
+  let m = `${n} item${n===1?'':'s'}`;
+  if(flagged) m += ` · ${flagged} flagged`;
+  return m;
+}
+
+function checkHtml(check, gate, ticket, gi, ci){
+  const rawState = checkRawState(check, ticket);
+  const visState = computeVisual(rawState, gate, ticket);
+  const st = STATE[visState];
+  const rowExtra = visState==='overdue' ? 'missing-overdue-row' : ((visState==='pending'||visState==='na-type'||visState==='unknown') ? 'missing-na-row' : '');
+  const domId = `chk-${gi}-${ci}`;
+  const autoOpenCheck = visState === 'problematic' || visState === 'overdue';
+
+  const type = check.type ? TYPES[check.type] : (check.kind==='mr' ? TYPES.MR : null);
+  const title = type ? type.label : check.title;
+  const abbr = type ? type.abbr : '';
+  const abbrHue = type ? type.hue : '#64748B';
+
+  let extraDetail = '';
+  if(check.kind === 'itemgroup'){
+    if(visState === 'na-type'){
+      extraDetail = check.naNote
+        ? `<p style="margin:0;">${check.naNote}</p>`
+        : `<p style="margin:0;">Treated as not-applicable for a <b>${ticket.issueType}</b>-type ticket.</p>`;
+    } else if(visState === 'unknown'){
+      extraDetail = `<p style="margin:0;">${check.detail || 'Not fetched — presence/absence could not be confirmed.'}</p>`;
+    } else if((check.items||[]).length){
+      const head = check.headNote ? `<p>${check.headNote}</p>` : '';
+      extraDetail = `${head}<div class="items">${check.items.map((it,ii)=>itemHtml(it, gi, ci, ii)).join('')}</div>`;
+    } else {
+      extraDetail = `<p style="margin:0;">${check.detail || (visState==='pending'
+        ? `Not created yet — expected once the ticket reaches a later stage.`
+        : `Expected by this stage, but nothing has been drafted in the ticket body.`)}</p>`;
+    }
+  }
+  if(check.kind === 'mr'){
+    extraDetail += `<p>${check.detail||''}</p>`;
+    if(check.mrs){
+      extraDetail += `<div class="mr-list">` + check.mrs.map(m=>
+        `<div class="mr-item"><a href="${m.url}" target="_blank" rel="noopener">${m.title}</a><div class="mr-sub">${m.repo}</div></div>`
+      ).join('') + `</div>`;
+    }
+    if(check.tail){ extraDetail += `<p style="margin-top:10px;">${check.tail}</p>`; }
+    if(check.mrMeta){
+      const m = check.mrMeta;
+      extraDetail += `<div class="mr-meta">
+        <span class="mr-chip">State: ${m.state}</span>
+        <span class="mr-chip">${m.comments} comment${m.comments===1?'':'s'}</span>
+        <span class="mr-chip">${m.approvals} approval${m.approvals===1?'':'s'}</span>
+        ${m.changesRequested? `<span class="mr-chip">Changes requested</span>`:''}
+        <span class="mr-chip">${m.reviewers}</span>
+      </div>`;
+    }
+  }
+  if(check.kind === 'simple'){
+    extraDetail += `<p>${check.detail||''}</p>`;
+  }
+
+  return `
+    <div class="check ${rowExtra} ${autoOpenCheck?'open':''}" id="${domId}">
+      <div class="check-row" onclick="toggleCheck('${domId}')">
+        <span class="check-icon ${st.iconClass}">${st.icon}</span>
+        ${abbr ? `<span class="type-abbr" style="background:${abbrHue}">${abbr}</span>` : ''}
+        <div class="check-main">
+          <div class="check-title-line">
+            <span class="check-title">${title}</span>
+            <span class="check-badge ${st.badgeClass}">${st.label}</span>
+          </div>
+          <div class="check-meta">${checkMeta(check)}</div>
+        </div>
+        <span class="check-chevron">${ICONS.chevron}</span>
+      </div>
+      <div class="check-detail">${extraDetail}</div>
+    </div>
+  `;
+}
+
+function gateHtml(gate, ticket, gi){
+  const rollup = gateRollup(gate, ticket);
+  const gs = GATE_STATE[rollup];
+  const domId = `gate-${gi}`;
+  const subLabel = rollup==='pending' ? 'Not applicable yet — stage hasn\'t started' : `${gate.checks.length} check${gate.checks.length===1?'':'s'}`;
+  return `
+    <div class="gate open" id="${domId}">
+      <div class="gate-header" onclick="toggleGate('${domId}')">
+        <span class="gate-chevron">${ICONS.chevron}</span>
+        <span class="gate-icon ${gs.iconCls}">${gs.icon}</span>
+        <span class="gate-name">${gate.name}</span>
+        <span class="gate-sub">${subLabel}</span>
+        <span class="gate-score ${scoreClass(gateScore(gate,ticket))}" title="Section score — mean of assessable checks (good=100%, exists-but-flagged=50%, overdue=0%). N/A and not-fetched checks are excluded.">${scoreText(gateScore(gate,ticket))}</span>
+        <span class="gate-status-pill ${gs.cls}">${gs.label}</span>
+      </div>
+      <div class="gate-body">${gate.checks.map((c,ci)=>checkHtml(c, gate, ticket, gi, ci)).join('')}</div>
+    </div>
+  `;
+}
+
+function renderGates(ticket){
+  document.getElementById('gates').innerHTML = ticket.gates.map((g,gi)=>gateHtml(g, ticket, gi)).join('');
+}
+
+function toggleGate(id){ document.getElementById(id).classList.toggle('collapsed'); }
+function toggleCheck(id){ document.getElementById(id).classList.toggle('open'); }
+
+function renderLegendTypes(){
+  document.getElementById('legend-types').innerHTML = Object.values(TYPES).map(t=>
+    `<span class="type-abbr" style="background:${t.hue}" title="${t.label}">${t.abbr}</span>`
+  ).join('');
+}
+
+function renderAll(){
+  renderTabs();
+  const ticket = TICKETS[activeKey];
+  renderSummary(ticket);
+  renderVerdict(ticket);
+  renderGates(ticket);
+}
+
+renderLegendTypes();
+renderAll();
+</script>
