@@ -67,18 +67,40 @@ three weighings — are separate columns, not named repeats on one column. Two r
 A repeat axis bought one real thing: an aggregate that could not go stale when a fourth
 reading appeared. That is now `aggregateGapWarning()` — a check on the formula, which
 protects every cloned column rather than only those that opted into an axis — plus a
-one-click `Duplicate value`. **The honest cost:** Komar needs eight column definitions
-where repeats would have needed four. That verbosity is left visible in the sample data
-rather than trimmed.
+one-click `Duplicate value`. **The cost:** Komar's shrinkage needs four column definitions
+where repeats would have needed two.
 
 A column's **grain** is the set of levels it varies over, derived from where it is
 recorded. What keeps mixed grain from becoming ambiguous is an explicit rule on
 references:
 
 - **coarser → finer broadcasts.** A lot-level value applies to every sample under it.
-- **finer → coarser needs a named aggregate.** Average, lowest, highest, total, or
-  *the single recorded value* — the last being Komar's "capture per roll, impact to
-  lot", where a destructive test leaves every other roll blank.
+- **finer → coarser needs a named aggregate.** Average, lowest, highest or total.
+
+Each of those four is **defined for any number of cells, including none.** That is the bar,
+and it is a deliberate exclusion: an aggregate whose meaning depends on exactly one cell
+being filled is not an aggregate, it is an unenforceable assumption about data entry. A
+config screen must not encode a rule it cannot enforce.
+
+There is also **no first/last.** Positional selection needs an ordered axis, and samples are
+a random draw from the lot — "sample 1" carries nothing "sample 3" would not. The one
+genuinely ordered thing, a wash sequence, is modelled as separate columns, so a formula
+names the column rather than a position.
+
+### Destructive tests are lot-level values
+
+Shrinkage and colourfastness destroy the swatch, so one unit per lot is tested — and the
+result is then a property of **the lot**, which is the level it is recorded at. Komar's
+report agrees: those figures sit on a sheet indexed by dyelot, one row per lot, not on the
+roll-indexed sheet. Which roll the swatch came from is *provenance*, not a measurement axis.
+
+An earlier version modelled them per sample, marked them optional so untested rolls stayed
+blank, and added lot-level rollups to reduce them — which required an aggregate meaning
+"whichever single cell happens to be filled". That rule is defined for one case and
+undefined for two, and the PRP phrase it came from, *"capture per roll, impact to lot"*, is
+about **where the inspector types the value in a different screen**, not about the value's
+cardinality. Recording it where it lives removed the rollups, the optional flag and the
+aggregate together: eight columns became four.
 
 Mixed grain only occurs in steps without a chart, since a chart step's columns all sit at
 POM level. The aggregate still earns its place there: Komar's rollup from sample to lot is
@@ -178,6 +200,17 @@ not a spec of this screen).
 - **A validation can replace an axis.** `aggregateGapWarning()` delivers the only
   correctness benefit repeats had, at a fraction of the model cost, and covers cases
   repeats never did.
+- **Never encode a rule this screen cannot enforce.** An aggregate meaning "whichever single
+  cell happens to be filled" is an assumption about data entry dressed as a formula — and
+  asking whether it should *stop* the inspector filling a second one is how you notice the
+  category error. Every combining rule must be total: defined for none, one, or many.
+- **A patch that only makes sense for one case is evidence the level is wrong.** That
+  aggregate existed to hold a mis-levelled value together. Fixing the level deleted the
+  aggregate, an optional flag and four columns at once. When a rule needs an escape hatch,
+  suspect the thing it is escaping from.
+- **Distinguish where a value is TYPED from what it is OF.** "Capture per roll, impact to
+  lot" describes entry ergonomics in another screen. Reading it as cardinality put a
+  lot-level property on the sample axis and cost three follow-on mechanisms.
 
 ## Open questions
 
@@ -208,10 +241,19 @@ Ranked by how much each would change the design:
    would force coarser columns back into chart steps. The assumption is that it is
    step-verdict logic rather than a measured column — worth confirming, because it is the
    only construction that reopens this decision.
-10. **Are the lot rollups configuration or engine behaviour?** Komar's shrinkage is
-    captured per roll and reported per lot. The prototype models the rollup as four explicit lot
-    columns to demonstrate the aggregate, but the research describes it as something the
-    system does. If it is automatic, those four columns should not exist.
+10. **Does `optional` still earn its place?** No column in the sample data is optional any
+    more — the destructive-test case was its only observed justification, and that moved to
+    lot level. "Record only if applicable" is a plausible pattern but nothing observed needs
+    it. Same treatment as the repeat axis if it stays unevidenced.
+11. **Does cross-level aggregation earn its place?** No seeded configuration uses one. It is
+    kept as a *guard* rather than a feature: what it prevents is a coarse value silently
+    reading a finer one without saying how, which is a real class of bug. A validation earns
+    its place by what it forbids, not by what it enables — but the `passthrough` formula that
+    exists to carry it now has no example.
+12. **Where is the source-unit provenance recorded?** The report names the roll the swatch
+    came from. That is not a measurement, and the research describes it as something the
+    system reports rather than something an admin configures — so it is absent here. Confirm
+    it is not meant to be a configured field.
 
 **Answered along the way:** sampling is neither per step nor per workflow — it is per lot,
 derived from lot size, and outside this screen. Whether the screen serves one domain or

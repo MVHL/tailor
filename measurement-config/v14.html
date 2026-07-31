@@ -263,9 +263,11 @@ value = { name, recordedAt, required, specification, unit, source, evaluation }<
     <p style="margin:0;">A value’s <b>grain</b> is the set of levels it varies over, derived from where it is recorded. When one value feeds another, the two grains decide what the reference means:</p>
     <ul style="margin:6px 0 0; padding-left:18px;">
       <li><b>Coarser feeding finer broadcasts.</b> A lot-level value applies to every sample under it. Well defined, nothing to state.</li>
-      <li><b>Finer feeding coarser needs a named aggregate</b> — average, lowest, highest, total, or <em>the single recorded value</em>. Without one the reference is ambiguous: <em>which</em> sample’s value? The formula editor will not save until it is named.</li>
+      <li><b>Finer feeding coarser needs a named aggregate</b> — average, lowest, highest or total. Without one the reference is ambiguous: <em>which</em> sample’s value? The formula editor will not save until it is named.</li>
     </ul>
-    <p style="margin:6px 0 0;">That last aggregate is how a destructive test works: one unit per lot is measured, the rest stay blank via <code>required: false</code>, and the lot figure is whichever unit carries a value.</p>
+    <p style="margin:6px 0 0;">Each of those four is defined for <b>any</b> number of cells, including none. That is the bar: an aggregate whose meaning depends on exactly one cell being filled is not an aggregate, it is an unenforceable assumption about data entry — and a config screen must not encode a rule it cannot enforce.</p>
+    <p style="margin:6px 0 0;">There is no <em>first</em> or <em>last</em> either. Positional selection needs an ordered axis, and samples are a random draw from the lot, so “sample 1” says nothing “sample 3” would not. The one genuinely ordered thing, a wash sequence, is modelled as separate columns, so a formula names the column rather than a position.</p>
+    <p style="margin:6px 0 0;">Note what this means for a <b>destructive test</b>. Shrinkage and colourfastness destroy the swatch, so one unit per lot is tested — but the value is then a property of the <em>lot</em>, and that is the level it is recorded at. The unit the swatch came from is provenance, not a measurement axis. Modelling it per sample and reducing it back up needs exactly the kind of aggregate this screen refuses to offer.</p>
 
     <p style="margin:14px 0 4px;"><b class="mh">Specification — where the criteria come from</b></p>
     <p style="margin:0;">A value recorded per POM may take its unit, standard value and tolerance <b>from that POM</b>, or have them <b>defined here</b>. This is declared, not inferred: whether a given quantity is configured as a POM is a client’s choice, not a property of the quantity, so the same measurement is POM-backed for one customer and hand-defined for another. A calculated value is always defined here — a derived number is not the POM’s measurement, so it cannot inherit the POM’s standard.</p>
@@ -325,21 +327,16 @@ const LEVELS = [
 ];
 function levelDef(id){ return LEVELS.find(l=>l.id===id) || LEVELS[1]; }
 
+// Each of these is defined for ANY number of cells, including none — an aggregate whose
+// meaning depends on exactly one cell being filled is not an aggregate, it is an
+// unenforceable assumption about data entry. There is also no first/last: positional
+// selection needs an ordered axis, and samples are a random draw from the lot, so
+// "sample 1" carries nothing "sample 3" would not.
 const AGGS = [
   {id:"average", label:"Average of them"},
   {id:"min",     label:"Lowest of them"},
   {id:"max",     label:"Highest of them"},
-  {id:"sum",     label:"Total of them"},
-  // NOT a positional pick. It means "exactly one of the cells is filled in, take that one" —
-  // a sparsity rule, not "the first" or "sample 1". A destructive test is run on one
-  // randomly chosen unit, so which unit carries the value is not fixed, which is also why
-  // the report names the source unit alongside the figure.
-  //
-  // There is deliberately no first/last: positional selection needs an ordered axis, and
-  // samples are a random draw from the lot with no meaningful order — "sample 1" says
-  // nothing "sample 3" would not. The one genuinely ordered thing, a wash sequence, is
-  // modelled as separate columns, so a formula names the column instead of a position.
-  {id:"only",    label:"The one value that was recorded", needsOptional:true}
+  {id:"sum",     label:"Total of them"}
 ];
 function aggDef(id){ return AGGS.find(a=>a.id===id) || null; }
 
@@ -553,40 +550,37 @@ const data = {
   komarshrinkage: {
     name: "Shrinkage (per dye lot)",
     mc: null,
-    // Four columns, not two with repeats. The 1st and 3rd wash readings are separate
-    // measurements at separate times — the same relationship as before/after wash, which
-    // was already two columns. The cost is the -5% limit typed four times; "Duplicate
-    // value" is what makes that one click each rather than a reason for an extra axis.
+    // Recorded ONCE FOR THE LOT, not per sample. The report puts these on a sheet indexed
+    // by dyelot — one row per lot — not on the roll-indexed sheet, because shrinkage IS a
+    // property of the dye lot. The test is destructive, so a swatch is cut from one roll,
+    // but which roll that was is provenance, not a measurement axis.
     //
-    // `opt` because the test is destructive: only the one sampled roll carries values,
-    // and the lot rows below reduce it with the `only` aggregate. That is the whole of
-    // "capture per roll, impact to lot" — a level change, nothing more.
+    // An earlier take modelled these per sample, marked them optional so untested rolls
+    // stayed blank, and added four lot-level rollups to reduce them. That needed an
+    // aggregate meaning "the one cell that happens to be filled" — a rule defined for one
+    // case and undefined for two (none filled, several filled), which is really an
+    // unenforceable assumption about data entry wearing the costume of a formula. Recording
+    // the value where it actually lives removes the rollups, the optional flag and the
+    // aggregate together: eight columns become four.
+    //
+    // Four rather than two because the 1st and 3rd wash readings are separate measurements
+    // at separate times, the same relationship as before/after wash. The -5% limit is typed
+    // four times; "Duplicate value" makes that one click each.
     rows: [
-      col(40, "Length shrinkage — 1st wash", {cap:"sample", opt:true, unit:"%", crit:R.min(-5)}),
-      col(46, "Length shrinkage — 3rd wash", {cap:"sample", opt:true, unit:"%", crit:R.min(-5)}),
-      col(41, "Width shrinkage — 1st wash",  {cap:"sample", opt:true, unit:"%", crit:R.min(-5)}),
-      col(47, "Width shrinkage — 3rd wash",  {cap:"sample", opt:true, unit:"%", crit:R.min(-5)}),
-      // Four rollups, because the Dyelot Testing Report shows four figures per lot.
-      // This is where dropping the repeat axis costs something real: eight column
-      // definitions to express what the report shows as a 2x2 grid, where repeats would
-      // have needed four. The count is left visible rather than trimmed, so the price is
-      // on the page instead of in a footnote.
-      col(42, "Lot length shrinkage — 1st wash", {cap:"lot", unit:"%",
-        f:{type:"passthrough", ops:[op(40,"only")]}, crit:R.min(-5)}),
-      col(48, "Lot length shrinkage — 3rd wash", {cap:"lot", unit:"%",
-        f:{type:"passthrough", ops:[op(46,"only")]}, crit:R.min(-5)}),
-      col(43, "Lot width shrinkage — 1st wash",  {cap:"lot", unit:"%",
-        f:{type:"passthrough", ops:[op(41,"only")]}, crit:R.min(-5)}),
-      col(49, "Lot width shrinkage — 3rd wash",  {cap:"lot", unit:"%",
-        f:{type:"passthrough", ops:[op(47,"only")]}, crit:R.min(-5)})
+      col(40, "Length shrinkage — 1st wash", {cap:"lot", unit:"%", crit:R.min(-5)}),
+      col(46, "Length shrinkage — 3rd wash", {cap:"lot", unit:"%", crit:R.min(-5)}),
+      col(41, "Width shrinkage — 1st wash",  {cap:"lot", unit:"%", crit:R.min(-5)}),
+      col(47, "Width shrinkage — 3rd wash",  {cap:"lot", unit:"%", crit:R.min(-5)})
     ]
   },
   crocking: {
+    // Same shape and the same reasoning: destructive, one swatch per lot, reported per lot.
+    // Two columns because dry and wet carry different limits on the same scale.
     name: "Colorfastness — crocking",
     mc: null,
     rows: [
-      col(44, "Dry crocking", {cap:"sample", opt:true, unit:"grade (1–5)", crit:R.min(4)}),
-      col(45, "Wet crocking", {cap:"sample", opt:true, unit:"grade (1–5)", crit:R.min(3)})
+      col(44, "Dry crocking", {cap:"lot", unit:"grade (1–5)", crit:R.min(4)}),
+      col(45, "Wet crocking", {cap:"lot", unit:"grade (1–5)", crit:R.min(3)})
     ]
   },
 
@@ -857,7 +851,6 @@ function opText(d, o){
   if (!nm) return null;
   if (!o.agg) return nm;
   const a = aggDef(o.agg);
-  if (o.agg==="only") return "the recorded "+nm;
   return (a ? a.label.replace(/ of them$/,"") : o.agg)+" "+nm;
 }
 
@@ -1054,7 +1047,7 @@ function renderPreview(){
 
   const optNames = d.rows.filter(r=>!r.required).map(r=>r.name);
   const optNote = optNames.length
-    ? '<p class="calc-note">'+esc(optNames.join(", "))+' may be left blank — typically a destructive test on one unit only.</p>'
+    ? '<p class="calc-note">'+esc(optNames.join(", "))+' may be left blank, so some cells will be empty. Any formula reading '+(optNames.length===1?"it":"them")+' has to cope with that.</p>'
     : "";
 
   body.innerHTML = '<div style="overflow-x:auto;">'
@@ -1771,13 +1764,68 @@ function wireRowEvents(d){
 // Formula modal
 // ---------------------------------------------------------------------------
 
+function makeOp(id, agg, d, row){
+  if (id == null) return {id: null, agg: null};
+  if (agg) return {id: id, agg: agg};
+  if (d && row){
+    const opRow = findRow(d, id);
+    if (opRow && missingAxes(d, opRow, row).length > 0){
+      return {id: id, agg: "average"};
+    }
+  }
+  return {id: id, agg: null};
+}
+
+function autoFillParams(d, row, fm){
+  const f = formulaDef(fm) || FORMULAS[0];
+  const candidates = eligibleOperands(d, row.id);
+  const prevs = candidates.filter(r => rowIndex(d, r.id) < rowIndex(d, row.id));
+  const sources = prevs.length ? prevs : candidates.filter(r => r.id !== row.id);
+
+  if (!sources.length){
+    fm.ops = [];
+    return;
+  }
+
+  if (f.arity === "many" || f.arity === "letters"){
+    fm.ops = sources.map(r => makeOp(r.id, null, d, row));
+  } else {
+    const n = f.arity === 1 ? 1 : 2;
+    const ops = [];
+    for (let i = 0; i < n; i++){
+      if (sources[i]){
+        ops.push(makeOp(sources[i].id, null, d, row));
+      } else {
+        ops.push(makeOp(null, null, d, row));
+      }
+    }
+    fm.ops = ops;
+  }
+}
+
 function openFormulaModal(d, row, isNew){
+  const fm = row.formula
+    ? JSON.parse(JSON.stringify(row.formula))
+    : {type:"passthrough", ops:[], customExpr:""};
+
+  const hasSelectedOps = fm.ops && fm.ops.some(o => o && o.id != null);
+  if (isNew || !hasSelectedOps){
+    autoFillParams(d, row, fm);
+  } else {
+    opsOf(fm).forEach(o => {
+      if (o.id != null && !o.agg){
+        const opRow = findRow(d, o.id);
+        if (opRow && missingAxes(d, opRow, row).length > 0){
+          o.agg = "average";
+        }
+      }
+    });
+  }
+
   modal = {
     rowId: row.id,
     isNew: isNew,
-    formula: row.formula
-      ? JSON.parse(JSON.stringify(row.formula))
-      : {type:"passthrough", ops:[], customExpr:""}
+    formula: fm
   };
   renderModal();
 }
@@ -1801,13 +1849,13 @@ function opSlots(fm){
   // floor is 1, not 2.
   if (f.arity==="letters"){
     const ops = opsOf(fm).slice();
-    if (!ops.length) ops.push(op(null));
+    if (!ops.length) ops.push(makeOp(null, null));
     fm.ops = ops;
     return ops;
   }
   const n = f.arity===1 ? 1 : 2;
   const ops = opsOf(fm).slice(0, n);
-  while (ops.length < n) ops.push(op(null));
+  while (ops.length < n) ops.push(makeOp(null, null));
   fm.ops = ops;
   return ops;
 }
@@ -1848,11 +1896,6 @@ function modalValid(d, row, fm){
     if (!opRow) continue;
     const miss = missingAxes(d, opRow, row);
     if (miss.length && !o.agg) return "“"+opRow.name+"” varies by "+axesPhrase(miss)+" and this value does not. Say how those are combined.";
-    // Catches a formula that was valid when written and stopped being so when the operand
-    // was later made required: every cell now has a value, so there is no single one to take.
-    if (o.agg==="only" && opRow.required){
-      return "“"+opRow.name+"” is required, so every unit will have a value and there is no single one to take. Mark it optional, or combine with average, lowest, highest or total.";
-    }
   }
   return null;
 }
@@ -1886,19 +1929,11 @@ function renderModal(){
     if (!miss.length){
       return '<span class="soft">same cardinality — used cell by cell</span>';
     }
-    // "The one value that was recorded" only makes sense against a column that may be left
-    // blank. On a required column every cell is filled, so there is no single one to take —
-    // the option is withheld rather than offered and then rejected.
-    const aggs = AGGS.filter(a=>!a.needsOptional || !opRow.required);
-    const note = o.agg==="only"
-      ? '<span class="soft" style="flex-basis:100%;">Not a position — whichever unit carries the value. '
-        + 'The report names that unit alongside the figure.</span>'
-      : "";
     return '<span class="soft">varies by '+esc(axesPhrase(miss))+' →</span>'
       + '<select class="mAgg" data-idx="'+idx+'" style="min-width:210px;">'
         + '<option value="">Combine how?</option>'
-        + aggs.map(a=>'<option value="'+a.id+'"'+(a.id===o.agg?" selected":"")+'>'+a.label+'</option>').join("")
-      + '</select>' + note;
+        + AGGS.map(a=>'<option value="'+a.id+'"'+(a.id===o.agg?" selected":"")+'>'+a.label+'</option>').join("")
+      + '</select>';
   };
 
   let operandHtml = "";
@@ -2002,13 +2037,14 @@ function renderModal(){
 
   document.getElementById("mFormulaSel").addEventListener("change", (e)=>{
     fm.type = e.target.value;
-    opSlots(fm);
+    autoFillParams(d, row, fm);
     renderModal();
   });
   document.querySelectorAll(".mOp").forEach(sel=>{
     sel.addEventListener("change", ()=>{
       const i = parseInt(sel.getAttribute("data-idx"));
-      fm.ops[i] = op(sel.value ? parseInt(sel.value) : null);
+      const val = sel.value ? parseInt(sel.value) : null;
+      fm.ops[i] = makeOp(val, null, d, row);
       renderModal();
     });
   });
@@ -2024,7 +2060,7 @@ function renderModal(){
   // Save button's validity is re-read on render anyway.
   if (cust) cust.addEventListener("change", ()=>{ fm.customExpr = cust.value; renderModal(); });
   const opAdd = document.getElementById("mOpAdd");
-  if (opAdd) opAdd.addEventListener("click", ()=>{ fm.ops = opsOf(fm).concat([op(null)]); renderModal(); });
+  if (opAdd) opAdd.addEventListener("click", ()=>{ fm.ops = opsOf(fm).concat([makeOp(null, null, d, row)]); renderModal(); });
   document.querySelectorAll(".mOpDel").forEach(el=>{
     el.addEventListener("click", ()=>{
       // Removing a middle operand re-letters everything after it. The expression is left
@@ -2038,7 +2074,7 @@ function renderModal(){
     chk.addEventListener("change", ()=>{
       const oid = parseInt(chk.getAttribute("data-optid"));
       fm.ops = opsOf(fm);
-      if (chk.checked){ if (!fm.ops.some(o=>o.id===oid)) fm.ops.push(op(oid)); }
+      if (chk.checked){ if (!fm.ops.some(o=>o.id===oid)) fm.ops.push(makeOp(oid, null, d, row)); }
       else { fm.ops = fm.ops.filter(o=>o.id!==oid); }
       renderModal();
     });
@@ -2056,7 +2092,10 @@ function renderModal(){
   document.getElementById("mSave").addEventListener("click", ()=>{
     opsOf(fm).forEach(o=>{
       const opRow = findRow(d, o.id);
-      if (opRow && !missingAxes(d, opRow, row).length) o.agg = null;
+      if (opRow){
+        if (!missingAxes(d, opRow, row).length) o.agg = null;
+        else if (!o.agg) o.agg = "average";
+      }
     });
     row.formula = fm;
     if (row.source==="pom") row.source = "custom";
