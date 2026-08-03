@@ -208,6 +208,42 @@ def scan_agents(repo):
     out.sort(key=lambda r: r.get("started", ""), reverse=True)
     return out
 
+def scan_delegations(run_dir):
+    """Read a run's delegations.jsonl (one agy sub-session per line), oldest→newest."""
+    path = os.path.join(run_dir, "delegations.jsonl")
+    out = []
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                continue
+    return out
+
+# ---------- session tree: normalise agy delegations + Claude sub-agents to child nodes ----
+
+def agy_child(d, live=False):
+    return {"kind": "agy", "who": "agy",
+            "label": "agy delegation · iter %s" % d.get("iteration", "?"),
+            "model": d.get("model", ""), "effort": d.get("effort", ""),
+            "status": ("running" if live else d.get("status", "done")),
+            "live": bool(live), "result": d.get("result", ""),
+            "iteration": d.get("iteration"), "tokens": None,
+            "started": d.get("started", ""), "finished": d.get("finished", "")}
+
+def sub_child(a):
+    return {"kind": "claude-subagent", "who": a.get("agent_type", "sub-agent"),
+            "label": a.get("purpose", ""), "model": a.get("model") or "claude",
+            "status": a.get("status", "?"), "live": a.get("status") == "running",
+            "result": "", "tokens": a.get("tokens"),
+            "started": a.get("started", ""), "finished": a.get("finished", ""),
+            "id": a.get("id", "")}
+
 # ---------- attention logic ----------
 
 def attention(rec):
@@ -265,12 +301,26 @@ def scan_repo(repo):
                 with open(spec, encoding="utf-8", errors="replace") as fh:
                     first = fh.readline().strip("# \n")
                 rec["title"] = first or task_id
+        # agy delegations become child sub-sessions; newest running.json (if alive) too
+        delegs = scan_delegations(run_dir)
+        agy_children = [agy_child(d) for d in delegs]
         run = scan_running(run_dir)
         if run:
             rec["running"] = run
             if run.get("alive"):
                 rec["live"] = True
                 rec["stage"] = "delegating (iter %s)" % run.get("iteration", "?")
+                agy_children.append(agy_child({"iteration": run.get("iteration"),
+                    "model": run.get("model", ""), "effort": run.get("effort", ""),
+                    "started": run.get("started", "")}, live=True))
+        rec["agyChildren"] = agy_children
+        # task-level model = the agy model that ran (a live delegation wins, else the last)
+        if run and run.get("alive"):
+            rec["model"] = run.get("model", "")
+        elif delegs:
+            rec["model"] = delegs[-1].get("model", "")
+        else:
+            rec["model"] = ""
         rec["title"] = rec.get("title") or task_id
         rec["attention"] = attention(rec)
         rec["needsAttention"] = bool(rec["attention"])
@@ -305,12 +355,48 @@ def discover(root, max_depth=4):
     return found
 
 def build_payload(repos, title):
-    """Scan every repo NOW and return the board payload (used per-request in serve mode)."""
+    """Scan every repo NOW and return the board payload (used per-request in serve mode).
+
+    Each run carries a `children` list — its sub-sessions: agy delegations first, then the
+    Claude sub-agents that ran under it. Sub-agents whose task doesn't map to a known run
+    are grouped under a synthetic "(unassigned)" parent per repo, so the tree is complete.
+    """
     runs, agents = [], []
     for r in repos:
         runs.extend(scan_repo(r))
         agents.extend(scan_agents(r))
     agents.sort(key=lambda a: a.get("started", ""), reverse=True)
+
+    by_key = {(r["repo"], r["task"]): r for r in runs}
+    orphans = {}
+    for a in agents:
+        run = by_key.get((a.get("repo"), a.get("task")))
+        if run is None:
+            orphans.setdefault(a.get("repo"), []).append(a)
+        else:
+            run.setdefault("_subs", []).append(a)
+
+    for r in runs:
+        subs = sorted(r.pop("_subs", []), key=lambda a: a.get("started", ""), reverse=True)
+        r["children"] = (r.pop("agyChildren", []) or []) + [sub_child(a) for a in subs]
+        r["live"] = bool(r.get("live")) or any(c["live"] for c in r["children"])
+        if not r.get("needsAttention"):
+            bad = next((c for c in r["children"] if c["status"] in ("failed", "timeout")), None)
+            if bad:
+                r["attention"] = "%s %s" % (bad["who"], bad["status"])
+                r["needsAttention"] = True
+
+    for repo, subs in orphans.items():
+        subs = sorted(subs, key=lambda a: a.get("started", ""), reverse=True)
+        children = [sub_child(a) for a in subs]
+        runs.append({"repo": repo, "repoPath": subs[0].get("repoPath", ""),
+                     "task": "(unassigned)", "title": "Unassigned sub-agents",
+                     "status": "in-progress", "stage": "", "synthetic": True,
+                     "model": "", "children": children,
+                     "live": any(c["live"] for c in children),
+                     "closing": {k: [] for k in SECTIONS}, "metrics": {},
+                     "attention": "", "needsAttention": False})
+
     return {"title": title, "runs": runs, "agents": agents, "repos": list(repos)}
 
 def dedup_repos(repos):

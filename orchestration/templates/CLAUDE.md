@@ -97,8 +97,11 @@ linked back into the graph so `ag-close` can fill `touches:` anchors from the di
 
 ## Live monitoring — what is running right now
 
-`/ag-board` has a **Live now** panel (a "Running now" KPI) and a **Sub-agents** table. Two
-markers feed them, so both agy and your own sub-agents are visible while they run:
+`/ag-board` renders one **session tree**: each task is a row you expand to reveal its
+**sub-sessions** — the agy delegations and the Claude sub-agents that ran under it, each with
+its model, result, and a live/attention **status icon** (there are no separate "live" or
+"needs attention" sections; those are icons on the row itself). Two markers feed the tree,
+so both agy and your own sub-agents appear while they run:
 
 - **agy delegations — automatic.** `agy-run.sh` writes `runs/<id>/running.json` when agy
   starts and deletes it on any exit (success, timeout, kill). A live delegation appears on
@@ -107,9 +110,10 @@ markers feed them, so both agy and your own sub-agents are visible while they ru
 - **Your Claude sub-agents — automatic.** `ag-init` installs a hook (`ag-agent-hook.py` on
   the `Agent` tool) so every sub-agent spawn (Explore, Plan, general-purpose, …) self-records
   to `.orchestration/agents/` and shows on the board — you do nothing. `PreToolUse` opens the
-  breadcrumb (running); `PostToolUse` closes it (done|failed, with token count). To tag a
-  spawn with the task it belongs to, write the run-id to `.orchestration/current-task` (the
-  hook stamps it onto new breadcrumbs).
+  breadcrumb (running); `PostToolUse` closes it (done|failed, with token count). To nest a
+  spawn under the task it belongs to, write the run-id to `.orchestration/current-task` (the
+  hook stamps it onto new breadcrumbs); untagged spawns still appear, grouped under an
+  **(unassigned)** row for the repo.
   - **Manual override / fallback** (hook not installed, or you want an explicit record):
     ```bash
     .orchestration/bin/ag-agent.sh start --type Explore \

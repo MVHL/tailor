@@ -35,8 +35,10 @@ own terminal) and give them the URL; don't block the session waiting on it.
 3. Report the run/repo counts and the output path, then surface the file to the user (open it
    in the browser preview, or send it). The HTML is self-contained — no server needed.
 
-The board is overview-first: KPI row (tasks, needs-attention, first-pass rate, avg score,
-agy tokens/time), a **Needs attention** section (blocked / awaiting-decision / in-review /
-failing / low-score, sorted by severity), analytics (avg score per step, score
-distribution), and a sortable/filterable table where each row drills into the run's metrics
-and closing record.
+The board is a single **session tree**: a slim summary strip (sessions / running now / needs
+attention / avg score) over one table where each task row expands to its **sub-sessions** —
+the agy delegations and Claude sub-agents that ran under it, each showing model, result, and
+a live/attention **status icon**. There are no separate live/attention/analytics sections;
+status and attention are icons on the row. Filter/sort by status, repo, or attention; expand a
+task for its scores and closing record. Sub-agents not tagged to a task group under
+`(unassigned)`.

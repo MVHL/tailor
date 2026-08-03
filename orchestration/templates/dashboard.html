@@ -8,125 +8,106 @@
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2b3444;
     --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7684;
-    --accent:#4c8dff; --accentink:#cfe0ff;
-    --good:#2ea043; --amber:#d29922; --red:#e5534b; --violet:#a371f7; --blue:#4c8dff;
+    --accent:#4c8dff; --good:#2ea043; --amber:#d29922; --red:#e5534b;
+    --violet:#a371f7; --blue:#4c8dff;
     --radius:12px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
   @media (prefers-color-scheme:light){
-    :root{ --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f7; --line:#d8dee4;
-           --ink:#1f2328; --dim:#57606a; --faint:#8c959f; --accentink:#0a3069; }
+    :root{ --bg:#f6f8fa; --panel:#fff; --panel2:#f0f3f7; --line:#d8dee4;
+           --ink:#1f2328; --dim:#57606a; --faint:#8c959f; }
   }
   :root[data-theme="dark"]{ --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2b3444;
-    --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7684; --accentink:#cfe0ff; }
-  :root[data-theme="light"]{ --bg:#f6f8fa; --panel:#ffffff; --panel2:#f0f3f7; --line:#d8dee4;
-    --ink:#1f2328; --dim:#57606a; --faint:#8c959f; --accentink:#0a3069; }
+    --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7684; }
+  :root[data-theme="light"]{ --bg:#f6f8fa; --panel:#fff; --panel2:#f0f3f7; --line:#d8dee4;
+    --ink:#1f2328; --dim:#57606a; --faint:#8c959f; }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
        font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
-  header.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
-  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .wrap{max-width:1220px;margin:0 auto;padding:26px 20px 80px}
+  header.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:-.01em}
   .sub{color:var(--dim);font-size:12.5px}
   .sub code{font-family:var(--mono);font-size:11.5px}
+  .hgroup{display:flex;align-items:center;gap:12px}
   .toggle{background:var(--panel);border:1px solid var(--line);color:var(--dim);
           border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12px}
   .toggle:hover{color:var(--ink)}
 
-  /* KPI row */
-  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:26px}
-  @media(max-width:820px){.kpis{grid-template-columns:repeat(3,1fr)}}
-  @media(max-width:480px){.kpis{grid-template-columns:repeat(2,1fr)}}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px}
-  .kpi .n{font-size:24px;font-weight:650;letter-spacing:-.02em}
-  .kpi .l{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+  /* slim summary strip */
+  .kpis{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:18px;padding:12px 16px;
+        background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+  .kpi .n{font-size:20px;font-weight:650;letter-spacing:-.02em}
+  .kpi .l{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
   .kpi.alert .n{color:var(--red)}
 
-  h2.section{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);
-             margin:30px 0 12px;font-weight:600}
-
-  /* Attention cards */
-  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-  .card{background:var(--panel);border:1px solid var(--line);border-left-width:4px;
-        border-radius:10px;padding:13px 14px;cursor:pointer;transition:border-color .12s}
-  .card:hover{border-color:var(--accent)}
-  .card .t{font-weight:600;margin-bottom:3px}
-  .card .why{font-size:12.5px;color:var(--ink)}
-  .card .meta{font-size:11.5px;color:var(--faint);margin-top:7px;font-family:var(--mono)}
-  .empty{color:var(--faint);font-size:13px;padding:14px;border:1px dashed var(--line);border-radius:10px}
-
-  /* analytics */
-  .analytics{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(max-width:720px){.analytics{grid-template-columns:1fr}}
-  .abox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px}
-  .abox h3{margin:0 0 12px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
-  .barrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12px}
-  .barrow .lab{width:74px;color:var(--dim);flex:none}
-  .track{flex:1;height:8px;background:var(--panel2);border-radius:6px;overflow:hidden}
-  .fill{height:100%;border-radius:6px}
-  .barrow .val{width:34px;text-align:right;font-family:var(--mono);color:var(--dim);flex:none}
-
-  /* table */
-  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
   select,input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--ink);
     border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:var(--sans)}
+  label.chk{font-size:12px;color:var(--dim);display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+
   table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);
         border-radius:var(--radius);overflow:hidden}
-  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap}
-  th{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+  th{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;
+     cursor:pointer;user-select:none}
   th:hover{color:var(--ink)}
-  tbody tr.main{cursor:pointer}
-  tbody tr.main:hover{background:var(--panel2)}
-  td.task{font-family:var(--mono);font-size:12px}
-  td.wide{white-space:normal;color:var(--dim)}
-  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--mono)}
+  tbody tr.task{cursor:pointer}
+  tbody tr.task:hover{background:var(--panel2)}
+  tbody tr.child td{background:var(--panel2);border-bottom:1px solid var(--line)}
+  td.name{font-weight:600}
+  td.name.child{font-weight:400}
+  .caret{display:inline-block;width:12px;color:var(--faint);transition:transform .12s;font-size:11px}
+  .caret.open{transform:rotate(90deg)}
+  .caret.leaf{opacity:0}
+  .repo{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:8px;
+        background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+  .who{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .model{font-family:var(--mono);font-size:11.5px;color:var(--dim);white-space:nowrap}
+  td.result{color:var(--dim);max-width:440px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  td.result.wrap{white-space:normal}
+  .upd{color:var(--faint);font-family:var(--mono);font-size:11.5px;white-space:nowrap}
   .score{font-family:var(--mono);font-weight:650}
-  .muted{color:var(--faint)}
-  /* status colors */
-  .s-done{--c:var(--good)} .s-in-review{--c:var(--amber)} .s-blocked{--c:var(--red)}
-  .s-awaiting-decision{--c:var(--violet)} .s-in-progress{--c:var(--blue)}
-  .pill.stat{background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);
-             border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
-  .card.att{border-left-color:var(--c)}
   .sc-good{color:var(--good)} .sc-mid{color:var(--amber)} .sc-bad{color:var(--red)}
+  .muted{color:var(--faint)}
 
-  /* drill-in */
-  tr.detail td{background:var(--panel2);padding:0;border-bottom:1px solid var(--line)}
-  .drill{padding:16px 18px;display:grid;grid-template-columns:260px 1fr;gap:22px}
+  /* status dot (task + sub-task) */
+  .sdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--faint);vertical-align:middle}
+  .sdot.done{background:var(--good)} .sdot.failed{background:var(--red)}
+  .sdot.review{background:var(--amber)} .sdot.pending{background:var(--faint)}
+  .sdot.running{background:var(--blue);box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 60%,transparent);
+                animation:pulse 1.7s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 55%,transparent)}
+                   70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .warn{margin-left:7px;cursor:help;color:var(--amber)}
+  .warn.red{color:var(--red)}
+  td.c-caret,td.c-stat{width:1%;white-space:nowrap;padding-right:0}
+
+  /* task detail (record) */
+  tr.detail td{background:var(--panel2);padding:0}
+  .drill{padding:14px 18px 16px 40px;display:grid;grid-template-columns:230px 1fr;gap:22px;border-top:1px dashed var(--line)}
   @media(max-width:720px){.drill{grid-template-columns:1fr}}
-  .drill h4{margin:0 0 9px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
-  .kv{font-size:12px;color:var(--dim);font-family:var(--mono);line-height:1.9;word-break:break-all}
-  .closelist{margin:0 0 12px}
-  .closelist .h{font-size:12px;font-weight:600;margin:0 0 3px}
+  .drill h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .barrow{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:12px}
+  .barrow .lab{width:64px;color:var(--dim);flex:none}
+  .track{flex:1;height:7px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .fill{height:100%}
+  .barrow .val{width:30px;text-align:right;font-family:var(--mono);color:var(--dim);flex:none}
+  .closelist{margin:0 0 10px}
+  .closelist .h{font-size:12px;font-weight:600;margin:0 0 2px}
   .closelist ul{margin:0 0 4px;padding-left:18px}
-  .closelist li{font-size:12.5px;margin:2px 0;color:var(--ink)}
+  .closelist li{font-size:12.5px;margin:2px 0}
   .closelist.bugs .h,.closelist.bugs li{color:var(--red)}
-  .closelist.none{color:var(--faint);font-size:12px}
-  .path{font-family:var(--mono);font-size:11px;color:var(--faint)}
-  footer{margin-top:34px;color:var(--faint);font-size:11.5px;text-align:center}
+  .none{color:var(--faint);font-size:12px}
+  .path{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:8px;word-break:break-all}
+  .empty{color:var(--faint);font-size:13px;padding:20px;text-align:center}
+
+  footer{margin-top:26px;color:var(--faint);font-size:11.5px;text-align:center}
   .live{display:none;align-items:center;gap:7px;font-size:11.5px;color:var(--dim)}
   .live.on{display:inline-flex}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent);animation:pulse 1.8s infinite}
-  .live.stale .dot{background:var(--amber);animation:none}
-  .live.err .dot{background:var(--red);animation:none}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
-  .hgroup{display:flex;align-items:center;gap:14px}
-
-  /* live now + sub-agents (Gap A / Gap B) */
-  .livecards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
-  .lcard{background:var(--panel);border:1px solid var(--line);border-left-width:4px;
-         border-radius:10px;padding:13px 14px}
-  .lcard.agy{border-left-color:var(--blue)} .lcard.sub{border-left-color:var(--violet)}
-  .lcard .t{font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:8px}
-  .lcard .why{font-size:12.5px;color:var(--dim)}
-  .lcard .meta{font-size:11.5px;color:var(--faint);margin-top:7px;font-family:var(--mono)}
-  .rdot{width:8px;height:8px;border-radius:50%;background:var(--good);flex:none;
-        box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent);animation:pulse 1.8s infinite}
-  .tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:10.5px;font-family:var(--mono);
-       background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
-  .s-running{--c:var(--blue)} .s-failed{--c:var(--red)}
-  .livedot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);margin-left:6px;
-           box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent);animation:pulse 1.8s infinite;vertical-align:middle}
+  .ldot{width:8px;height:8px;border-radius:50%;background:var(--good);animation:pulse2 1.8s infinite}
+  .live.stale .ldot{background:var(--amber);animation:none} .live.err .ldot{background:var(--red);animation:none}
+  @keyframes pulse2{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
 </style>
 </head>
 <body>
@@ -137,7 +118,7 @@
       <div class="sub" id="sub"></div>
     </div>
     <div class="hgroup">
-      <span class="live" id="live"><span class="dot"></span><span id="liveTxt">live</span></span>
+      <span class="live" id="live"><span class="ldot"></span><span id="liveTxt">live</span></span>
       <button class="toggle" id="pauseBtn" style="display:none">⏸ pause</button>
       <button class="toggle" id="themeBtn">◐ theme</button>
     </div>
@@ -145,41 +126,23 @@
 
   <div class="kpis" id="kpis"></div>
 
-  <h2 class="section">Live now</h2>
-  <div class="livecards" id="live-now"></div>
-
-  <h2 class="section">Needs attention</h2>
-  <div class="cards" id="attention"></div>
-
-  <h2 class="section">Analytics</h2>
-  <div class="analytics">
-    <div class="abox"><h3>Average score by step</h3><div id="stepScores"></div></div>
-    <div class="abox"><h3>Overall score distribution</h3><div id="scoreDist"></div></div>
-  </div>
-
-  <h2 class="section">All runs</h2>
   <div class="controls">
-    <input type="search" id="q" placeholder="filter tasks…">
+    <input type="search" id="q" placeholder="filter sessions…">
     <select id="fStatus"><option value="">all statuses</option></select>
     <select id="fRepo"><option value="">all repos</option></select>
+    <label class="chk"><input type="checkbox" id="fAttn"> needs attention only</label>
   </div>
+
   <table id="tbl">
     <thead><tr>
-      <th data-k="task">Task</th><th data-k="repo">Repo</th><th data-k="status">Status</th>
-      <th data-k="stage">Stage</th><th data-k="score">Score</th><th data-k="iterations">Iters</th>
-      <th data-k="tests">Tests</th><th data-k="tokens">agy tokens</th><th data-k="seconds">Time</th>
-      <th data-k="closed">Closed</th>
+      <th class="c-caret"></th><th class="c-stat"></th>
+      <th data-k="title">Session · sub-session</th>
+      <th data-k="model">Model</th>
+      <th data-k="result">Result</th>
+      <th data-k="score">Score</th>
+      <th data-k="updated">Updated</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
-  </table>
-
-  <h2 class="section">Sub-agents (Claude)</h2>
-  <table id="atbl">
-    <thead><tr>
-      <th>Agent</th><th>Purpose</th><th>Task</th><th>Repo</th>
-      <th>Status</th><th>Started</th><th>Elapsed</th>
-    </tr></thead>
-    <tbody id="atbody"></tbody>
   </table>
 
   <footer id="foot"></footer>
@@ -190,13 +153,13 @@ let PAYLOAD = /*__AG_DATA__*/null;
 const LIVE = /*__AG_LIVE__*/false;
 const POLL_MS = 5000;
 const $ = s => document.querySelector(s);
-const el = (t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
-const SEV = {blocked:0,"awaiting-decision":1,"in-review":2,"in-progress":3,done:4};
-const num = v => (typeof v==="number"&&!isNaN(v))?v:null;
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num = v => (typeof v==="number"&&!isNaN(v))?v:null;
+const SEV = {blocked:0,"awaiting-decision":1,"in-review":2,"in-progress":3,framed:3,planned:3,done:4};
 
-let data = [], agents = [], sortK="status", sortDir=1, openKey=null, lastHash="";
-const key=r=>r.task+"@"+r.repo;
+let data=[], sortK="status", sortDir=1, lastHash="";
+const openKeys = new Set();
+const key = r => r.task+"@"+r.repo;
 
 function fmtElapsed(a,b){
   if(!a) return "—";
@@ -208,136 +171,63 @@ function fmtElapsed(a,b){
   if(m<60) return m+"m"+(sec?" "+sec+"s":"");
   const h=Math.floor(m/60); return h+"h"+(m%60?" "+(m%60)+"m":"");
 }
+function fmtTok(t){ t=num(t); if(t==null)return null; return t>=1000?(t/1000).toFixed(t>=10000?0:1)+"k":String(t); }
+function scoreClass(s){ return s==null?"muted":(s>=80?"sc-good":s>=50?"sc-mid":"sc-bad"); }
+
+/* status → dot class, shared by tasks and sub-sessions */
+function taskStatusKey(r){
+  if(r.live) return "running";
+  const s=r.status;
+  if(s==="done") return "done";
+  if(s==="blocked"||s==="failed") return "failed";
+  if(s==="in-review"||s==="awaiting-decision") return "review";
+  return "pending";
+}
+function childStatusKey(c){
+  if(c.live) return "running";
+  if(c.status==="done") return "done";
+  if(c.status==="failed"||c.status==="timeout") return "failed";
+  return "pending";
+}
+const dot = k => `<span class="sdot ${k}" title="${k}"></span>`;
+function warnIcon(r){
+  if(!r.needsAttention) return "";
+  const red = ["blocked","failed"].includes(r.status);
+  return `<span class="warn${red?' red':''}" title="${esc(r.attention||'needs attention')}">⚠</span>`;
+}
 
 function deriveData(payload){
   return ((payload&&payload.runs)||[]).map(r=>{
     r.metrics = r.metrics||{};
     r.score = num(r.metrics.overall_score);
-    r.tokens = num((r.metrics.delegate||{}).tokens);
-    r.seconds = num((r.metrics.delegate||{}).seconds);
-    r.iterations = num(r.iterations);
+    r.children = r.children||[];
     return r;
   });
 }
 
-function scoreClass(s){ return s==null?"muted":(s>=80?"sc-good":s>=50?"sc-mid":"sc-bad"); }
-function fmtTime(s){ if(s==null)return "—"; if(s<60)return s+"s"; const m=Math.floor(s/60); return m+"m"+(s%60?" "+(s%60)+"s":""); }
-function fmtTok(t){ if(t==null)return "—"; return t>=1000?(t/1000).toFixed(t>=10000?0:1)+"k":t; }
-
-/* ---------- header ---------- */
 function renderHeader(){
-  $("#sub").innerHTML = `${data.length} run(s) · ${(PAYLOAD.repos||[]).length} repo(s) · `
+  $("#sub").innerHTML = `${data.filter(r=>!r.synthetic).length} session(s) · `
+    + `${(PAYLOAD.repos||[]).length} repo(s) · `
     + (PAYLOAD.repos||[]).map(p=>`<code>${esc(p.split("/").pop())}</code>`).join(" ");
 }
 
-/* ---------- KPIs ---------- */
 function renderKpis(){
-  const closed = data.filter(r=>r.status==="done");
-  const firstPass = closed.filter(r=>num((r.metrics.delegate||{}).iterations)===1).length;
-  const attn = data.filter(r=>r.needsAttention).length;
-  const running = data.filter(r=>r.running&&r.running.alive).length + agents.filter(a=>a.live).length;
-  const scores = closed.map(r=>r.score).filter(s=>s!=null);
-  const avg = scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null;
-  const tok = data.reduce((a,r)=>a+(r.tokens||0),0);
-  const sec = data.reduce((a,r)=>a+(r.seconds||0),0);
+  const tasks=data.filter(r=>!r.synthetic);
+  const closed=tasks.filter(r=>r.status==="done");
+  const running=data.filter(r=>r.live).length;
+  const attn=data.filter(r=>r.needsAttention).length;
+  const scores=closed.map(r=>r.score).filter(s=>s!=null);
+  const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null;
   const kpi=(n,l,alert)=>`<div class="kpi${alert?' alert':''}"><div class="n">${n}</div><div class="l">${l}</div></div>`;
   $("#kpis").innerHTML =
-    kpi(data.length,"Tasks")
-    + kpi(running,"Running now")
+      kpi(tasks.length,"Sessions")
+    + kpi(running,"Running now",running>0)
     + kpi(attn,"Needs attention",attn>0)
-    + kpi(closed.length?Math.round(100*firstPass/closed.length)+"%":"—","First-pass rate")
-    + kpi(avg==null?"—":avg,"Avg score")
-    + kpi(fmtTok(tok),"agy tokens")
-    + kpi(fmtTime(sec),"agy time");
+    + kpi(avg==null?"—":avg,"Avg score");
 }
 
-/* ---------- attention cards ---------- */
-function renderAttention(){
-  const box=$("#attention");
-  const list=data.filter(r=>r.needsAttention).sort((a,b)=>(SEV[a.status]??9)-(SEV[b.status]??9));
-  if(!list.length){ box.innerHTML=`<div class="empty">Nothing needs attention — every run is clean or done. ✅</div>`; return; }
-  box.innerHTML="";
-  list.forEach(r=>{
-    const c=el("div",`card att s-${r.status}`);
-    c.innerHTML=`<div class="t">${esc(r.title)}</div><div class="why">${esc(r.attention)}</div>
-      <div class="meta">${esc(r.repo)} · ${esc(r.task)}${r.score!=null?" · score "+r.score:""}</div>`;
-    c.onclick=()=>openRow(key(r));
-    box.appendChild(c);
-  });
-}
-
-/* ---------- live now (Gap A: agy · Gap B: Claude sub-agents) ---------- */
-function renderLive(){
-  const box=$("#live-now");
-  const liveRuns=data.filter(r=>r.running&&r.running.alive);
-  const liveSubs=agents.filter(a=>a.live);
-  if(!liveRuns.length && !liveSubs.length){
-    box.innerHTML=`<div class="empty">No agents running right now.</div>`; return;
-  }
-  let html="";
-  liveRuns.forEach(r=>{
-    const g=r.running;
-    html+=`<div class="lcard agy"><div class="t"><span class="rdot"></span>${esc(r.title||r.task)}
-      <span class="tag">agy</span></div>
-      <div class="why">model <b>${esc(g.model||"—")}</b> · iter ${esc(g.iteration||"?")}</div>
-      <div class="meta">${esc(r.repo)} · ${esc(r.task)} · ${fmtElapsed(g.started)}</div></div>`;
-  });
-  liveSubs.forEach(a=>{
-    html+=`<div class="lcard sub"><div class="t"><span class="rdot"></span>${esc(a.agent_type||"sub-agent")}
-      <span class="tag">claude</span></div>
-      <div class="why">${esc(a.purpose||"")}</div>
-      <div class="meta">${esc(a.repo)}${a.task?" · "+esc(a.task):""} · ${fmtElapsed(a.started)}</div></div>`;
-  });
-  box.innerHTML=html;
-}
-
-/* ---------- sub-agent history table ---------- */
-function agentStatusPill(s){ return `<span class="pill stat s-${esc(s)}">${esc(s)}</span>`; }
-function renderAgents(){
-  const tb=$("#atbody");
-  if(!agents.length){ tb.innerHTML=`<tr><td colspan="7" class="muted">No sub-agents recorded yet.</td></tr>`; return; }
-  tb.innerHTML=agents.map(a=>{
-    const live=a.live?'<span class="livedot"></span>':"";
-    return `<tr><td>${esc(a.agent_type||"—")}${live}</td>
-      <td class="wide">${esc(a.purpose||"")}</td>
-      <td class="task">${esc(a.task||"—")}</td>
-      <td>${esc(a.repo||"")}</td>
-      <td>${agentStatusPill(a.status||"?")}</td>
-      <td class="muted">${esc((a.started||"—").replace("T"," ").replace("Z",""))}</td>
-      <td class="muted">${fmtElapsed(a.started,a.finished)}</td></tr>`;
-  }).join("");
-}
-
-/* ---------- analytics ---------- */
-function renderAnalytics(){
-  const steps=["frame","plan","delegate","review"];
-  const closed=data.filter(r=>r.status==="done");
-  const rows=steps.map(s=>{
-    const vals=closed.map(r=>num((r.metrics[s]||{}).score)).filter(v=>v!=null);
-    const a=vals.length?Math.round(vals.reduce((x,y)=>x+y,0)/vals.length):null;
-    return {s,a};
-  });
-  $("#stepScores").innerHTML = rows.map(({s,a})=>{
-    const c = a==null?"var(--faint)":(a>=80?"var(--good)":a>=50?"var(--amber)":"var(--red)");
-    return `<div class="barrow"><span class="lab">${s}</span>
-      <span class="track"><span class="fill" style="width:${a||0}%;background:${c}"></span></span>
-      <span class="val">${a==null?"—":a}</span></div>`;
-  }).join("") || `<div class="closelist none">No closed runs yet.</div>`;
-
-  const buckets=[["80–100","var(--good)",s=>s>=80],["50–79","var(--amber)",s=>s>=50&&s<80],["0–49","var(--red)",s=>s<50]];
-  const scores=closed.map(r=>r.score).filter(s=>s!=null);
-  const max=Math.max(1,...buckets.map(([l,c,f])=>scores.filter(f).length));
-  $("#scoreDist").innerHTML = buckets.map(([l,c,f])=>{
-    const n=scores.filter(f).length;
-    return `<div class="barrow"><span class="lab">${l}</span>
-      <span class="track"><span class="fill" style="width:${100*n/max}%;background:${c}"></span></span>
-      <span class="val">${n}</span></div>`;
-  }).join("") || `<div class="closelist none">No scores yet.</div>`;
-}
-
-/* ---------- filters (rebuild, preserve selection) ---------- */
 function rebuildFilters(){
-  [["#fStatus",[...new Set(data.map(r=>r.status))],"all statuses"],
+  [["#fStatus",[...new Set(data.map(r=>r.status))].filter(Boolean),"all statuses"],
    ["#fRepo",[...new Set(data.map(r=>r.repo))],"all repos"]].forEach(([sel,vals,allLbl])=>{
     const s=$(sel), cur=s.value;
     s.innerHTML=`<option value="">${allLbl}</option>`+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
@@ -345,103 +235,133 @@ function rebuildFilters(){
   });
 }
 
-/* ---------- table ---------- */
-const tbody=()=>$("#tbody");
 function rowsFiltered(){
-  const q=$("#q").value.toLowerCase(), fs=$("#fStatus").value, fr=$("#fRepo").value;
-  let rows=data.filter(r=>
-    (!q || (r.task+" "+r.title).toLowerCase().includes(q)) &&
-    (!fs || r.status===fs) && (!fr || r.repo===fr));
-  const val=r=>{ let v=r[sortK]; if(sortK==="status")v=SEV[r.status]??9; return v==null?-Infinity:v; };
+  const q=$("#q").value.toLowerCase(), fs=$("#fStatus").value, fr=$("#fRepo").value, fa=$("#fAttn").checked;
+  let rows=data.filter(r=>{
+    const hay=(r.task+" "+r.title+" "+r.children.map(c=>c.who+" "+c.label).join(" ")).toLowerCase();
+    return (!q||hay.includes(q)) && (!fs||r.status===fs) && (!fr||r.repo===fr) && (!fa||r.needsAttention);
+  });
+  const val=r=>{
+    if(sortK==="status") return SEV[r.status]??9;
+    if(sortK==="score")  return r.score==null?-1:r.score;
+    if(sortK==="updated")return Date.parse(r.closed||"")||0;
+    return (r[sortK]==null?"":String(r[sortK])).toLowerCase();
+  };
   rows.sort((a,b)=>{ const x=val(a),y=val(b); return (x>y?1:x<y?-1:0)*sortDir; });
   return rows;
 }
-function statPill(r){ return `<span class="pill stat s-${r.status} stat">${esc(r.status)}</span>`; }
-function testCell(t){ if(t==="pass")return '<span class="sc-good">pass</span>';
-  if(t==="fail")return '<span class="sc-bad">fail</span>'; return '<span class="muted">—</span>'; }
 
-function render(){
-  const tb=tbody(); tb.innerHTML="";
-  const rows=rowsFiltered();
-  rows.forEach(r=>{
-    const tr=el("tr","main"); tr.dataset.k=key(r);
-    tr.innerHTML=`<td class="task">${esc(r.task)}</td><td>${esc(r.repo)}</td>
-      <td>${statPill(r)}</td><td class="muted">${esc(r.stage||"")}</td>
-      <td class="score ${scoreClass(r.score)}">${r.score==null?"—":r.score}</td>
-      <td>${r.iterations==null?"—":r.iterations}</td>
-      <td>${testCell(r.tests)}</td>
-      <td class="muted">${fmtTok(r.tokens)}</td>
-      <td class="muted">${fmtTime(r.seconds)}</td>
-      <td class="muted">${esc(r.closed||"—")}</td>`;
-    tr.onclick=()=>toggle(tr,r);
-    tb.appendChild(tr);
-    if(openKey===key(r)) toggle(tr,r);   // re-open across re-render
-  });
-  $("#foot").textContent = `${rows.length} of ${data.length} shown`;
+function taskResultText(r){
+  if(r.whatShipped) return r.whatShipped;
+  if(r.attention)   return r.attention;
+  return r.stage||r.status||"";
+}
+function childResultText(c){
+  if(c.kind==="agy") return c.result || c.status;
+  return c.label || c.status;   // sub-agent: its purpose
+}
+
+function taskRow(r){
+  const k=key(r), open=openKeys.has(k);
+  const hasKids=r.children.length>0, hasDetail=!r.synthetic;
+  const caret = (hasKids||hasDetail)
+    ? `<span class="caret ${open?'open':''}">▶</span>` : `<span class="caret leaf">▶</span>`;
+  const model = r.model ? `<span class="model">${esc(r.model)}</span>` : `<span class="muted">—</span>`;
+  const kids = r.children.length?` <span class="muted" style="font-weight:400">· ${r.children.length} sub</span>`:"";
+  return `<tr class="task" data-k="${esc(k)}">
+    <td class="c-caret">${caret}</td>
+    <td class="c-stat">${dot(taskStatusKey(r))}</td>
+    <td class="name">${esc(r.title||r.task)}<span class="repo">${esc(r.repo)}</span>${warnIcon(r)}${kids}</td>
+    <td>${model}</td>
+    <td class="result" title="${esc(taskResultText(r))}">${esc(taskResultText(r))}</td>
+    <td class="score ${scoreClass(r.score)}">${r.score==null?"—":r.score}</td>
+    <td class="upd">${esc(r.closed||(r.live?"live":"—"))}</td>
+  </tr>`;
+}
+function childRow(c){
+  const tok=fmtTok(c.tokens);
+  const upd=fmtElapsed(c.started,c.finished)+(tok?` · ${tok} tok`:"");
+  const model = c.model ? `<span class="model">${esc(c.model)}</span>` : `<span class="muted">—</span>`;
+  return `<tr class="child">
+    <td class="c-caret"></td>
+    <td class="c-stat">${dot(childStatusKey(c))}</td>
+    <td class="name child"><span class="who">↳ ${esc(c.who)}</span></td>
+    <td>${model}</td>
+    <td class="result wrap" title="${esc(childResultText(c))}">${esc(childResultText(c))}</td>
+    <td class="muted">—</td>
+    <td class="upd">${esc(upd)}</td>
+  </tr>`;
 }
 function metricBar(lab,v){
+  v=num(v);
   const c=v==null?"var(--faint)":(v>=80?"var(--good)":v>=50?"var(--amber)":"var(--red)");
   return `<div class="barrow"><span class="lab">${lab}</span>
     <span class="track"><span class="fill" style="width:${v||0}%;background:${c}"></span></span>
     <span class="val">${v==null?"—":v}</span></div>`;
 }
 function closeList(cls,title,items){
-  if(!items||!items.length) return `<div class="closelist ${cls}"><div class="h">${title}</div><div class="none">None.</div></div>`;
+  if(!items||!items.length) return "";
   return `<div class="closelist ${cls}"><div class="h">${title}</div><ul>${items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul></div>`;
 }
-function toggle(tr,r){
-  const nxt=tr.nextElementSibling;
-  if(nxt&&nxt.classList.contains("detail")){ nxt.remove(); openKey=null; return; }
-  document.querySelectorAll("tr.detail").forEach(d=>d.remove());
-  openKey=key(r);
-  const m=r.metrics, d=m.delegate||{};
-  const cl=r.closing||{};
+function detailRow(r){
+  const m=r.metrics||{}, d=m.delegate||{}, cl=r.closing||{};
+  const anyClosing = cl.assumptions?.length||cl.problems?.length||cl.bugs?.length||cl.issues?.length;
+  const scores = (m.overall_score!=null||m.frame||m.plan||m.delegate||m.review)
+    ? `<h4>Scores</h4>${metricBar("frame",(m.frame||{}).score)}${metricBar("plan",(m.plan||{}).score)}
+       ${metricBar("delegate",(m.delegate||{}).score)}${metricBar("review",(m.review||{}).score)}
+       ${metricBar("overall",r.score)}` : `<h4>Scores</h4><div class="none">Not reviewed yet.</div>`;
   const html=`<div class="drill">
-    <div>
-      <h4>Scores</h4>
-      ${metricBar("frame",num((m.frame||{}).score))}
-      ${metricBar("plan",num((m.plan||{}).score))}
-      ${metricBar("delegate",num((m.delegate||{}).score))}
-      ${metricBar("review",num((m.review||{}).score))}
-      ${metricBar("overall",r.score)}
-      <h4 style="margin-top:14px">Run</h4>
-      <div class="kv">impl: ${esc(r.implementer||"—")}<br>iters: ${d.iterations??"—"} · turns: ${d.agy_turns??"—"}<br>
-        tokens: ${fmtTok(num(d.tokens))} · time: ${fmtTime(num(d.seconds))}<br>
-        branch: ${esc(r.branch||"—")}</div>
+    <div>${scores}
+      <h4 style="margin-top:12px">Run</h4>
+      <div class="none" style="font-family:var(--mono);color:var(--dim);line-height:1.8">
+        impl: ${esc(r.implementer||(r.model?"agy":"—"))}<br>
+        iters: ${d.iterations??r.children.filter(c=>c.kind==="agy").length||"—"} ·
+        tests: ${esc(r.tests||"—")}<br>branch: ${esc(r.branch||"—")}</div>
     </div>
     <div>
-      ${r.whatShipped?`<h4>What shipped</h4><div style="margin-bottom:12px">${esc(r.whatShipped)}</div>`:""}
+      ${r.whatShipped?`<h4>What shipped</h4><div style="margin-bottom:10px;color:var(--ink)">${esc(r.whatShipped)}</div>`:""}
       <h4>Closing record</h4>
-      ${closeList("","Assumptions",cl.assumptions)}
-      ${closeList("","Discovered problems",cl.problems)}
-      ${closeList("bugs","Possible bugs",cl.bugs)}
-      ${closeList("","Open issues",cl.issues)}
+      ${anyClosing?
+        closeList("","Assumptions",cl.assumptions)+closeList("","Discovered problems",cl.problems)
+        +closeList("bugs","Possible bugs",cl.bugs)+closeList("","Open issues",cl.issues)
+        :`<div class="none">No closing record yet.</div>`}
       <div class="path">${esc(r.recordPath||r.runPath||"")}</div>
     </div>
   </div>`;
-  const dr=el("tr","detail"); const td=el("td"); td.colSpan=10; td.innerHTML=html; dr.appendChild(td);
-  tr.after(dr);
-}
-function openRow(k){
-  openKey=k; $("#q").value=""; $("#fStatus").value=""; $("#fRepo").value=""; render();
-  const tr=[...tbody().querySelectorAll("tr.main")].find(t=>t.dataset.k===k);
-  if(tr) tr.scrollIntoView({behavior:"smooth",block:"center"});
+  return `<tr class="detail"><td colspan="7">${html}</td></tr>`;
 }
 
-/* ---------- apply data (re-renderable) ---------- */
+function render(){
+  const rows=rowsFiltered();
+  const tb=$("#tbody");
+  if(!rows.length){ tb.innerHTML=`<tr><td colspan="7" class="empty">No sessions match.</td></tr>`;
+                    $("#foot").textContent=`0 of ${data.length}`; return; }
+  let html="";
+  rows.forEach(r=>{
+    html+=taskRow(r);
+    if(openKeys.has(key(r))){
+      r.children.forEach(c=>{ html+=childRow(c); });
+      if(!r.synthetic) html+=detailRow(r);
+    }
+  });
+  tb.innerHTML=html;
+  tb.querySelectorAll("tr.task").forEach(tr=>{
+    tr.onclick=()=>{ const k=tr.dataset.k; openKeys.has(k)?openKeys.delete(k):openKeys.add(k); render(); };
+  });
+  $("#foot").textContent = `${rows.length} of ${data.filter(r=>!r.synthetic).length} session(s)`;
+}
+
 function apply(payload,preserve){
-  const h=JSON.stringify({r:(payload&&payload.runs)||[], a:(payload&&payload.agents)||[]});
-  if(preserve && h===lastHash) return false;   // nothing changed → keep UI untouched
+  const h=JSON.stringify((payload&&payload.runs)||[]);
+  if(preserve && h===lastHash) return false;
   lastHash=h;
   const y=preserve?window.scrollY:0;
-  PAYLOAD=payload; data=deriveData(payload); agents=(payload&&payload.agents)||[];
-  renderHeader(); renderKpis(); renderLive(); renderAttention(); renderAnalytics();
-  rebuildFilters(); render(); renderAgents();
+  PAYLOAD=payload; data=deriveData(payload);
+  renderHeader(); renderKpis(); rebuildFilters(); render();
   if(preserve) window.scrollTo(0,y);
   return true;
 }
 
-/* ---------- one-time event wiring ---------- */
 function bindOnce(){
   $("#themeBtn").onclick=()=>{
     const cur=document.documentElement.getAttribute("data-theme");
@@ -453,10 +373,10 @@ function bindOnce(){
     const k=th.dataset.k; if(sortK===k)sortDir*=-1; else{sortK=k;sortDir=1;} render();
   });
   ["#q","#fStatus","#fRepo"].forEach(s=>$(s).oninput=render);
+  $("#fAttn").onchange=render;
 }
 bindOnce();
 
-/* ---------- live polling (serve mode) or one-shot (static) ---------- */
 if(LIVE){
   const box=$("#live"), txt=$("#liveTxt"), pause=$("#pauseBtn");
   box.classList.add("on"); pause.style.display="";

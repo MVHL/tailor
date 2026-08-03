@@ -64,12 +64,14 @@ health, cost/time per task, and review-burden analytics in the dashboard.
 
 ## Dashboard (`/ag-board`)
 
-`bin/ag-dashboard.py` scans one or more repos' `.orchestration/runs/*/RECORD.md` and bakes
-a **self-contained** HTML triage board (no server, no external deps). Overview-first: a KPI
-row, a **Needs attention** section (blocked / awaiting-decision / in-review / failing /
-low-score, sorted by severity), analytics (avg score per step, score distribution), and a
-sortable/filterable table where each row drills into the run's metrics + closing record.
-In-flight runs with no RECORD yet are picked up by inferring their stage. A **Live now**
+`bin/ag-dashboard.py` scans one or more repos' `.orchestration/runs/*/` (+ `agents/`) and
+bakes a **self-contained** HTML board (no external deps). It's a single **session tree**: one
+row per task, expandable to its **sub-sessions** — the agy delegations (from
+`delegations.jsonl`) and the Claude sub-agents (from `agents/`) that ran under it, each with
+its model, result, and a live/attention **status icon** (no separate live/attention sections
+— they're icons on the row). A slim summary strip (sessions / running now / needs attention /
+avg score) sits on top; filter/sort by status, repo, or attention. Sub-agents not tagged to a
+task group under an `(unassigned)` row. In-flight runs with no RECORD yet are inferred. A **Live now**
 panel + "Running now" KPI show what is executing this instant — agy delegations (via each
 run's transient `running.json`, pid-liveness checked) and Claude sub-agents (via
 `.orchestration/agents/` breadcrumbs) — and a **Sub-agents** table records which sub-agent

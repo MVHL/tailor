@@ -40,7 +40,7 @@ and must reference realized ids in commits.
   --brief .orchestration/runs/<task-id>/brief.md \
   --dir   .orchestration/worktrees/<task-id> \
   --run-dir .orchestration/runs/<task-id> \
-  --model gemini-3.1-pro-high --timeout 15m --iteration 1
+  --model gemini-3.6-flash-high --timeout 15m --iteration 1
 ```
 Parse the `AGY_*` output lines. `AGY_EXIT=124` = timeout; non-zero = agy error (read
 `result.iterN.json` `.error`).

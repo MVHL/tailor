@@ -16,7 +16,9 @@
 #   --run-dir <path>   Where transcript.log / result.json / conversation.id are written.
 #
 # Options:
-#   --model     <name>  agy model (default: gemini-3.1-pro-high). See `agy models`.
+#   --model     <name>  agy model (default: gemini-3.6-flash-high — Flash is much faster
+#                       and cheaper than Pro; drop to -medium/-low for even less). See
+#                       `agy models`.
 #                       NOTE: most model names already encode the effort tier
 #                       (e.g. -high/-low), so --effort is left unset by default.
 #   --effort    <lvl>   low|medium|high. Only for models whose name does NOT
@@ -46,7 +48,7 @@
 set -euo pipefail
 
 BRIEF="" DIR="" RUN_DIR=""
-MODEL="gemini-3.1-pro-high"
+MODEL="gemini-3.6-flash-high"
 EFFORT=""   # unset by default; model name carries the tier
 TIMEOUT="15m"
 CONTINUE=""
@@ -166,6 +168,28 @@ fi
   cat "$RESULT_TEXT" 2>/dev/null || true
   echo ""
 } >> "$TRANSCRIPT"
+
+# Append one durable record per delegation to delegations.jsonl — the dashboard reads
+# this to show each agy sub-session (which model ran, its result, exit, duration). One
+# line per iteration; append-only so the review→fix loop leaves a full history.
+FINISHED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+case "$AGY_EXIT" in 0) STATUS="done";; 124) STATUS="timeout";; *) STATUS="failed";; esac
+DELEG="$RUN_DIR/delegations.jsonl"
+[ -f "$RESULT_TEXT" ] || : > "$RESULT_TEXT"
+if command -v jq >/dev/null 2>&1; then
+  jq -cn --arg iteration "$ITER" --arg model "$MODEL" --arg effort "$EFFORT" \
+         --argjson exit "$AGY_EXIT" --arg status "$STATUS" \
+         --arg started "$STARTED" --arg finished "$FINISHED" \
+         --arg conversation "$CONV_ID" --arg result_path "$RESULT_TEXT" \
+         --rawfile result "$RESULT_TEXT" \
+     '{iteration:$iteration,model:$model,effort:$effort,exit:$exit,status:$status,
+       started:$started,finished:$finished,conversation:$conversation,
+       result_path:$result_path,result:($result|gsub("^\\s+|\\s+$";"")|.[0:280])}' \
+     >> "$DELEG" 2>/dev/null || true
+else
+  printf '{"kind":"agy","iteration":"%s","model":"%s","status":"%s","exit":%d,"started":"%s","finished":"%s"}\n' \
+    "$(json_str "$ITER")" "$(json_str "$MODEL")" "$STATUS" "$AGY_EXIT" "$STARTED" "$FINISHED" >> "$DELEG" || true
+fi
 
 echo "AGY_EXIT=$AGY_EXIT"
 echo "AGY_RESULT_JSON=$RESULT_JSON"
