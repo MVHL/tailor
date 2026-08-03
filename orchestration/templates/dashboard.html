@@ -315,7 +315,7 @@ function detailRow(r){
       <h4 style="margin-top:12px">Run</h4>
       <div class="none" style="font-family:var(--mono);color:var(--dim);line-height:1.8">
         impl: ${esc(r.implementer||(r.model?"agy":"—"))}<br>
-        iters: ${d.iterations??r.children.filter(c=>c.kind==="agy").length||"—"} ·
+        iters: ${d.iterations ?? (r.children.filter(c=>c.kind==="agy").length || "—")} ·
         tests: ${esc(r.tests||"—")}<br>branch: ${esc(r.branch||"—")}</div>
     </div>
     <div>
