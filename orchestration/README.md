@@ -12,6 +12,12 @@ commands, a shell adapter, and file conventions. See the full plan at
 orchestration/
   bin/agy-run.sh        # the ONLY way agy is called: worktree-scoped, JSON output,
                         #   transcript capture, conversation continuity. Confirmed vs agy 1.1.9.
+                        #   Also writes/removes runs/<id>/running.json (live "agy delegating now").
+  bin/ag-agent.sh       # Claude sub-agent breadcrumbs → .orchestration/agents/ (start|done|list),
+                        #   so Task/Agent spawns show on the board's Live now + Sub-agents views.
+  bin/ag-agent-hook.py  # the AUTOMATIC path: a PreToolUse/PostToolUse hook on the `Agent` tool
+                        #   (installed by ag-init into .claude/settings.json) that writes those
+                        #   breadcrumbs on every spawn — no manual ag-agent.sh call needed.
   skills/               # installed into ~/.claude/skills/ via symlink
     ag-frame/         #   grill signal→ask→problem into a canonical P/R/NG/AC spec
     ag-test-plan/     #   tests FIRST (TDD) — failing tests + run command
@@ -54,7 +60,30 @@ if you move it.
 
 Each closed task emits a `metrics` block into `RECORD.md` frontmatter (0–100 per step +
 raw agy tokens/seconds) per `templates/scoring.md`. This powers first-pass rate, spec
-health, cost/time per task, and review-burden analytics in the Phase-2 dashboard.
+health, cost/time per task, and review-burden analytics in the dashboard.
+
+## Dashboard (`/ag-board`)
+
+`bin/ag-dashboard.py` scans one or more repos' `.orchestration/runs/*/RECORD.md` and bakes
+a **self-contained** HTML triage board (no server, no external deps). Overview-first: a KPI
+row, a **Needs attention** section (blocked / awaiting-decision / in-review / failing /
+low-score, sorted by severity), analytics (avg score per step, score distribution), and a
+sortable/filterable table where each row drills into the run's metrics + closing record.
+In-flight runs with no RECORD yet are picked up by inferring their stage. A **Live now**
+panel + "Running now" KPI show what is executing this instant — agy delegations (via each
+run's transient `running.json`, pid-liveness checked) and Claude sub-agents (via
+`.orchestration/agents/` breadcrumbs) — and a **Sub-agents** table records which sub-agent
+ran which task. On the live server these update as work starts and finishes.
+
+```bash
+# static snapshot (re-run to refresh)
+ag-dashboard --registry ~/.claude/orchestration-repos.txt --out ~/.orchestration/board.html
+# live: localhost server, re-scans per request, page auto-polls (127.0.0.1 only)
+ag-dashboard --registry ~/.claude/orchestration-repos.txt --serve --port 8787
+```
+Or `/ag-board [repo ...] [--serve]` (defaults to the registry in
+`~/.claude/orchestration-repos.txt`). Sources also combine via `--scan <root>` (auto-discover)
+and are de-duplicated by absolute path.
 
 ## Guarantees (the point of the system)
 
@@ -71,8 +100,8 @@ health, cost/time per task, and review-burden analytics in the Phase-2 dashboard
 
 - **Phase 0–1 (MVP): built and validated end-to-end** on a pilot repo (`frame → … → close`,
   red→green, RECORD written, worktree merged).
-- **Phase 2 (next):** a single-file HTML dashboard reading `runs/*/RECORD.md` frontmatter —
-  overview-first triage (what needs attention), drill into a run. Own layout, not a review clone.
+- **Phase 2: built** — `/ag-board` renders a self-contained cross-repo triage dashboard from
+  `runs/*/RECORD.md` frontmatter; overview-first, drill into a run. Own layout.
 - **Phase 3 (deferred):** Jira/GitLab MCP sync (needs OAuth), Slack I/O, voice, an agy
   MCP/bridge (only when concurrency or non-Claude triggers are needed), plugin packaging.
 

@@ -90,8 +90,36 @@ linked back into the graph so `ag-close` can fill `touches:` anchors from the di
   graph.md               # FEAT/COMP + spec↔code↔run links
   runs/
     <task-id>/           # one dir per task — brief, TP, IP, transcript, review,
+      running.json       #   transient: present only while agy is delegating NOW
     index.md             #   decisions, RECORD. index.md is the running log.
+  agents/                # Claude sub-agent breadcrumbs (Gap B) — one JSON per spawn
 ```
+
+## Live monitoring — what is running right now
+
+`/ag-board` has a **Live now** panel (a "Running now" KPI) and a **Sub-agents** table. Two
+markers feed them, so both agy and your own sub-agents are visible while they run:
+
+- **agy delegations — automatic.** `agy-run.sh` writes `runs/<id>/running.json` when agy
+  starts and deletes it on any exit (success, timeout, kill). A live delegation appears on
+  the board on its own; you do nothing. The board treats it as live only while the recorded
+  pid is actually alive, so a crashed run never shows a false "running".
+- **Your Claude sub-agents — automatic.** `ag-init` installs a hook (`ag-agent-hook.py` on
+  the `Agent` tool) so every sub-agent spawn (Explore, Plan, general-purpose, …) self-records
+  to `.orchestration/agents/` and shows on the board — you do nothing. `PreToolUse` opens the
+  breadcrumb (running); `PostToolUse` closes it (done|failed, with token count). To tag a
+  spawn with the task it belongs to, write the run-id to `.orchestration/current-task` (the
+  hook stamps it onto new breadcrumbs).
+  - **Manual override / fallback** (hook not installed, or you want an explicit record):
+    ```bash
+    .orchestration/bin/ag-agent.sh start --type Explore \
+        --purpose "map the auth module" --task <run-id>   # → prints AG_AGENT_ID=<id>
+    .orchestration/bin/ag-agent.sh done <id> --status done   # or --status failed
+    ```
+  Breadcrumbs live in `.orchestration/agents/` and are committed as part of the audit trail
+  (permanent — status moves running → done|failed). This is the record of **which sub-agent
+  ran which task**. Note: a hard-killed sub-agent may leave a stale `running` crumb (no
+  `PostToolUse` fired) — close it with `ag-agent.sh done <id>`.
 
 The git diff and the test run are the **source of truth** for correctness — never trust
 agy's self-reported success. The agy JSON envelope (`result.iterN.json`) is for

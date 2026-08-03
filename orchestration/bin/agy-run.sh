@@ -85,6 +85,16 @@ TRANSCRIPT="$RUN_DIR/transcript.log"
 RESULT_JSON="$RUN_DIR/result.iter${ITER}.json"
 RESULT_TEXT="$RUN_DIR/result.iter${ITER}.txt"
 CONV_FILE="$RUN_DIR/conversation.id"
+RUNNING="$RUN_DIR/running.json"
+
+# --- Gap A: live-run marker -------------------------------------------------
+# The dashboard reads running.json to show a delegation that is running NOW.
+# It is written just before agy starts and removed on ANY exit (success, timeout,
+# kill), so "file present + pid alive" == running, and "file absent" == not running.
+json_str() { printf '%s' "${1:-}" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+cleanup_running() { rm -f "$RUNNING" 2>/dev/null || true; }
+trap cleanup_running EXIT INT TERM
+TASK_ID="$(basename "$RUN_DIR")"
 
 # Build agy args.
 AGY_ARGS=( --print "$(cat "$BRIEF")"
@@ -104,13 +114,21 @@ elif [ -f "$CONV_FILE" ]; then
   AGY_ARGS+=( --conversation "$(cat "$CONV_FILE")" )
 fi
 
+STARTED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Publish the live marker now — agy is about to run.
+printf '{"kind":"agy","task":"%s","pid":%d,"model":"%s","effort":"%s","iteration":"%s","workspace":"%s","brief":"%s","started":"%s","continue":"%s"}\n' \
+  "$(json_str "$TASK_ID")" "$$" "$(json_str "$MODEL")" "$(json_str "$EFFORT")" \
+  "$(json_str "$ITER")" "$(json_str "$DIR")" "$(json_str "$BRIEF")" \
+  "$STARTED" "$(json_str "$CONTINUE")" > "$RUNNING"
+
 {
   echo "===================================================================="
   echo "AGY ITERATION $ITER  |  model=$MODEL effort=$EFFORT timeout=$TIMEOUT"
   echo "workspace=$DIR"
   [ -n "$CONTINUE" ] && echo "resuming conversation=$CONTINUE"
   echo "brief=$BRIEF ($(wc -l < "$BRIEF" | tr -d ' ') lines)"
-  echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "started=$STARTED"
   echo "--------------------------------------------------------------------"
 } | tee -a "$TRANSCRIPT"
 
