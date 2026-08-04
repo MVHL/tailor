@@ -112,6 +112,40 @@
   .track{flex:1;height:7px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden}
   .fill{height:100%}
   .barrow .val{width:28px;text-align:right;font-family:var(--mono);color:var(--dim);flex:none}
+  /* framing items (P/R/NG/AC/T/IM) — linked chips, click to trace the chain */
+  .grp{margin-bottom:13px}
+  .grp-h{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;
+         letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px}
+  .grp-n{color:var(--faint);font-weight:600;letter-spacing:0}
+  .item{display:flex;gap:7px;padding:5px 6px;border-radius:7px;cursor:pointer;
+        border-left:2px solid transparent;transition:opacity .15s,background .12s}
+  .item:hover{background:var(--panel2)}
+  .item.lit{background:var(--panel2)}
+  .item.dim{opacity:.18}
+  .item .tx{flex:1;min-width:0;font-size:12.5px;line-height:1.45;overflow-wrap:break-word}
+  .ip{flex:none;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;height:17px;line-height:15px}
+  .ip-P{background:#FEE2E2;color:#DC2626}  .ip-R{background:#DBEAFE;color:#1D4ED8}
+  .ip-AC{background:#DCFCE7;color:#059669} .ip-T{background:#EDE9FE;color:#7C3AED}
+  .ip-IM{background:#FEF3C7;color:#D97706} .ip-NG{background:#F3F4F6;color:#6B7280}
+  .ip-SIG,.ip-ASK{background:#E2E8F0;color:#475569}
+  .refs{display:inline-flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center}
+  .rl{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+  .rt{font-size:9.5px;font-weight:700;padding:0 4px;border-radius:4px;background:var(--panel2);
+      border:1px solid var(--line);color:var(--dim)}
+  .ck{display:flex;align-items:center;gap:7px;font-size:11.5px;margin:3px 0;color:var(--dim)}
+  .ck .m{flex:none;width:12px;text-align:center;font-weight:800}
+  .ck.ok .m{color:var(--good)} .ck.gap .m{color:var(--red)}
+  .ck .cn{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:auto;flex:none}
+  .bigscore{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+  .bigscore .v{font-size:26px;font-weight:750;letter-spacing:-.02em}
+  .bigscore .c{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+  .dimrow{margin:7px 0}
+  .dimtop{display:flex;align-items:baseline;gap:8px;font-size:12px}
+  .dimtop .dl{font-weight:600} .dimtop .dv{margin-left:auto;font-family:var(--mono);font-weight:650}
+  .dimtop .dw{font-size:9.5px;color:var(--faint);font-family:var(--mono)}
+  .dimwhy{font-size:11px;color:var(--faint);margin-top:1px}
+  .capwarn{background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 35%,transparent);
+           color:var(--red);border-radius:7px;padding:6px 9px;font-size:11.5px;margin-bottom:9px}
   .clist{margin:0 0 9px} .clist .h{font-size:12px;font-weight:600;margin:0 0 2px}
   .clist ul{margin:0;padding-left:17px} .clist li{font-size:12.5px;margin:2px 0}
   .clist.bugs .h,.clist.bugs li{color:var(--red)}
@@ -217,7 +251,8 @@ const dot = k => '<span class="sdot '+k+'" title="'+k+'"></span>';
 function deriveData(payload){
   return ((payload&&payload.runs)||[]).map(r=>{
     r.metrics = r.metrics||{};
-    r.score = num(r.metrics.overall_score);
+    // output quality (content-based) is the headline score; fall back to the recorded one
+    r.score = r.quality ? r.quality.overall : num(r.metrics.overall_score);
     r.children = r.children||[];
     return r;
   });
@@ -275,9 +310,11 @@ function taskRowHtml(r){
   const caret='<span class="caret '+(hasKids?(open?'open':''):'leaf')+'">▶</span>';
   const model=r.model?'<span class="mtag">'+esc(r.model)+'</span>':'';
   const warn=r.needsAttention?'<span class="warn'+(["blocked","failed"].includes(r.status)?' red':'')+'" title="'+esc(r.attention||'needs attention')+'">⚠</span>':'';
-  const right=r.score!=null
+  // framing score (input health) stays muted; output score is the headline
+  const fr=r.framingScore!=null?'<span class="rmeta" title="framing score">f'+r.framingScore+'</span>':'';
+  const right=fr+(r.score!=null
       ? '<span class="scoreb '+scoreCls(r.score)+'">'+r.score+'</span>'
-      : (r.live?'<span class="rmeta">live</span>':'<span class="rmeta">'+esc(r.stage||r.status||"")+'</span>');
+      : (r.live?'<span class="rmeta">live</span>':'<span class="rmeta">'+esc(r.stage||r.status||"")+'</span>'));
   const cls='row task'+(sel&&sel.taskKey===k&&sel.childIdx==null?' sel':'');
   return '<div class="'+cls+'" data-k="'+esc(k)+'">'+caret+dot(taskStatusKey(r))
     +'<span class="nm">'+esc(r.title||r.task)+'</span>'
@@ -307,27 +344,64 @@ function renderTree(){
   $("#foot").textContent = rows.length+" of "+data.filter(x=>!x.synthetic).length+" session(s)";
 }
 
-/* ---------- left panel: framing (input) ---------- */
-function docHtml(t){
-  if(!t) return "";
-  return t.split("\n").map(function(ln){
-    const e=esc(ln);
-    if(/^#{1,6}\s/.test(ln))    return '<div class="dh">'+e.replace(/^#{1,6}\s/,'')+'</div>';
-    if(/^\s*[-*]\s/.test(ln))   return '<div class="dli">'+e.replace(/^\s*[-*]\s/,'• ')+'</div>';
-    if(ln.trim()==="")          return '<div class="dsp"></div>';
-    return '<div class="dp">'+e+'</div>';
+/* ---------- left panel: framing as a linked item graph (input) ---------- */
+const GROUPS=[["P","Problems","why"],["R","Requirements","what"],["NG","Non-Goals","won't do"],
+              ["AC","Acceptance Criteria","done means"],["T","Test Plan","proves"],
+              ["IM","Impl Plan","how"]];
+const REFLABEL={P:"evidence",R:"solves",AC:"covers",T:"covers",IM:"implements",NG:"deferred"};
+let traceId=null;   // currently traced item id
+
+function itemHtml(it){
+  const refs=(it.refs||[]).concat(it.tags||[]);
+  const rl=refs.length?'<div class="refs"><span class="rl">'+(REFLABEL[it.kind]||"refs")+'</span>'
+      +refs.map(x=>'<span class="rt">'+esc(x)+'</span>').join("")+'</div>':"";
+  return '<div class="item" data-id="'+esc(it.id)+'"><span class="ip ip-'+esc(it.kind)+'">'
+    +esc(it.id)+'</span><div class="tx">'+esc(it.text||"")+rl+'</div></div>';
+}
+function framingHtml(a){
+  const f=a.framing; if(!f) return "";
+  let h='<div class="bigscore"><span class="v '+scoreCls(f.score)+'">'+f.score+'</span>'
+       +'<span class="c">framing score</span></div>';
+  h+=f.checks.map(function(c){
+    const ok=c.ratio===1;
+    return '<div class="ck '+(ok?'ok':'gap')+'"><span class="m">'+(ok?'✓':'!')+'</span>'
+      +'<span>'+esc(c.name)+(ok?'':' — '+esc(c.detail))+'</span>'
+      +'<span class="cn">'+c.ok+'/'+c.total+'</span></div>';
   }).join("");
+  return h;
 }
 function renderLeft(){
   const r = sel ? findTask(sel.taskKey) : null;
   const cx=$("#leftCx"), body=$("#leftBody");
   if(!r){ cx.textContent=""; body.innerHTML='<div class="hint">Select a session to see its framing.</div>'; return; }
   cx.textContent = r.repo+" · "+r.task;
-  let h='<div class="stat-line"><span class="pill">'+esc(r.stage||r.status||"")+'</span></div>';
-  if(r.spec)      h+='<div class="doc">'+docHtml(r.spec)+'</div>';
-  else            h+='<div class="none">No framing captured (no spec.md for this task).</div>';
-  if(r.brief){    h+='<div class="h4">Brief to agy</div><pre class="out">'+esc(r.brief)+'</pre>'; }
+  const a=r.artifacts;
+  if(!a||!a.items.length){
+    body.innerHTML='<div class="none">No framing artifacts parsed — this task has no tagged '
+      +'spec.md / TP.md / IP.md items yet.</div>'; return; }
+  let h=framingHtml(a);
+  GROUPS.forEach(function(g){
+    const list=a.items.filter(i=>i.kind===g[0]);
+    if(!list.length) return;
+    h+='<div class="grp"><div class="grp-h"><span class="ip ip-'+g[0]+'">'+g[0]+'</span>'
+      +'<span>'+g[1]+'</span><span class="grp-n">'+list.length+' · '+g[2]+'</span></div>'
+      +list.map(itemHtml).join("")+'</div>';
+  });
+  h+='<div class="none" style="margin-top:4px">Click an item to trace its chain; click again to clear.</div>';
   body.innerHTML=h;
+  applyTrace();
+}
+function applyTrace(){
+  const r=sel?findTask(sel.taskKey):null;
+  const rel=(r&&r.artifacts&&r.artifacts.rel)||{};
+  const nodes=$("#leftBody").querySelectorAll(".item");
+  nodes.forEach(function(n){
+    n.classList.remove("lit","dim");
+    if(!traceId) return;
+    const id=n.getAttribute("data-id");
+    if(id===traceId||(rel[traceId]||[]).indexOf(id)>=0) n.classList.add("lit");
+    else n.classList.add("dim");
+  });
 }
 
 /* ---------- right panel: output ---------- */
@@ -343,24 +417,35 @@ function clist(cls,title,items){
   return '<div class="clist '+cls+'"><div class="h">'+title+'</div><ul>'
     +items.map(i=>'<li>'+esc(i)+'</li>').join("")+'</ul></div>';
 }
+function dimRow(d){
+  const c=d.score>=80?"var(--good)":d.score>=50?"var(--amber)":"var(--red)";
+  return '<div class="dimrow"><div class="dimtop"><span class="dl">'+esc(d.label)+'</span>'
+    +'<span class="dw">×'+d.weight+'</span>'
+    +'<span class="dv '+scoreCls(d.score)+'">'+d.score+'</span></div>'
+    +'<div class="track" style="margin-top:3px"><span class="fill" style="width:'+d.score+'%;background:'+c+'"></span></div>'
+    +'<div class="dimwhy">'+esc(d.why||"")+'</div></div>';
+}
 function taskOutputHtml(r){
-  const m=r.metrics||{}, cl=r.closing||{};
-  const hasScore = (m.overall_score!=null)||m.frame||m.plan||m.delegate||m.review;
+  const cl=r.closing||{}, q=r.quality;
   const anyClosing = (cl.assumptions&&cl.assumptions.length)||(cl.problems&&cl.problems.length)
                    ||(cl.bugs&&cl.bugs.length)||(cl.issues&&cl.issues.length);
-  let h="";
-  h+='<div class="stat-line"><span class="pill">'+esc(r.status||"")+'</span>'
+  let h='<div class="stat-line"><span class="pill">'+esc(r.status||"")+'</span>'
     +(r.tests?'<span class="pill">tests: '+esc(r.tests)+'</span>':'')
-    +(r.score!=null?'<span class="pill">score '+r.score+'</span>':'')+'</div>';
-  if(r.whatShipped) h+='<div class="h4">What shipped</div><div style="color:var(--ink);margin-bottom:4px">'+esc(r.whatShipped)+'</div>';
-  h+='<div class="h4">Scores</div>';
-  h+= hasScore ? (bar("frame",(m.frame||{}).score)+bar("plan",(m.plan||{}).score)
-        +bar("delegate",(m.delegate||{}).score)+bar("review",(m.review||{}).score)+bar("overall",r.score))
-      : '<div class="none">Not reviewed yet.</div>';
-  h+='<div class="h4">Closing record</div>';
-  h+= anyClosing ? (clist("","Assumptions",cl.assumptions)+clist("","Discovered problems",cl.problems)
-        +clist("bugs","Possible bugs",cl.bugs)+clist("","Open issues",cl.issues))
-      : '<div class="none">No closing record yet'+(r.status==="done"?'.':' — task is '+esc(r.stage||r.status||"in progress")+'.')+'</div>';
+    +(r.iterations!=null?'<span class="pill">'+r.iterations+' iter</span>':'')+'</div>';
+  if(r.whatShipped) h+='<div class="h4">What shipped</div><div style="color:var(--ink)">'+esc(r.whatShipped)+'</div>';
+  if(q){
+    h+='<div class="h4">Output quality</div>';
+    h+='<div class="bigscore"><span class="v '+scoreCls(q.overall)+'">'+q.overall+'</span>'
+      +'<span class="c">weighted from the sections below</span></div>';
+    if(q.caps&&q.caps.length) h+='<div class="capwarn">capped at 40 — '+esc(q.caps.join(", "))+'</div>';
+    h+=q.dims.map(dimRow).join("");
+  }else{
+    h+='<div class="h4">Output quality</div><div class="none">Not reviewed yet — no score until the task closes.</div>';
+  }
+  h+='<div class="h4">Findings</div>';
+  h+= anyClosing ? (clist("bugs","Possible bugs",cl.bugs)+clist("","Discovered problems",cl.problems)
+        +clist("","Assumptions",cl.assumptions)+clist("","Open issues",cl.issues))
+      : '<div class="none">No findings recorded'+(r.status==="done"?'.':' — task is '+esc(r.stage||r.status||"in progress")+'.')+'</div>';
   h+='<div class="path">'+esc(r.recordPath||r.runPath||"")+'</div>';
   return h;
 }
@@ -406,7 +491,12 @@ function ensureSelection(){
   sel = pick ? {taskKey:keyOf(pick), childIdx:null} : null;
   if(pick && pick.children.length) expanded.add(keyOf(pick));
 }
-function selectTask(k){ sel={taskKey:k,childIdx:null}; const r=findTask(k); if(r&&r.children.length) expanded.add(k); renderAll(); }
+function selectTask(k){
+  if(!sel||sel.taskKey!==k) traceId=null;      // a trace belongs to one task's graph
+  sel={taskKey:k,childIdx:null};
+  const r=findTask(k); if(r&&r.children.length) expanded.add(k);
+  renderAll();
+}
 function selectChild(k,i){ sel={taskKey:k,childIdx:i}; renderAll(); }
 function toggleExpand(k){ if(expanded.has(k))expanded.delete(k); else expanded.add(k); renderTree(); }
 
@@ -443,6 +533,12 @@ function bindOnce(){
     }else{
       selectChild(k, +row.getAttribute("data-ci"));
     }
+  };
+  $("#leftBody").onclick=(ev)=>{
+    const it=ev.target.closest(".item"); if(!it) return;
+    const id=it.getAttribute("data-id");
+    traceId = (traceId===id) ? null : id;   // click again to clear
+    applyTrace();
   };
   ["#q","#fStatus","#fRepo"].forEach(s=>$(s).oninput=()=>{ ensureSelection(); renderAll(); });
   $("#fAttn").onchange=()=>{ ensureSelection(); renderAll(); };

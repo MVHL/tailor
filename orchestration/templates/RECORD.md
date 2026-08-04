@@ -14,13 +14,18 @@ realizes: []                 # [AC1, IM2] this run realized
 iterations: 0                # agy review-loop rounds
 tests: <pass | fail | n/a>
 mr: <link | ">
-# metrics — see templates/scoring.md. 0–100 per step; raw analytics alongside.
+# metrics — see templates/scoring.md.
+#   The board DERIVES both scores: the framing score from the P/R/AC/T/IM graph, and the
+#   output score from the review counts + the closing sections below. Record the raw counts
+#   honestly and the scores follow — do not hand-write an overall.
 metrics:
-  frame:    { score: 0, grill_rounds: 0, decisions: 0, acs: 0, reframes: 0 }
-  plan:     { score: 0, tests_planned: 0, red_captured: false }
-  delegate: { score: 0, iterations: 0, agy_turns: 0, timeouts: 0, tokens: 0, seconds: 0 }
-  review:   { score: 0, ac_good: 0, ac_flagged: 0, ac_overdue: 0, security_findings: 0 }
-  overall_score: 0
+  frame:    { grill_rounds: 0, decisions: 0, acs: 0, reframes: 0 }
+  plan:     { tests_planned: 0, red_captured: false }
+  delegate: { iterations: 0, agy_turns: 0, timeouts: 0, tokens: 0, seconds: 0 }
+  review:   { ac_good: 0, ac_flagged: 0, ac_overdue: 0, security_findings: 0 }
+  # optional — override a derived output dimension when judgement beats arithmetic.
+  # Keys: acceptance | tests | defects | security | risk | followups
+  # quality: { followups: 90 }
 ---
 
 # RECORD — <TASK_ID>: <title>

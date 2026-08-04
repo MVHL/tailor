@@ -261,6 +261,151 @@ def _read_text(path, limit=12000):
         return ""
     return (t[:limit] + "\n…(truncated)") if len(t) > limit else t
 
+# ---------- artifact parsing: P/R/NG/AC/T/IM items + their up-links ----------
+#
+# The skills already author these as tagged markdown list items, e.g.
+#   - **R1:** text… solves: P1 · part-of: FEAT1
+#   - **AC1:** text… covers: R1 · in: COMP2
+#   - **T1** [Happy] text… `covers: AC1`
+#   - **IM1** text… `implements: AC1` `in: COMP1`
+# so we parse that convention rather than asking anyone to re-author specs. The result is
+# an item graph the board renders as linked chips (P → R → AC → T/IM).
+
+# the colon may sit inside the bold (`**P1:**`, spec style) or after it (`**T1**`, TP style)
+ITEM_RE = re.compile(r"^\s*[-*]\s+\*\*([A-Z]{1,4})(\d+):?\*\*:?\s*(.*)$")
+LINK_RE = re.compile(
+    r"\b(evidence|solves|covers|implements|part-of|in|deferred to|distilled from)\s*:\s*"
+    r"([^·\n`]*)", re.I)
+ID_RE = re.compile(r"\b([A-Z]{1,4}\d+)\b")
+TRACE_KINDS = ("SIG", "ASK", "P", "R", "NG", "AC", "T", "IM")
+
+def parse_items(text, only=None):
+    """Parse tagged markdown list items into {id, kind, text, refs, tags}."""
+    items, cur = [], None
+    for line in (text or "").splitlines():
+        m = ITEM_RE.match(line)
+        if m:
+            kind, n, rest = m.group(1).upper(), m.group(2), m.group(3)
+            if only and kind not in only:
+                cur = None
+                continue
+            cur = {"id": kind + n, "kind": kind, "raw": rest.strip()}
+            items.append(cur)
+        elif cur is not None:
+            if line.strip() and (line.startswith(" ") or line.startswith("\t")):
+                cur["raw"] += " " + line.strip()
+            elif not line.strip():
+                cur = None            # blank line ends the item
+    for it in items:
+        raw, refs, tags = it.pop("raw"), [], []
+        for lm in LINK_RE.finditer(raw):
+            key, val = lm.group(1).lower(), lm.group(2)
+            for _id in ID_RE.findall(val):
+                bucket = refs if re.match(r"^(SIG|ASK|P|R|NG|AC|T|IM)\d+$", _id) else tags
+                if _id not in bucket:
+                    bucket.append(_id)
+        body = LINK_RE.sub("", raw)
+        body = re.sub(r"`+", "", body)
+        body = re.sub(r"\s*·\s*$", "", body).strip(" ·\t")
+        # drop a trailing orphan link keyword left behind by the substitution
+        body = re.sub(r"\b(evidence|solves|covers|implements|part-of|in|deferred to|"
+                      r"distilled from)\s*:?\s*$", "", body, flags=re.I).strip(" ·,")
+        it["text"], it["refs"], it["tags"] = body, refs, tags
+    return items
+
+def build_relations(items):
+    """Trace map: id -> its ancestors ∪ descendants (its dependency chain).
+
+    Directed on purpose. An undirected walk would leak sibling branches in through shared
+    hubs (every P cites SIG1, so P1 would "relate" to every other problem's subtree).
+    """
+    known = {it["id"] for it in items}
+    up = {it["id"]: [r for r in it["refs"] if r in known] for it in items}
+    down = {}
+    for src, targets in up.items():
+        for t in targets:
+            down.setdefault(t, []).append(src)
+
+    def walk(start, edges):
+        seen, stack = set(), list(edges.get(start, []))
+        while stack:
+            cur = stack.pop()
+            if cur in seen or cur == start:
+                continue
+            seen.add(cur)
+            stack.extend(edges.get(cur, []))
+        return seen
+
+    return {_id: sorted(walk(_id, up) | walk(_id, down)) for _id in known}
+
+def framing_quality(items):
+    """Score the FRAMING itself from its own structure: coverage + traceability.
+
+    Each check is a ratio (share of items that pass), so the score degrades in proportion
+    to how many items are broken — a low score always means more real gaps, not one flag.
+    """
+    by = lambda k: [i for i in items if i["kind"] == k]
+    P, R, AC, T, IM, NG = (by(k) for k in ("P", "R", "AC", "T", "IM", "NG"))
+    ids = lambda xs: {i["id"] for i in xs}
+    refs_to = lambda xs, target_ids: {r for i in xs for r in i["refs"] if r in target_ids}
+
+    checks = []
+    def add(name, ok_n, total, detail, weight=1.0):
+        if total <= 0:
+            return
+        checks.append({"name": name, "ratio": ok_n / total, "ok": ok_n, "total": total,
+                       "detail": detail, "weight": weight})
+
+    covered_P = refs_to(R, ids(P))
+    add("Every problem has a requirement", len(covered_P), len(P),
+        "problems with no requirement solving them")
+    add("No orphan requirement", sum(1 for r in R if any(x in ids(P) for x in r["refs"])),
+        len(R), "requirements that trace to no problem")
+    covered_R = refs_to(AC, ids(R))
+    add("Every requirement has an AC", len(covered_R), len(R),
+        "requirements with no acceptance criterion")
+    add("No orphan AC", sum(1 for a in AC if any(x in ids(R) for x in a["refs"])),
+        len(AC), "ACs that cover no requirement")
+    if T:
+        tested = refs_to(T, ids(AC))
+        add("Every AC has a test", len(tested), len(AC), "ACs with no test in the TP", 1.2)
+    if IM:
+        built = refs_to(IM, ids(AC))
+        add("Every AC has an impl step", len(built), len(AC), "ACs with no step in the IP")
+    if P or R:
+        add("Scope bounded (non-goals stated)", 1 if NG else 0, 1,
+            "no non-goals recorded — scope is unbounded", 0.5)
+
+    if not checks:
+        return None
+    wsum = sum(c["weight"] for c in checks)
+    score = round(100 * sum(c["ratio"] * c["weight"] for c in checks) / wsum)
+    return {"score": score, "checks": checks,
+            "counts": {"P": len(P), "R": len(R), "AC": len(AC),
+                       "NG": len(NG), "T": len(T), "IM": len(IM)}}
+
+def scan_artifacts(run_dir):
+    """Parse spec.md + TP.md + IP.md into one linked item graph for this run."""
+    items = []
+    spec = os.path.join(run_dir, "spec.md")
+    if os.path.exists(spec):
+        items += parse_items(_read_text(spec, 40000),
+                             only=("SIG", "ASK", "P", "R", "NG", "AC"))
+    tp = os.path.join(run_dir, "TP.md")
+    if os.path.exists(tp):
+        items += parse_items(_read_text(tp, 30000), only=("T",))
+    ip = os.path.join(run_dir, "IP.md")
+    if os.path.exists(ip):
+        items += parse_items(_read_text(ip, 30000), only=("IM",))
+    if not items:
+        return None
+    seen, uniq = set(), []
+    for it in items:                      # ids are unique per kind; keep first wins
+        if it["id"] in seen:
+            continue
+        seen.add(it["id"]); uniq.append(it)
+    return {"items": uniq, "rel": build_relations(uniq), "framing": framing_quality(uniq)}
+
 def scan_delegations(run_dir):
     """Read a run's delegations.jsonl (one agy sub-session per line), oldest→newest."""
     path = os.path.join(run_dir, "delegations.jsonl")
@@ -297,6 +442,103 @@ def sub_child(a):
             "started": a.get("started", ""), "finished": a.get("finished", ""),
             "id": a.get("id", "")}
 
+# ---------- output quality: sub-scores that roll up to the overall ----------
+#
+# Content quality, not process throughput: every dimension is driven by countable evidence
+# from the closing record, so "more problems recorded" always means "lower score". A run
+# may override any dimension by writing `metrics.quality: { tests: 80, … }` in RECORD.md.
+
+QUALITY_DIMS = [
+    ("acceptance", "Acceptance", 0.30),
+    ("tests",      "Tests",      0.25),
+    ("defects",    "Defects",    0.20),
+    ("security",   "Security",   0.10),
+    ("risk",       "Assumptions & risk", 0.08),
+    ("followups",  "Open follow-ups",    0.07),
+]
+
+def _clamp(v):
+    return max(0, min(100, int(round(v))))
+
+def output_quality(rec, framing=None):
+    """Per-dimension output scores + the rolled-up overall. Returns None pre-review."""
+    m = rec.get("metrics") or {}
+    rv = m.get("review") or {}
+    dl = m.get("delegate") or {}
+    cl = rec.get("closing") or {}
+    override = m.get("quality") if isinstance(m.get("quality"), dict) else {}
+
+    n_bugs = len(cl.get("bugs") or [])
+    n_assume = len(cl.get("assumptions") or [])
+    n_issues = len(cl.get("issues") or [])
+    n_probs = len(cl.get("problems") or [])
+    sec = num_or(rv.get("security_findings"), 0)
+    good = num_or(rv.get("ac_good"), 0)
+    flagged = num_or(rv.get("ac_flagged"), 0)
+    overdue = num_or(rv.get("ac_overdue"), 0)
+    graded = good + flagged + overdue
+
+    dims, why = {}, {}
+    # Acceptance — how many ACs actually landed good
+    if graded:
+        dims["acceptance"] = _clamp(100 * (good + 0.5 * flagged) / graded)
+        why["acceptance"] = "%d good · %d flagged · %d failed" % (good, flagged, overdue)
+    elif rec.get("tests") in ("pass", "fail"):
+        dims["acceptance"] = 100 if rec["tests"] == "pass" else 0
+        why["acceptance"] = "no per-AC grading; tests %s" % rec["tests"]
+    # Tests — did they pass, and was red→green actually proven
+    t = rec.get("tests")
+    if t in ("pass", "fail"):
+        base = 100 if t == "pass" else 0
+        if t == "pass" and (m.get("plan") or {}).get("red_captured") is False:
+            base -= 25                      # green with no proven red = weak evidence
+            why["tests"] = "pass, but no red state captured"
+        else:
+            why["tests"] = "tests %s" % t
+        dims["tests"] = _clamp(base)
+    # Defects — each recorded possible bug is a real deduction
+    dims["defects"] = _clamp(100 - 25 * n_bugs)
+    why["defects"] = "%d possible bug(s)" % n_bugs
+    # Security — unresolved findings bite hard
+    dims["security"] = _clamp(100 - 34 * sec)
+    why["security"] = "%d finding(s)" % sec
+    # Assumptions & discovered problems = carried risk
+    dims["risk"] = _clamp(100 - 12 * n_assume - 8 * n_probs)
+    why["risk"] = "%d assumption(s) · %d discovered problem(s)" % (n_assume, n_probs)
+    # Debt left behind
+    dims["followups"] = _clamp(100 - 15 * n_issues)
+    why["followups"] = "%d open issue(s)" % n_issues
+
+    for k, v in override.items():
+        if isinstance(v, (int, float)):
+            dims[k] = _clamp(v)
+            why[k] = "set in RECORD"
+
+    present = [(k, lbl, w) for k, lbl, w in QUALITY_DIMS if k in dims]
+    if not present:
+        return None
+    wsum = sum(w for _, _, w in present)
+    overall = _clamp(sum(dims[k] * w for k, _, w in present) / wsum)
+
+    caps = []
+    if rec.get("status") == "blocked":
+        caps.append("blocked")
+    if rec.get("tests") == "fail":
+        caps.append("tests failing")
+    if caps:
+        overall = min(overall, 40)
+
+    return {"overall": overall,
+            "dims": [{"key": k, "label": lbl, "weight": w,
+                      "score": dims[k], "why": why.get(k, "")} for k, lbl, w in present],
+            "caps": caps,
+            "counts": {"bugs": n_bugs, "assumptions": n_assume, "issues": n_issues,
+                       "problems": n_probs, "security": sec,
+                       "iterations": num_or(dl.get("iterations"), None)}}
+
+def num_or(v, default):
+    return v if isinstance(v, (int, float)) else default
+
 # ---------- attention logic ----------
 
 def attention(rec):
@@ -311,10 +553,11 @@ def attention(rec):
         return "awaiting review sign-off"
     if rec.get("tests") == "fail":
         return "tests failing"
-    m = rec.get("metrics") or {}
-    score = m.get("overall_score")
+    q = rec.get("quality") or {}
+    score = q.get("overall", (rec.get("metrics") or {}).get("overall_score"))
     if isinstance(score, (int, float)) and score < 60:
-        return f"low score ({score})"
+        weakest = min(q.get("dims") or [], key=lambda d: d["score"], default=None)
+        return "low score (%s)%s" % (score, " — weakest: " + weakest["label"] if weakest else "")
     if rec.get("closing", {}).get("bugs"):
         return "possible bugs recorded"
     if status == "in-progress":
@@ -354,13 +597,12 @@ def scan_repo(repo):
                 with open(spec, encoding="utf-8", errors="replace") as fh:
                     first = fh.readline().strip("# \n")
                 rec["title"] = first or task_id
-        # framing (left panel input): the spec P/R/NG/AC, plus brief if present
-        spec_path = os.path.join(run_dir, "spec.md")
-        if os.path.exists(spec_path):
-            rec["spec"] = _read_text(spec_path)
-        brief_path = os.path.join(run_dir, "brief.md")
-        if os.path.exists(brief_path):
-            rec["brief"] = _read_text(brief_path, 8000)
+        # framing (left panel): the parsed P/R/NG/AC/T/IM item graph + its quality
+        arts = scan_artifacts(run_dir)
+        if arts:
+            rec["artifacts"] = arts
+            if arts.get("framing"):
+                rec["framingScore"] = arts["framing"]["score"]
 
         # agy delegations become child sub-sessions; newest running.json (if alive) too
         delegs = scan_delegations(run_dir)
@@ -389,6 +631,7 @@ def scan_repo(repo):
         else:
             rec["model"] = ""
         rec["title"] = rec.get("title") or task_id
+        rec["quality"] = output_quality(rec)
         rec["attention"] = attention(rec)
         rec["needsAttention"] = bool(rec["attention"])
         out.append(rec)
