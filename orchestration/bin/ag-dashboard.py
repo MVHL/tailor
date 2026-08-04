@@ -27,7 +27,27 @@ Usage:
 No third-party dependencies (frontmatter is parsed with a small tolerant parser for the
 known RECORD schema). Open the output file directly, or serve the folder.
 """
-import sys, os, json, glob, re
+import sys, os, json, glob, re, time, html as _html
+
+# A "running" sub-agent breadcrumb older than this with no close event is presumed
+# orphaned (hard-killed session, crashed hook, etc.) rather than genuinely still live.
+STALE_AFTER_SECONDS = 30 * 60
+
+def _json_for_script(payload):
+    """json.dumps, but safe to inline inside a <script> block.
+
+    json.dumps does not escape "</" — if any field in payload (a RECORD.md title,
+    a closing-section bullet, an agy result snippet, ...) contains the literal
+    substring "</script>", a naive inline dump closes the script tag early and the
+    rest is parsed as HTML, corrupting or blanking the page. Escaping the forward
+    slash after "<" is the standard fix (valid inside a JS string; browsers don't
+    require "/" to be escaped, so this changes nothing else about the JSON).
+    """
+    return json.dumps(payload).replace("</", "<\\/")
+
+def _escape_title(title):
+    """HTML-escape a --title value before inlining into <title>/<h1> text nodes."""
+    return _html.escape(title, quote=True)
 
 _HERE = os.path.dirname(os.path.realpath(__file__))  # realpath: resolve the PATH symlink
 # Template lives in ../templates when run from source, or next to the script when
@@ -187,8 +207,28 @@ def scan_running(run_dir):
     mark["marker"] = "running.json"
     return mark
 
+def _seconds_since(iso_ts):
+    """Best-effort age in seconds for an ISO-8601 UTC 'started' timestamp."""
+    if not iso_ts:
+        return None
+    try:
+        import calendar
+        t = time.strptime(iso_ts, "%Y-%m-%dT%H:%M:%SZ")
+        return time.time() - calendar.timegm(t)
+    except ValueError:
+        return None
+
 def scan_agents(repo):
-    """Read committed Claude sub-agent breadcrumbs from .orchestration/agents/."""
+    """Read committed Claude sub-agent breadcrumbs from .orchestration/agents/.
+
+    A breadcrumb is only closed by a matching PostToolUse hook firing (see
+    ag-agent-hook.py). A hard-killed session, crashed hook, or SIGKILL'd sub-agent
+    never fires that event, so `status` can be stuck at "running" forever with no
+    self-healing path (CLAUDE.md documents this as a known gap). Rather than trust
+    a stale "running" status at face value indefinitely, treat one older than
+    STALE_AFTER_SECONDS as presumed-orphaned: don't render it as live, and surface
+    it distinctly ("stale") so it doesn't read as an active, in-progress agent.
+    """
     repo = os.path.abspath(repo)
     adir = os.path.join(repo, ".orchestration", "agents")
     repo_name = os.path.basename(repo.rstrip("/"))
@@ -202,11 +242,24 @@ def scan_agents(repo):
         rec["repo"] = repo_name
         rec["repoPath"] = repo
         rec["path"] = f
-        rec["live"] = rec.get("status") == "running"
+        running = rec.get("status") == "running"
+        age = _seconds_since(rec.get("started")) if running else None
+        stale = bool(running and age is not None and age > STALE_AFTER_SECONDS)
+        if stale:
+            rec["status"] = "stale"
+        rec["live"] = running and not stale
         out.append(rec)
     # newest first by start time
     out.sort(key=lambda r: r.get("started", ""), reverse=True)
     return out
+
+def _read_text(path, limit=12000):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            t = fh.read(limit + 1)
+    except OSError:
+        return ""
+    return (t[:limit] + "\n…(truncated)") if len(t) > limit else t
 
 def scan_delegations(run_dir):
     """Read a run's delegations.jsonl (one agy sub-session per line), oldest→newest."""
@@ -301,9 +354,23 @@ def scan_repo(repo):
                 with open(spec, encoding="utf-8", errors="replace") as fh:
                     first = fh.readline().strip("# \n")
                 rec["title"] = first or task_id
+        # framing (left panel input): the spec P/R/NG/AC, plus brief if present
+        spec_path = os.path.join(run_dir, "spec.md")
+        if os.path.exists(spec_path):
+            rec["spec"] = _read_text(spec_path)
+        brief_path = os.path.join(run_dir, "brief.md")
+        if os.path.exists(brief_path):
+            rec["brief"] = _read_text(brief_path, 8000)
+
         # agy delegations become child sub-sessions; newest running.json (if alive) too
         delegs = scan_delegations(run_dir)
-        agy_children = [agy_child(d) for d in delegs]
+        agy_children = []
+        for d in delegs:
+            c = agy_child(d)
+            rp = os.path.join(run_dir, "result.iter%s.txt" % (d.get("iteration") or ""))
+            if os.path.exists(rp):
+                c["result_full"] = _read_text(rp, 6000)
+            agy_children.append(c)
         run = scan_running(run_dir)
         if run:
             rec["running"] = run
@@ -411,8 +478,8 @@ def render_static(repos, title, out_file):
     payload = build_payload(repos, title)
     with open(TEMPLATE, encoding="utf-8") as fh:
         html = fh.read()
-    html = html.replace("/*__AG_DATA__*/null", json.dumps(payload))
-    html = html.replace("__AG_TITLE__", title)
+    html = html.replace("/*__AG_DATA__*/null", _json_for_script(payload))
+    html = html.replace("__AG_TITLE__", _escape_title(title))
     with open(out_file, "w", encoding="utf-8") as fh:
         fh.write(html)
     print(f"wrote {out_file} — {len(payload['runs'])} run(s) from {len(repos)} repo(s)")
@@ -421,7 +488,7 @@ def serve(repos, title, port):
     """Local read-only live server. Binds to 127.0.0.1 only. Re-scans on each /api/runs."""
     import http.server, socketserver
     with open(TEMPLATE, encoding="utf-8") as fh:
-        page = fh.read().replace("/*__AG_LIVE__*/false", "true").replace("__AG_TITLE__", title)
+        page = fh.read().replace("/*__AG_LIVE__*/false", "true").replace("__AG_TITLE__", _escape_title(title))
     page_bytes = page.encode("utf-8")
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -437,6 +504,8 @@ def serve(repos, title, port):
         def do_GET(self):
             path = self.path.split("?", 1)[0]
             if path == "/api/runs":
+                # served as its own JSON response (not inlined into <script>), so plain
+                # json.dumps is fine here — no "</script>" html-parser risk over this path.
                 body = json.dumps(build_payload(repos, title)).encode("utf-8")
                 self._send(body, "application/json; charset=utf-8")
             elif path in ("/", "/index.html"):
