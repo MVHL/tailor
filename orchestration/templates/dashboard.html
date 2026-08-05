@@ -5,568 +5,413 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__AG_TITLE__</title>
 <style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2b3444;
     --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7684;
-    --accent:#4c8dff; --good:#2ea043; --amber:#d29922; --red:#e5534b;
-    --violet:#a371f7; --blue:#4c8dff;
-    --radius:12px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --good:#2ea043; --amber:#d29922; --red:#e5534b; --blue:#4c8dff;
+    --violet:#a371f7; --teal:#1f9c9c; --human:#e3b341;
   }
-  @media (prefers-color-scheme:light){
-    :root{ --bg:#f6f8fa; --panel:#fff; --panel2:#eef1f5; --line:#d8dee4;
-           --ink:#1f2328; --dim:#57606a; --faint:#8c959f; }
-  }
-  :root[data-theme="dark"]{ --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --line:#2b3444;
-    --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7684; }
-  :root[data-theme="light"]{ --bg:#f6f8fa; --panel:#fff; --panel2:#eef1f5; --line:#d8dee4;
-    --ink:#1f2328; --dim:#57606a; --faint:#8c959f; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
-       font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  /* full-bleed: use the whole window. The cap only stops columns turning into
-     unreadably long lines on an ultrawide — it's above any normal monitor. */
-  .wrap{max-width:2400px;margin:0 auto;padding:22px 26px 60px}
-  header.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
-  h1{font-size:20px;margin:0 0 3px;letter-spacing:-.01em}
-  .sub{color:var(--dim);font-size:12.5px}
-  .sub code{font-family:var(--mono);font-size:11.5px}
-  .hgroup{display:flex;align-items:center;gap:12px}
-  .toggle{background:var(--panel);border:1px solid var(--line);color:var(--dim);
-          border-radius:20px;padding:6px 12px;cursor:pointer;font-size:12px}
-  .toggle:hover{color:var(--ink)}
+  body{background:var(--bg);color:var(--ink);line-height:1.5;
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:1.4rem 1.2rem 4rem}
+  a{color:var(--blue);text-decoration:none} a:hover{text-decoration:underline}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
-  .kpis{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:14px;padding:10px 16px;
-        background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
-  .kpi .n{font-size:19px;font-weight:650;letter-spacing:-.02em}
-  .kpi .l{color:var(--faint);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
-  .kpi.alert .n{color:var(--red)}
+  header.top{display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap;margin-bottom:.5rem}
+  h1{font-size:1.15rem;font-weight:800;letter-spacing:-.01em}
+  .sub{font-size:.74rem;color:var(--faint)}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--good);
+    display:inline-block;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
-  /* three-panel board */
-  /* Sides carry the prose (spec items, findings) so they get the most room; the middle
-     is a scannable list of short rows and needs the least. */
-  .board{display:grid;grid-template-columns:minmax(360px,1.15fr) minmax(380px,0.95fr) minmax(360px,1.15fr);
-         gap:16px;align-items:start}
-  @media(max-width:1400px){ .board{grid-template-columns:minmax(320px,1fr) minmax(340px,1fr) minmax(320px,1fr);gap:14px} }
-  @media(max-width:1240px){ .board{grid-template-columns:1fr} #mid{order:-1} }
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  .side{position:sticky;top:16px;max-height:calc(100vh - 34px);display:flex;flex-direction:column}
-  @media(max-width:1240px){ .side{position:static;max-height:none} }
-  .phead{padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;
-         justify-content:space-between;gap:8px}
-  .phead .h{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600}
-  .phead .cx{font-family:var(--mono);font-size:11px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pbody{padding:15px 18px;overflow:auto}
-  .side .pbody{flex:1}
+  /* ── KPI strip ── */
+  .kpis{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0 1rem}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:9px;
+    padding:.5rem .8rem;min-width:104px}
+  .kpi .n{font-size:1.3rem;font-weight:800;line-height:1.1}
+  .kpi .l{font-size:.63rem;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
+  .kpi.warn .n{color:var(--human)} .kpi.bad .n{color:var(--red)}
 
-  /* middle: controls + tree */
-  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:11px 12px;border-bottom:1px solid var(--line)}
-  select,input[type=search]{background:var(--bg);border:1px solid var(--line);color:var(--ink);
-    border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:var(--sans)}
-  input[type=search]{flex:1;min-width:120px}
-  label.chk{font-size:12px;color:var(--dim);display:inline-flex;gap:6px;align-items:center;cursor:pointer;white-space:nowrap}
-  #tree{padding:8px 8px 12px;max-height:calc(100vh - 210px);overflow:auto}
-  @media(max-width:1240px){ #tree{max-height:none} }
+  section{margin-bottom:1.5rem}
+  h2{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--faint);margin-bottom:.5rem;display:flex;align-items:center;gap:.5rem}
+  h2 .count{background:var(--panel2);border:1px solid var(--line);border-radius:20px;
+    padding:0 .45rem;font-size:.62rem;color:var(--dim)}
 
-  .row{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;
-       border:1px solid transparent}
-  .row:hover{background:var(--panel2)}
-  .row.sel{background:color-mix(in srgb,var(--accent) 15%,transparent);
-           border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
-  .row.child{margin-left:22px}
-  .caret{display:inline-block;width:12px;flex:none;color:var(--faint);font-size:10px;
-         transition:transform .12s;text-align:center}
-  .caret.open{transform:rotate(90deg)} .caret.leaf{opacity:0;cursor:default}
-  .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-  .row.child .nm{font-weight:400}
-  .who{font-family:var(--mono);color:var(--dim)}
-  .mtag{font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--panel2);
-        border:1px solid var(--line);border-radius:5px;padding:0 5px;flex:none}
-  .repo{font-family:var(--mono);font-size:10px;color:var(--faint);flex:none}
-  .rmeta{font-family:var(--mono);font-size:11px;color:var(--faint);flex:none}
-  .scoreb{font-family:var(--mono);font-weight:650;font-size:12px;flex:none}
-  .sc-good{color:var(--good)} .sc-mid{color:var(--amber)} .sc-bad{color:var(--red)}
-  .muted{color:var(--faint)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px}
+  .empty{padding:.9rem 1rem;color:var(--faint);font-size:.78rem}
 
-  .sdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--faint);flex:none}
-  .sdot.done{background:var(--good)} .sdot.failed{background:var(--red)}
-  .sdot.review{background:var(--amber)} .sdot.pending{background:var(--faint)}
-  .sdot.running{background:var(--blue);box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 60%,transparent);
-                animation:pulse 1.7s infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--blue) 55%,transparent)}
-                   70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
-  .warn{cursor:help;color:var(--amber);flex:none}
-  .warn.red{color:var(--red)}
+  /* ── charters ── */
+  .charter{padding:.75rem .9rem;border-bottom:1px solid var(--line)}
+  .charter:last-child{border-bottom:none}
+  .charter-head{display:flex;align-items:baseline;gap:.55rem;flex-wrap:wrap}
+  .cid{font-weight:800;color:var(--violet)}
+  .charter .thesis{font-size:.78rem;color:var(--dim);margin:.25rem 0 .5rem}
+  .slices{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.35rem}
+  .sl{border:1px solid var(--line);border-radius:6px;padding:.18rem .45rem;font-size:.68rem;
+    background:var(--panel2);display:inline-flex;gap:.35rem;align-items:center}
+  .sl.done{border-color:var(--good);color:#9ae6a8}
+  .sl.inflight{border-color:var(--blue);color:#a8c9ff}
+  .sl.cut{opacity:.5;text-decoration:line-through}
+  .sl .slid{font-weight:800}
+  .burn{height:5px;background:var(--panel2);border-radius:4px;overflow:hidden;
+    margin:.45rem 0 .3rem;max-width:320px}
+  .burn i{display:block;height:100%;background:var(--violet)}
 
-  /* side panel content */
-  .stat-line{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--mono);
-        background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
-  .kv{font-family:var(--mono);font-size:11.5px;color:var(--dim);line-height:1.9;word-break:break-word}
-  .h4{margin:14px 0 7px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600}
-  .h4:first-child{margin-top:0}
-  pre.out{white-space:pre-wrap;word-break:break-word;font-family:var(--mono);font-size:12px;
-          line-height:1.55;color:var(--ink);background:var(--bg);border:1px solid var(--line);
-          border-radius:8px;padding:11px 13px;margin:0;max-height:460px;overflow:auto}
-  .barrow{display:flex;align-items:center;gap:9px;margin:5px 0;font-size:12px}
-  .barrow .lab{width:60px;color:var(--dim);flex:none}
-  .track{flex:1;height:7px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden}
-  .fill{height:100%}
-  .barrow .val{width:28px;text-align:right;font-family:var(--mono);color:var(--dim);flex:none}
-  /* framing items (P/R/NG/AC/T/IM) — linked chips, click to trace the chain */
-  .grp{margin-bottom:13px}
-  .grp-h{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;
-         letter-spacing:.09em;text-transform:uppercase;margin-bottom:5px}
-  .grp-n{color:var(--faint);font-weight:600;letter-spacing:0}
-  .item{display:flex;gap:7px;padding:5px 6px;border-radius:7px;cursor:pointer;
-        border-left:2px solid transparent;transition:opacity .15s,background .12s}
-  .item:hover{background:var(--panel2)}
-  .item.lit{background:var(--panel2)}
-  .item.dim{opacity:.18}
-  .item .tx{flex:1;min-width:0;font-size:13px;line-height:1.52;overflow-wrap:break-word}
-  .ip{flex:none;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;height:17px;line-height:15px}
-  .ip-P{background:#FEE2E2;color:#DC2626}  .ip-R{background:#DBEAFE;color:#1D4ED8}
-  .ip-AC{background:#DCFCE7;color:#059669} .ip-T{background:#EDE9FE;color:#7C3AED}
-  .ip-IM{background:#FEF3C7;color:#D97706} .ip-NG{background:#F3F4F6;color:#6B7280}
-  .ip-SIG,.ip-ASK{background:#E2E8F0;color:#475569}
-  .refs{display:inline-flex;flex-wrap:wrap;gap:3px;margin-top:3px;align-items:center}
-  .rl{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
-  .rt{font-size:9.5px;font-weight:700;padding:0 4px;border-radius:4px;background:var(--panel2);
-      border:1px solid var(--line);color:var(--dim)}
-  .ck{display:flex;align-items:center;gap:7px;font-size:11.5px;margin:3px 0;color:var(--dim)}
-  .ck .m{flex:none;width:12px;text-align:center;font-weight:800}
-  .ck.ok .m{color:var(--good)} .ck.gap .m{color:var(--red)}
-  .ck .cn{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-left:auto;flex:none}
-  .bigscore{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
-  .bigscore .v{font-size:26px;font-weight:750;letter-spacing:-.02em}
-  .bigscore .c{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em}
-  .dimrow{margin:7px 0}
-  .dimtop{display:flex;align-items:baseline;gap:8px;font-size:12px}
-  .dimtop .dl{font-weight:600} .dimtop .dv{margin-left:auto;font-family:var(--mono);font-weight:650}
-  .dimtop .dw{font-size:9.5px;color:var(--faint);font-family:var(--mono)}
-  .dimwhy{font-size:11px;color:var(--faint);margin-top:1px}
-  .capwarn{background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 35%,transparent);
-           color:var(--red);border-radius:7px;padding:6px 9px;font-size:11.5px;margin-bottom:9px}
-  .clist{margin:0 0 9px} .clist .h{font-size:12px;font-weight:600;margin:0 0 2px}
-  .clist ul{margin:0;padding-left:17px} .clist li{font-size:13px;line-height:1.5;margin:3px 0}
-  .clist.bugs .h,.clist.bugs li{color:var(--red)}
-  .none{color:var(--faint);font-size:12px}
-  .path{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:10px;word-break:break-all}
-  .hint{color:var(--faint);font-size:12.5px;padding:8px 2px}
+  /* ── grid ── */
+  .gridwrap{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:1080px}
+  th,td{padding:.3rem .35rem;text-align:left;vertical-align:middle}
+  thead th{position:sticky;top:0;background:var(--bg);z-index:2;font-size:.6rem;
+    text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:800;
+    border-bottom:1px solid var(--line);padding-bottom:.45rem;white-space:nowrap}
+  thead th.step{text-align:center;width:44px}
+  thead th.step.human{color:var(--human)}
+  tbody tr{border-bottom:1px solid var(--line)}
+  tbody tr:hover{background:#141a24}
+  td.item{min-width:250px}
+  .iid{font-weight:800;font-family:ui-monospace,Menlo,monospace;font-size:.74rem}
+  .ititle{font-size:.78rem}
+  .meta{font-size:.64rem;color:var(--faint);display:flex;gap:.4rem;flex-wrap:wrap;
+    align-items:center;margin-top:1px}
+  .tag{border:1px solid var(--line);border-radius:5px;padding:0 .3rem;font-size:.6rem;
+    background:var(--panel2);color:var(--dim)}
+  .tag.chart{color:#c9a6ff;border-color:#4b3a6b}
+  .tag.rej{color:var(--faint)}
 
-  footer{margin-top:20px;color:var(--faint);font-size:11.5px;text-align:center}
-  .live{display:none;align-items:center;gap:7px;font-size:11.5px;color:var(--dim)}
-  .live.on{display:inline-flex}
-  .ldot{width:8px;height:8px;border-radius:50%;background:var(--good);animation:pulse2 1.8s infinite}
-  .live.stale .ldot{background:var(--amber);animation:none} .live.err .ldot{background:var(--red);animation:none}
-  @keyframes pulse2{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+  .cell{width:44px;text-align:center}
+  .dot{width:26px;height:22px;border-radius:6px;display:inline-flex;align-items:center;
+    justify-content:center;font-size:.6rem;font-weight:800;border:1px solid var(--line);
+    background:var(--panel2);color:var(--faint);cursor:pointer}
+  .dot.done{background:rgba(46,160,67,.16);border-color:var(--good);color:#9ae6a8}
+  .dot.current{background:rgba(76,141,255,.16);border-color:var(--blue);color:#a8c9ff}
+  .dot.waiting{background:rgba(227,179,65,.18);border-color:var(--human);color:#f0d284}
+  .dot.pending{opacity:.45}
+  .dot.skipped{opacity:.3}
+  .dot.na{opacity:.14;cursor:default}
+  .dot.low{background:rgba(229,83,75,.16);border-color:var(--red);color:#ffb3ae}
+  .dot .f{color:var(--red)}
+
+  .scorecol{width:52px;text-align:right;font-weight:800;font-size:.76rem}
+  .s-hi{color:#9ae6a8}.s-mid{color:#f0d284}.s-lo{color:#ffb3ae}.s-na{color:var(--faint);font-weight:400}
+  .att{font-size:.66rem;color:var(--human);max-width:190px}
+  .att.bad{color:var(--red)}
+
+  /* ── threads ── */
+  .thread{padding:.4rem .8rem;border-bottom:1px solid var(--line);display:flex;gap:.5rem;
+    align-items:baseline;font-size:.76rem}
+  .thread:last-child{border-bottom:none}
+  .tk{font-weight:800;font-size:.6rem;border-radius:4px;padding:.05rem .3rem;flex-shrink:0}
+  .tk.ASM{background:rgba(163,113,247,.18);color:#c9a6ff}
+  .tk.OQ{background:rgba(76,141,255,.18);color:#a8c9ff}
+  .thread .who{color:var(--faint);font-size:.66rem;flex-shrink:0}
+  .thread.block{background:rgba(229,83,75,.07)}
+  .thread.block .flag{color:var(--red);font-size:.62rem;font-weight:800}
+
+  /* ── drawer ── */
+  .drawer{position:fixed;inset:0 0 0 auto;width:min(560px,94vw);background:var(--panel);
+    border-left:1px solid var(--line);padding:1rem 1.1rem 3rem;overflow-y:auto;
+    transform:translateX(100%);transition:transform .18s ease;z-index:20}
+  .drawer.open{transform:none}
+  .drawer h3{font-size:.95rem;font-weight:800;margin-bottom:.15rem}
+  .drawer .x{position:absolute;top:.6rem;right:.8rem;cursor:pointer;color:var(--faint);
+    font-size:1.1rem;background:none;border:none}
+  .io{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:.8rem 0}
+  .io h4{font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);
+    margin-bottom:.3rem}
+  .chip{display:block;border:1px solid var(--line);border-radius:6px;padding:.25rem .45rem;
+    font-size:.7rem;background:var(--panel2);margin-bottom:.25rem}
+  .chip .st{font-size:.6rem;color:var(--faint);float:right}
+  .chk{display:flex;justify-content:space-between;gap:.5rem;font-size:.71rem;
+    padding:.22rem 0;border-bottom:1px dashed var(--line)}
+  .chk:last-child{border-bottom:none}
+  .chk .r{font-weight:800;flex-shrink:0}
+  .chk .d{color:var(--faint);font-size:.65rem}
+  .fnd{font-size:.72rem;padding:.3rem 0;border-bottom:1px dashed var(--line)}
+  .fnd .sev{font-weight:800;font-size:.6rem;text-transform:uppercase}
+  .sev.blocker,.sev.high{color:var(--red)} .sev.medium{color:var(--human)}
+  .sev.low{color:var(--faint)}
+  .note{font-size:.68rem;color:var(--faint);border-left:2px solid var(--line);
+    padding-left:.55rem;margin-top:.7rem}
+  .controls{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem}
+  select,button.btn{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:7px;padding:.25rem .5rem;font-size:.72rem;font-family:inherit}
+  .legend{font-size:.64rem;color:var(--faint);display:flex;gap:.7rem;flex-wrap:wrap;
+    margin-top:.4rem}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div>
-      <h1 id="title">__AG_TITLE__</h1>
-      <div class="sub" id="sub"></div>
-    </div>
-    <div class="hgroup">
-      <span class="live" id="live"><span class="ldot"></span><span id="liveTxt">live</span></span>
-      <button class="toggle" id="pauseBtn" style="display:none">⏸ pause</button>
-      <button class="toggle" id="themeBtn">◐ theme</button>
-    </div>
-  </header>
 
-  <div class="kpis" id="kpis"></div>
+<header class="top">
+  <h1 id="title">__AG_TITLE__</h1>
+  <span class="sub" id="scanline"></span>
+</header>
 
-  <div class="board">
-    <!-- LEFT: input / framing -->
-    <aside class="panel side" id="leftPanel">
-      <div class="phead"><span class="h">Input · Framing</span><span class="cx" id="leftCx"></span></div>
-      <div class="pbody" id="leftBody"></div>
-    </aside>
+<div class="kpis" id="kpis"></div>
 
-    <!-- MIDDLE: process (tasks · sub-tasks · status) -->
-    <main class="panel" id="mid">
-      <div class="controls">
-        <input type="search" id="q" placeholder="filter…">
-        <select id="fStatus"><option value="">all statuses</option></select>
-        <select id="fRepo"><option value="">all repos</option></select>
-        <label class="chk"><input type="checkbox" id="fAttn"> ⚠ only</label>
-      </div>
-      <div id="tree"></div>
-    </main>
+<section>
+  <h2>Charters <span class="count" id="c-count">0</span></h2>
+  <div class="card" id="charters"></div>
+</section>
 
-    <!-- RIGHT: output -->
-    <aside class="panel side" id="rightPanel">
-      <div class="phead"><span class="h">Output</span><span class="cx" id="rightCx"></span></div>
-      <div class="pbody" id="rightBody"></div>
-    </aside>
+<section>
+  <h2>Items × steps <span class="count" id="i-count">0</span></h2>
+  <div class="controls">
+    <select id="f-repo"><option value="">all repos</option></select>
+    <select id="f-status">
+      <option value="">all statuses</option>
+      <option value="attention">needs attention</option>
+      <option value="human">waiting on human</option>
+      <option value="live">running now</option>
+      <option value="rejected">rejected</option>
+      <option value="done">done</option>
+    </select>
+    <select id="sort">
+      <option value="attention">sort: attention first</option>
+      <option value="id">sort: id</option>
+      <option value="framing">sort: framing score</option>
+      <option value="output">sort: output score</option>
+    </select>
   </div>
+  <div class="gridwrap card"><table id="grid"></table></div>
+  <div class="legend">
+    <span>■ done</span><span>■ current</span><span style="color:var(--human)">■ waiting on human</span>
+    <span>□ pending</span><span>▫ skipped/optional</span>
+    <span>score = derived, never hand-written</span>
+    <span>click a cell for its IN/OUT artifacts</span>
+  </div>
+</section>
 
-  <footer id="foot"></footer>
+<section>
+  <h2>Open threads <span class="count" id="t-count">0</span></h2>
+  <div class="card" id="threads"></div>
+</section>
+
+<div class="drawer" id="drawer"><button class="x" onclick="closeDrawer()">✕</button>
+  <div id="drawer-body"></div>
 </div>
 
 <script>
 let PAYLOAD = /*__AG_DATA__*/null;
 const LIVE = /*__AG_LIVE__*/false;
-const POLL_MS = 5000;
-const $ = s => document.querySelector(s);
-const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const num = v => (typeof v==="number"&&!isNaN(v))?v:null;
-const SEV = {blocked:0,"awaiting-decision":1,"in-review":2,"in-progress":3,framed:3,planned:3,done:4};
 
-let data=[], sortK="status", sortDir=1, lastHash="";
-const expanded = new Set();
-let sel = null;                       // {taskKey, childIdx|null}
-const keyOf = r => r.task+"@"+r.repo;
+const esc = s => String(s == null ? "" : s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const sClass = v => v == null ? "s-na" : v >= 80 ? "s-hi" : v >= 60 ? "s-mid" : "s-lo";
+const sText  = v => v == null ? "—" : v;
 
-function fmtElapsed(a,b){
-  if(!a) return "—";
-  const s=Date.parse(a); if(isNaN(s)) return "—";
-  const e=b?Date.parse(b):Date.now();
-  let d=Math.max(0,Math.round((e-s)/1000));
-  if(d<60) return d+"s";
-  const m=Math.floor(d/60), sec=d%60;
-  if(m<60) return m+"m"+(sec?" "+sec+"s":"");
-  const h=Math.floor(m/60); return h+"h"+(m%60?" "+(m%60)+"m":"");
-}
-function fmtTok(t){ t=num(t); if(t==null)return null; return t>=1000?(t/1000).toFixed(t>=10000?0:1)+"k":String(t); }
-function scoreCls(s){ if(s==null)return "muted"; if(s>=80)return "sc-good"; if(s>=50)return "sc-mid"; return "sc-bad"; }
-
-function taskStatusKey(r){
-  if(r.live) return "running";
-  const s=r.status;
-  if(s==="done") return "done";
-  if(s==="blocked"||s==="failed") return "failed";
-  if(s==="in-review"||s==="awaiting-decision") return "review";
-  return "pending";
-}
-function childStatusKey(c){
-  if(c.live) return "running";
-  if(c.status==="done") return "done";
-  if(c.status==="failed"||c.status==="timeout") return "failed";
-  return "pending";
-}
-const dot = k => '<span class="sdot '+k+'" title="'+k+'"></span>';
-
-function deriveData(payload){
-  return ((payload&&payload.runs)||[]).map(r=>{
-    r.metrics = r.metrics||{};
-    // output quality (content-based) is the headline score; fall back to the recorded one
-    r.score = r.quality ? r.quality.overall : num(r.metrics.overall_score);
-    r.children = r.children||[];
-    return r;
-  });
-}
-const findTask = k => data.find(r=>keyOf(r)===k) || null;
-
-/* ---------- header + KPIs ---------- */
-function renderHeader(){
-  $("#sub").innerHTML = data.filter(r=>!r.synthetic).length+" session(s) · "
-    + ((PAYLOAD.repos||[]).length)+" repo(s) · "
-    + (PAYLOAD.repos||[]).map(p=>'<code>'+esc(p.split("/").pop())+'</code>').join(" ");
-}
+/* ── KPIs ── */
 function renderKpis(){
-  const tasks=data.filter(r=>!r.synthetic);
-  const closed=tasks.filter(r=>r.status==="done");
-  const running=data.filter(r=>r.live).length;
-  const attn=data.filter(r=>r.needsAttention).length;
-  const scores=closed.map(r=>r.score).filter(s=>s!=null);
-  const avg=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null;
-  const kpi=(n,l,alert)=>'<div class="kpi'+(alert?' alert':'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
-  $("#kpis").innerHTML = kpi(tasks.length,"Sessions")
-    + kpi(running,"Running now",running>0)
-    + kpi(attn,"Needs attention",attn>0)
-    + kpi(avg==null?"—":avg,"Avg score");
+  const it = PAYLOAD.items.filter(i => !i.synthetic);
+  const human = it.filter(i => i.waiting).length;
+  const live = it.filter(i => i.live).length;
+  const att = it.filter(i => i.needsAttention && !i.waiting).length;
+  const scored = it.map(i => i.framingScore).filter(v => typeof v === "number");
+  const avg = scored.length ? Math.round(scored.reduce((a,b)=>a+b,0)/scored.length) : null;
+  const rej = it.filter(i => i.status === "rejected").length;
+  const k = [
+    ["items", it.length, ""],
+    ["running now", live, live ? "warn" : ""],
+    ["waiting on human", human, human ? "warn" : ""],
+    ["needs attention", att, att ? "bad" : ""],
+    ["avg framing", avg == null ? "—" : avg, ""],
+    ["open threads", PAYLOAD.threads.length, ""],
+    ["rejected", rej, ""],
+  ];
+  document.getElementById("kpis").innerHTML = k.map(([l,n,c]) =>
+    `<div class="kpi ${c}"><div class="n">${esc(n)}</div><div class="l">${esc(l)}</div></div>`).join("");
+  document.getElementById("scanline").innerHTML =
+    (LIVE ? '<span class="live-dot"></span> live · ' : '') +
+    esc(PAYLOAD.repos.length) + " repo(s) · " + esc(PAYLOAD.charters.length) + " charter(s)";
 }
 
-/* ---------- filters ---------- */
-function rebuildFilters(){
-  [["#fStatus",[...new Set(data.map(r=>r.status))].filter(Boolean),"all statuses"],
-   ["#fRepo",[...new Set(data.map(r=>r.repo))],"all repos"]].forEach(([s,vals,all])=>{
-    const el=$(s), cur=el.value;
-    el.innerHTML='<option value="">'+all+'</option>'+vals.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join("");
-    if(vals.includes(cur)) el.value=cur;
-  });
-}
-function rowsFiltered(){
-  const q=$("#q").value.toLowerCase(), fs=$("#fStatus").value, fr=$("#fRepo").value, fa=$("#fAttn").checked;
-  let rows=data.filter(r=>{
-    const hay=(r.task+" "+r.title+" "+r.children.map(c=>c.who+" "+c.label).join(" ")).toLowerCase();
-    return (!q||hay.includes(q)) && (!fs||r.status===fs) && (!fr||r.repo===fr) && (!fa||r.needsAttention);
-  });
-  const val=r=>{
-    if(sortK==="status") return SEV[r.status]==null?9:SEV[r.status];
-    if(sortK==="score")  return r.score==null?-1:r.score;
-    return String(r.title||r.task).toLowerCase();
-  };
-  rows.sort((a,b)=>{ const x=val(a),y=val(b); return (x>y?1:x<y?-1:0)*sortDir; });
-  return rows;
-}
-
-/* ---------- middle: the process tree (clean) ---------- */
-function taskRowHtml(r){
-  const k=keyOf(r), open=expanded.has(k);
-  const hasKids=r.children.length>0;
-  const caret='<span class="caret '+(hasKids?(open?'open':''):'leaf')+'">▶</span>';
-  const model=r.model?'<span class="mtag">'+esc(r.model)+'</span>':'';
-  const warn=r.needsAttention?'<span class="warn'+(["blocked","failed"].includes(r.status)?' red':'')+'" title="'+esc(r.attention||'needs attention')+'">⚠</span>':'';
-  // framing score (input health) stays muted; output score is the headline
-  const fr=r.framingScore!=null?'<span class="rmeta" title="framing score">f'+r.framingScore+'</span>':'';
-  const right=fr+(r.score!=null
-      ? '<span class="scoreb '+scoreCls(r.score)+'">'+r.score+'</span>'
-      : (r.live?'<span class="rmeta">live</span>':'<span class="rmeta">'+esc(r.stage||r.status||"")+'</span>'));
-  const cls='row task'+(sel&&sel.taskKey===k&&sel.childIdx==null?' sel':'');
-  return '<div class="'+cls+'" data-k="'+esc(k)+'">'+caret+dot(taskStatusKey(r))
-    +'<span class="nm">'+esc(r.title||r.task)+'</span>'
-    +'<span class="repo">'+esc(r.repo)+'</span>'+model+warn+right+'</div>';
-}
-function childRowHtml(r,c,i){
-  const k=keyOf(r);
-  const model=c.model?'<span class="mtag">'+esc(c.model)+'</span>':'';
-  const meta=c.live?'<span class="rmeta">'+fmtElapsed(c.started)+'</span>'
-                   :'<span class="rmeta">'+esc(c.status||"")+'</span>';
-  const cls='row child'+(sel&&sel.taskKey===k&&sel.childIdx===i?' sel':'');
-  return '<div class="'+cls+'" data-k="'+esc(k)+'" data-ci="'+i+'">'
-    +'<span class="caret leaf">▶</span>'+dot(childStatusKey(c))
-    +'<span class="nm"><span class="who">↳ '+esc(c.who)+'</span></span>'+model+meta+'</div>';
-}
-function renderTree(){
-  const rows=rowsFiltered();
-  const box=$("#tree");
-  if(!rows.length){ box.innerHTML='<div class="hint">No sessions match.</div>';
-                    $("#foot").textContent="0 shown"; return; }
-  let h="";
-  rows.forEach(r=>{
-    h+=taskRowHtml(r);
-    if(expanded.has(keyOf(r))) r.children.forEach((c,i)=>{ h+=childRowHtml(r,c,i); });
-  });
-  box.innerHTML=h;
-  $("#foot").textContent = rows.length+" of "+data.filter(x=>!x.synthetic).length+" session(s)";
-}
-
-/* ---------- left panel: framing as a linked item graph (input) ---------- */
-const GROUPS=[["P","Problems","why"],["R","Requirements","what"],["NG","Non-Goals","won't do"],
-              ["AC","Acceptance Criteria","done means"],["T","Test Plan","proves"],
-              ["IM","Impl Plan","how"]];
-const REFLABEL={P:"evidence",R:"solves",AC:"covers",T:"covers",IM:"implements",NG:"deferred"};
-let traceId=null;   // currently traced item id
-
-function itemHtml(it){
-  const refs=(it.refs||[]).concat(it.tags||[]);
-  const rl=refs.length?'<div class="refs"><span class="rl">'+(REFLABEL[it.kind]||"refs")+'</span>'
-      +refs.map(x=>'<span class="rt">'+esc(x)+'</span>').join("")+'</div>':"";
-  return '<div class="item" data-id="'+esc(it.id)+'"><span class="ip ip-'+esc(it.kind)+'">'
-    +esc(it.id)+'</span><div class="tx">'+esc(it.text||"")+rl+'</div></div>';
-}
-function framingHtml(a){
-  const f=a.framing; if(!f) return "";
-  let h='<div class="bigscore"><span class="v '+scoreCls(f.score)+'">'+f.score+'</span>'
-       +'<span class="c">framing score</span></div>';
-  h+=f.checks.map(function(c){
-    const ok=c.ratio===1;
-    return '<div class="ck '+(ok?'ok':'gap')+'"><span class="m">'+(ok?'✓':'!')+'</span>'
-      +'<span>'+esc(c.name)+(ok?'':' — '+esc(c.detail))+'</span>'
-      +'<span class="cn">'+c.ok+'/'+c.total+'</span></div>';
-  }).join("");
-  return h;
-}
-function renderLeft(){
-  const r = sel ? findTask(sel.taskKey) : null;
-  const cx=$("#leftCx"), body=$("#leftBody");
-  if(!r){ cx.textContent=""; body.innerHTML='<div class="hint">Select a session to see its framing.</div>'; return; }
-  cx.textContent = r.repo+" · "+r.task;
-  const a=r.artifacts;
-  if(!a||!a.items.length){
-    body.innerHTML='<div class="none">No framing artifacts parsed — this task has no tagged '
-      +'spec.md / TP.md / IP.md items yet.</div>'; return; }
-  let h=framingHtml(a);
-  GROUPS.forEach(function(g){
-    const list=a.items.filter(i=>i.kind===g[0]);
-    if(!list.length) return;
-    h+='<div class="grp"><div class="grp-h"><span class="ip ip-'+g[0]+'">'+g[0]+'</span>'
-      +'<span>'+g[1]+'</span><span class="grp-n">'+list.length+' · '+g[2]+'</span></div>'
-      +list.map(itemHtml).join("")+'</div>';
-  });
-  h+='<div class="none" style="margin-top:4px">Click an item to trace its chain; click again to clear.</div>';
-  body.innerHTML=h;
-  applyTrace();
-}
-function applyTrace(){
-  const r=sel?findTask(sel.taskKey):null;
-  const rel=(r&&r.artifacts&&r.artifacts.rel)||{};
-  const nodes=$("#leftBody").querySelectorAll(".item");
-  nodes.forEach(function(n){
-    n.classList.remove("lit","dim");
-    if(!traceId) return;
-    const id=n.getAttribute("data-id");
-    if(id===traceId||(rel[traceId]||[]).indexOf(id)>=0) n.classList.add("lit");
-    else n.classList.add("dim");
-  });
-}
-
-/* ---------- right panel: output ---------- */
-function bar(lab,v){
-  v=num(v);
-  const c=v==null?"var(--faint)":(v>=80?"var(--good)":v>=50?"var(--amber)":"var(--red)");
-  return '<div class="barrow"><span class="lab">'+lab+'</span><span class="track">'
-    +'<span class="fill" style="width:'+(v||0)+'%;background:'+c+'"></span></span>'
-    +'<span class="val">'+(v==null?"—":v)+'</span></div>';
-}
-function clist(cls,title,items){
-  if(!items||!items.length) return "";
-  return '<div class="clist '+cls+'"><div class="h">'+title+'</div><ul>'
-    +items.map(i=>'<li>'+esc(i)+'</li>').join("")+'</ul></div>';
-}
-function dimRow(d){
-  const c=d.score>=80?"var(--good)":d.score>=50?"var(--amber)":"var(--red)";
-  return '<div class="dimrow"><div class="dimtop"><span class="dl">'+esc(d.label)+'</span>'
-    +'<span class="dw">×'+d.weight+'</span>'
-    +'<span class="dv '+scoreCls(d.score)+'">'+d.score+'</span></div>'
-    +'<div class="track" style="margin-top:3px"><span class="fill" style="width:'+d.score+'%;background:'+c+'"></span></div>'
-    +'<div class="dimwhy">'+esc(d.why||"")+'</div></div>';
-}
-function taskOutputHtml(r){
-  const cl=r.closing||{}, q=r.quality;
-  const anyClosing = (cl.assumptions&&cl.assumptions.length)||(cl.problems&&cl.problems.length)
-                   ||(cl.bugs&&cl.bugs.length)||(cl.issues&&cl.issues.length);
-  let h='<div class="stat-line"><span class="pill">'+esc(r.status||"")+'</span>'
-    +(r.tests?'<span class="pill">tests: '+esc(r.tests)+'</span>':'')
-    +(r.iterations!=null?'<span class="pill">'+r.iterations+' iter</span>':'')+'</div>';
-  if(r.whatShipped) h+='<div class="h4">What shipped</div><div style="color:var(--ink)">'+esc(r.whatShipped)+'</div>';
-  if(q){
-    h+='<div class="h4">Output quality</div>';
-    h+='<div class="bigscore"><span class="v '+scoreCls(q.overall)+'">'+q.overall+'</span>'
-      +'<span class="c">weighted from the sections below</span></div>';
-    if(q.caps&&q.caps.length) h+='<div class="capwarn">capped at 40 — '+esc(q.caps.join(", "))+'</div>';
-    h+=q.dims.map(dimRow).join("");
-  }else{
-    h+='<div class="h4">Output quality</div><div class="none">Not reviewed yet — no score until the task closes.</div>';
-  }
-  h+='<div class="h4">Findings</div>';
-  h+= anyClosing ? (clist("bugs","Possible bugs",cl.bugs)+clist("","Discovered problems",cl.problems)
-        +clist("","Assumptions",cl.assumptions)+clist("","Open issues",cl.issues))
-      : '<div class="none">No findings recorded'+(r.status==="done"?'.':' — task is '+esc(r.stage||r.status||"in progress")+'.')+'</div>';
-  h+='<div class="path">'+esc(r.recordPath||r.runPath||"")+'</div>';
-  return h;
-}
-function childOutputHtml(r,c){
-  let h='<div class="stat-line"><span class="pill">'+esc(c.status||"")+'</span>'
-    +(c.model?'<span class="pill">'+esc(c.model)+'</span>':'')+'</div>';
-  const tok=fmtTok(c.tokens);
-  h+='<div class="kv">who: '+esc(c.who)+'<br>elapsed: '+fmtElapsed(c.started,c.finished)
-    +(tok?' · '+tok+' tok':'')+(c.iteration?'<br>iteration: '+esc(c.iteration):'')+'</div>';
-  if(c.kind==="agy"){
-    const txt=c.result_full||c.result||"";
-    h+='<div class="h4">Result</div>'+(txt?'<pre class="out">'+esc(txt)+'</pre>':'<div class="none">No result text'+(c.live?' yet — running.':'.')+'</div>');
-  }else{
-    h+='<div class="h4">Purpose</div><div style="color:var(--ink)">'+esc(c.label||"—")+'</div>'
-      +'<div class="none" style="margin-top:8px">Sub-agent transcript isn\'t captured — only status and tokens.</div>';
-  }
-  return h;
-}
-function renderRight(){
-  const cx=$("#rightCx"), body=$("#rightBody");
-  if(!sel){ cx.textContent=""; body.innerHTML='<div class="hint">Select a task or sub-task to see its output.</div>'; return; }
-  const r=findTask(sel.taskKey);
-  if(!r){ cx.textContent=""; body.innerHTML='<div class="hint">—</div>'; return; }
-  if(sel.childIdx==null){ cx.textContent=r.repo+" · "+r.task; body.innerHTML=taskOutputHtml(r); }
-  else{
-    const c=r.children[sel.childIdx];
-    if(!c){ renderRightTaskFallback(r); return; }
-    cx.textContent=c.who+" · "+(c.kind==="agy"?("iter "+(c.iteration||"?")):"sub-agent");
-    body.innerHTML=childOutputHtml(r,c);
-  }
-}
-function renderRightTaskFallback(r){ sel.childIdx=null; $("#rightCx").textContent=r.repo+" · "+r.task; $("#rightBody").innerHTML=taskOutputHtml(r); }
-
-/* ---------- selection ---------- */
-function ensureSelection(){
-  if(sel && findTask(sel.taskKey)){
-    const r=findTask(sel.taskKey);
-    if(sel.childIdx!=null && !r.children[sel.childIdx]) sel.childIdx=null;
+/* ── charters ── */
+function renderCharters(){
+  const el = document.getElementById("charters");
+  document.getElementById("c-count").textContent = PAYLOAD.charters.length;
+  if(!PAYLOAD.charters.length){
+    el.innerHTML = '<div class="empty">No charters. Most work needs only epic + task —' +
+      ' a charter exists only when one ask exceeds a single epic.</div>';
     return;
   }
-  const rows=rowsFiltered();
-  const pick = rows.find(r=>r.needsAttention) || rows.find(r=>r.live) || rows[0];
-  sel = pick ? {taskKey:keyOf(pick), childIdx:null} : null;
-  if(pick && pick.children.length) expanded.add(keyOf(pick));
+  el.innerHTML = PAYLOAD.charters.map(c => {
+    const burn = c.burn == null ? "" :
+      `<div class="burn"><i style="width:${Math.min(100, Math.round(c.burn*100))}%"></i></div>
+       <div class="sub">${c.minted}/${c.appetiteSlices} slices minted</div>`;
+    const slices = c.slices.map(s => {
+      const cls = s.state === "done" ? "done" : s.state === "in-flight" ? "inflight"
+        : s.state === "cut" ? "cut" : "";
+      return `<span class="sl ${cls}" title="${esc(s.hypothesis || s.title)}${
+        s.reduces ? " · reduces " + esc(s.reduces) : ""}${
+        s.needs.length ? " · needs " + esc(s.needs.join(",")) : ""}">
+        <span class="slid">${esc(s.id)}</span>${esc(s.minted || s.state)}</span>`;
+    }).join("");
+    const wait = c.waiting ? `<span class="tag" style="color:var(--human)">waiting ${esc(c.waiting)}</span>` : "";
+    return `<div class="charter">
+      <div class="charter-head"><span class="cid">${esc(c.id)}</span>
+        <strong>${esc(c.title)}</strong>
+        <span class="tag">${esc(c.status || "draft")}</span>
+        ${c.appetite ? `<span class="tag">appetite ${esc(c.appetite)}</span>` : ""}
+        ${c.review_after ? `<span class="tag">re-bet after ${esc(c.review_after)}</span>` : ""}
+        ${wait}
+        <span class="scorecol ${sClass(c.score)}">${sText(c.score)}</span></div>
+      ${burn}
+      <div class="slices">${slices || '<span class="sub">no slices recorded</span>'}</div>
+      ${c.unknowns.length ? `<div class="sub" style="margin-top:.35rem">top unknown:
+        <b>${esc(c.unknowns[0].id)}</b> ${esc(c.unknowns[0].text)}</div>` : ""}
+    </div>`;
+  }).join("");
 }
-function selectTask(k){
-  if(!sel||sel.taskKey!==k) traceId=null;      // a trace belongs to one task's graph
-  sel={taskKey:k,childIdx:null};
-  const r=findTask(k); if(r&&r.children.length) expanded.add(k);
-  renderAll();
-}
-function selectChild(k,i){ sel={taskKey:k,childIdx:i}; renderAll(); }
-function toggleExpand(k){ if(expanded.has(k))expanded.delete(k); else expanded.add(k); renderTree(); }
 
-/* ---------- render all ---------- */
-function renderAll(){ renderTree(); renderLeft(); renderRight(); }
-
-function apply(payload,preserve){
-  const h=JSON.stringify((payload&&payload.runs)||[]);
-  if(preserve && h===lastHash) return false;
-  lastHash=h;
-  const y=preserve?window.scrollY:0;
-  PAYLOAD=payload; data=deriveData(payload);
-  ensureSelection();
-  renderHeader(); renderKpis(); rebuildFilters(); renderAll();
-  if(preserve) window.scrollTo(0,y);
-  return true;
+/* ── grid ── */
+function stepCell(item, step){
+  const s = item.steps && item.steps[step.id];
+  if(!s) return '<td class="cell"><span class="dot na">·</span></td>';
+  let cls = s.state === "done" ? "done" : s.state === "current" ? "current"
+    : s.state === "waiting" ? "waiting" : s.state === "skipped" ? "skipped"
+    : s.state === "n/a" ? "na" : "pending";
+  if(s.score != null && s.score < 60) cls += " low";
+  const label = s.score != null ? s.score : (s.state === "done" ? "✓"
+    : s.state === "waiting" ? "⏸" : s.state === "skipped" ? "–" : "·");
+  const f = s.findings ? `<span class="f">•</span>` : "";
+  return `<td class="cell"><span class="dot ${cls}" title="${esc(step.label)} — ${esc(s.state)}${
+    s.score != null ? " · score " + s.score : ""}${s.findings ? " · " + s.findings + " finding(s)" : ""}"
+    onclick='openStep(${JSON.stringify(item.repo)},${JSON.stringify(item.id)},${JSON.stringify(step.id)})'
+    >${label}${f}</span></td>`;
 }
 
-/* ---------- events ---------- */
-function bindOnce(){
-  $("#themeBtn").onclick=()=>{
-    const cur=document.documentElement.getAttribute("data-theme");
-    const next=cur==="light"?"dark":(cur==="dark"?"":"light");
-    if(next)document.documentElement.setAttribute("data-theme",next);
-    else document.documentElement.removeAttribute("data-theme");
-  };
-  $("#tree").onclick=(ev)=>{
-    const row=ev.target.closest(".row"); if(!row) return;
-    const k=row.getAttribute("data-k");
-    const onCaret=ev.target.closest(".caret");
-    if(row.classList.contains("task")){
-      if(onCaret && !onCaret.classList.contains("leaf")){ toggleExpand(k); return; }
-      selectTask(k);
-    }else{
-      selectChild(k, +row.getAttribute("data-ci"));
-    }
-  };
-  $("#leftBody").onclick=(ev)=>{
-    const it=ev.target.closest(".item"); if(!it) return;
-    const id=it.getAttribute("data-id");
-    traceId = (traceId===id) ? null : id;   // click again to clear
-    applyTrace();
-  };
-  ["#q","#fStatus","#fRepo"].forEach(s=>$(s).oninput=()=>{ ensureSelection(); renderAll(); });
-  $("#fAttn").onchange=()=>{ ensureSelection(); renderAll(); };
+function visibleItems(){
+  const repo = document.getElementById("f-repo").value;
+  const st = document.getElementById("f-status").value;
+  const sort = document.getElementById("sort").value;
+  let out = PAYLOAD.items.filter(i => !repo || i.repo === repo).filter(i => {
+    if(st === "attention") return i.needsAttention;
+    if(st === "human") return !!i.waiting;
+    if(st === "live") return !!i.live;
+    if(st === "rejected") return i.status === "rejected";
+    if(st === "done") return i.status === "done";
+    return true;
+  });
+  const rank = i => (i.live ? 0 : i.waiting ? 1 : i.needsAttention ? 2 : 3);
+  out.sort((a,b) => {
+    if(sort === "id") return String(a.id).localeCompare(String(b.id), undefined, {numeric:true});
+    if(sort === "framing") return (b.framingScore ?? -1) - (a.framingScore ?? -1);
+    if(sort === "output") return (b.outputScore ?? -1) - (a.outputScore ?? -1);
+    return rank(a) - rank(b) || String(a.id).localeCompare(String(b.id), undefined, {numeric:true});
+  });
+  return out;
 }
-bindOnce();
 
+function renderGrid(){
+  const items = visibleItems();
+  document.getElementById("i-count").textContent = items.length;
+  const head = `<thead><tr><th>item</th>` +
+    PAYLOAD.steps.map(s => `<th class="step ${s.id[0]==="H"?"human":""}" title="${esc(s.label)}">${esc(s.id)}</th>`).join("") +
+    `<th class="scorecol">frm</th><th class="scorecol">out</th><th>attention</th></tr></thead>`;
+  const rows = items.map(i => {
+    const tags = [
+      i.type ? `<span class="tag">${esc(i.type)}</span>` : "",
+      i.form === "collapsed" ? `<span class="tag">collapsed</span>` : "",
+      i.charter ? `<span class="tag chart">${esc(i.charter)}${i.slice ? "·" + esc(i.slice.split("#").pop()) : ""}</span>` : "",
+      i.status === "rejected" ? `<span class="tag rej">rejected: ${esc(i.rejection_reason)} @${esc(i.rejection_stage)}</span>` : "",
+      i.live ? `<span class="live-dot"></span>` : "",
+      i.tests ? `<span class="tag">tests ${esc(i.tests)}</span>` : "",
+      /* coverage is shown as its own number, never folded into a score: it is the highest-
+         leverage figure in the system and a pooled mean dilutes it out of visibility. */
+      (typeof i.coverage === "number" && i.coverage < 100)
+        ? `<span class="tag" style="color:var(--human);border-color:#6b5a2b">coverage ${esc(i.coverage)}%</span>` : "",
+    ].join(" ");
+    const att = i.attention ? `<td class="att ${/blocked|failing|bugs|low output/.test(i.attention)?"bad":""}">${esc(i.attention)}</td>` : "<td></td>";
+    return `<tr>
+      <td class="item"><span class="iid">${esc(i.id)}</span>
+        <span class="ititle">${esc(i.title)}</span>
+        <div class="meta">${esc(i.repo)} ${tags}</div></td>
+      ${PAYLOAD.steps.map(s => stepCell(i, s)).join("")}
+      <td class="scorecol ${sClass(i.framingScore)}">${sText(i.framingScore)}</td>
+      <td class="scorecol ${sClass(i.outputScore)}">${sText(i.outputScore)}</td>
+      ${att}</tr>`;
+  }).join("");
+  document.getElementById("grid").innerHTML = head + "<tbody>" + rows + "</tbody>";
+}
+
+/* ── threads ── */
+function renderThreads(){
+  const el = document.getElementById("threads");
+  const th = PAYLOAD.threads.slice().sort((a,b) =>
+    (b.scope_blocking?1:0) - (a.scope_blocking?1:0));
+  document.getElementById("t-count").textContent = th.length;
+  if(!th.length){ el.innerHTML = '<div class="empty">No open assumptions or questions.</div>'; return; }
+  el.innerHTML = th.map(t => `<div class="thread ${t.scope_blocking?"block":""}">
+    <span class="tk ${esc(t.kind)}">${esc(t.kind)}</span>
+    <span>${esc(t.text)}</span>
+    <span class="who">${esc(t.container)} · ${esc(t.artifact)}${
+      t.affects ? " · affects " + esc(t.affects) : ""}</span>
+    ${t.scope_blocking ? '<span class="flag">BLOCKS HG1</span>' : ""}
+  </div>`).join("");
+}
+
+/* ── drawer ── */
+function openStep(repo, id, stepId){
+  const item = PAYLOAD.items.find(i => i.repo === repo && i.id === id);
+  if(!item || !item.steps) return;
+  const s = item.steps[stepId];
+  if(!s) return;
+  const ins = (s.inputs || []).map(x => `<span class="chip">${esc(x)}</span>`).join("") ||
+    '<span class="sub">—</span>';
+  const outs = (s.artifacts || []).map(a =>
+    `<span class="chip">${esc(a.file)}<span class="st">${esc(a.status)}${
+      a.score != null ? " · " + a.score : ""}</span></span>`).join("") ||
+    '<span class="sub">not produced yet</span>';
+  const checks = (s.artifacts || []).flatMap(a => (a.checks || []).map(c =>
+    `<div class="chk"><span>${esc(c.name)}
+       <div class="d">${c.ok}/${c.total}${c.ratio < 1 ? " — " + esc(c.detail) : ""}</div></span>
+      <span class="r ${sClass(Math.round(c.ratio*100))}">${Math.round(c.ratio*100)}%</span></div>`
+  )).join("");
+  const fnd = (item.findings || []).filter(f => f.attributed === stepId).map(f =>
+    `<div class="fnd"><span class="sev ${esc(f.severity)}">${esc(f.severity||"?")}</span>
+      ${esc(f.text)} <span class="who">${esc(f.gate)} · ${esc(f.resolution)}</span></div>`).join("");
+  const human = ["HG0","HG1","HG2"].includes(stepId);
+  document.getElementById("drawer-body").innerHTML = `
+    <h3>${esc(s.label)} <span class="sub">${esc(stepId)} · ${esc(item.id)}</span></h3>
+    <div class="sub">${esc(item.title)}</div>
+    <div class="io">
+      <div><h4>IN</h4>${ins}</div>
+      <div><h4>OUT</h4>${outs}</div>
+    </div>
+    ${human ? `<div class="note"><b>Human decision.</b> ${
+      stepId==="HG0" ? "The bet — never delegable to the agent; the uncertainty <i>is</i> the bet."
+      : stepId==="HG1" ? "Approves the scope triple P + R + NG — not the draft AC, whose testability is judged mechanically at G1/G2."
+      : "Merge approval. Irreversible and outward-facing; delegable only by a standing per-repo DEC."}</div>` : ""}
+    ${checks ? `<h4 style="margin-top:.9rem">Checks (each a ratio)</h4>${checks}` : ""}
+    ${fnd ? `<h4 style="margin-top:.9rem">Findings attributed to ${esc(stepId)}</h4>${fnd}` : ""}
+    ${s.state === "skipped" ? '<div class="note">Optional step, not run. Absent is not broken — skipped checks are excluded from the score rather than failed.</div>' : ""}
+    <div class="note">Scores here are derived from the files at scan time. Whether an AC is
+      genuinely <i>testable</i> — and whether a charter slice is genuinely <i>vertical</i> — is not
+      mechanically decidable; those are judged by the G1/G2 assessors and reach the score only as
+      findings.</div>`;
+  document.getElementById("drawer").classList.add("open");
+}
+function closeDrawer(){ document.getElementById("drawer").classList.remove("open"); }
+document.addEventListener("keydown", e => { if(e.key === "Escape") closeDrawer(); });
+
+/* ── boot ── */
+function renderAll(){
+  const sel = document.getElementById("f-repo");
+  const repos = [...new Set(PAYLOAD.items.map(i => i.repo))].sort();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">all repos</option>' +
+    repos.map(r => `<option ${r===cur?"selected":""}>${esc(r)}</option>`).join("");
+  renderKpis(); renderCharters(); renderGrid(); renderThreads();
+}
+["f-repo","f-status","sort"].forEach(id =>
+  document.getElementById(id).addEventListener("change", renderGrid));
+
+if(PAYLOAD) renderAll();
 if(LIVE){
-  const box=$("#live"), txt=$("#liveTxt"), pause=$("#pauseBtn");
-  box.classList.add("on"); pause.style.display="";
-  let timer=null, paused=false;
-  const setState=(cls,t)=>{ box.classList.remove("stale","err"); if(cls)box.classList.add(cls); txt.textContent=t; };
-  async function tick(){
-    try{
-      const res=await fetch("api/runs",{cache:"no-store"});
-      if(!res.ok) throw new Error("http "+res.status);
-      apply(await res.json(), true);
-      setState("", "live · "+new Date().toTimeString().slice(0,8));
-    }catch(e){ setState("err","disconnected — retrying"); }
-  }
-  pause.onclick=()=>{
-    paused=!paused;
-    if(paused){ clearInterval(timer); timer=null; pause.textContent="▶ resume"; setState("stale","paused"); }
-    else{ pause.textContent="⏸ pause"; tick(); timer=setInterval(tick,POLL_MS); }
-  };
-  tick(); timer=setInterval(tick,POLL_MS);
-}else{
-  apply(PAYLOAD,false);
+  const poll = () => fetch("/api/board").then(r => r.json())
+    .then(p => { PAYLOAD = p; renderAll(); }).catch(()=>{});
+  poll(); setInterval(poll, 5000);
 }
 </script>
 </body>
