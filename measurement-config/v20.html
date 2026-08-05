@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inspection workflow — Measurement steps configuration (v19)</title>
+<title>Inspection workflow — Measurement steps configuration (v20)</title>
 <style>
   :root{
     --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
@@ -96,7 +96,7 @@
 <body>
 <div class="page">
   <header class="top">
-    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">Configuration</span></h1>
+    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v20</span></h1>
     <p>Configure measurement steps in an inspection workflow. Set sampling plans, Measurement Chart bindings, measurement fields, auto-calculations, and evaluation rules.</p>
   </header>
 
@@ -260,7 +260,7 @@ const data = {
       col(13, "Swatch width",  {unit:"cm"}),
       col(14, "Swatch area",   {unit:"cm²", f:{type:"product", ops:[op(12), op(13)]}}),
       col(15, "Swatch weight", {unit:"g"}),
-      col(16, "Fabric weight (GSM)", {unit:"GSM", f:{type:"custom", ops:[op(15), op(14)], customExpr:"A / B × 10,000"}, crit:R.rangelimit(150, 200)})
+      col(16, "Fabric weight (GSM)", {unit:"GSM", f:{type:"custom", ops:[op(15), op(14)], customExpr:"D / C × 10,000"}, crit:R.rangelimit(150, 200)})
     ]
   }
 };
@@ -691,6 +691,7 @@ function toggleFormulaDrawer(id){
   if (openFormula.has(id)) openFormula.delete(id);
   else {
     openFormula.add(id);
+    openEval.delete(id);
     const row = findRow(curStep(), id);
     if (row && row.formula) autoAssignOperands(curStep(), row);
   }
@@ -936,7 +937,10 @@ function renderEvalDrawer(d, row){
 
 function toggleEvalDrawer(id){
   if (openEval.has(id)) openEval.delete(id);
-  else openEval.add(id);
+  else {
+    openEval.add(id);
+    openFormula.delete(id);
+  }
   renderRows();
 }
 

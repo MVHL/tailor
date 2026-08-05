@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inspection workflow — Measurement steps configuration (v19)</title>
+<title>Inspection workflow — Measurement steps configuration (v21)</title>
 <style>
   :root{
     --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
@@ -37,7 +37,7 @@
   .ct-remove:hover{background:#FCEBEB; color:var(--red);}
 
   .main{flex:1; min-width:0;}
-  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:18px 22px; margin-bottom:14px;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin-bottom:14px;}
   .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:4px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
   .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
   .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
@@ -90,13 +90,16 @@
 
   .letter-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;}
   .letter-tag{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:5px; background:var(--tint); color:var(--blue); border:1px solid #C3D8F0; font-weight:700; font-size:12.5px; font-family:'Courier New',monospace;}
+  .sql-table{width:100%; border-collapse:collapse; font-size:11.5px; font-family:'Courier New',Consolas,monospace; margin-top:6px; overflow-x:auto; display:block;}
+  .sql-table th{background:#1E293B; color:#38BDF8; text-align:left; padding:6px 10px; border:1px solid #334155; font-weight:700;}
+  .sql-table td{padding:6px 10px; border:1px solid #334155; color:#E2E8F0; background:#020617; white-space:nowrap;}
   footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
 </style>
 </head>
 <body>
 <div class="page">
   <header class="top">
-    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">Configuration</span></h1>
+    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v21</span></h1>
     <p>Configure measurement steps in an inspection workflow. Set sampling plans, Measurement Chart bindings, measurement fields, auto-calculations, and evaluation rules.</p>
   </header>
 
@@ -114,13 +117,36 @@
         <p class="meta" id="ctMeta" style="margin-bottom:14px;"></p>
         <div id="samplingBody"></div>
         <div id="mcBody"></div>
-      </div>
-      
-      <div class="card" id="rowsCard">
+        <div id="stepOptionsBody"></div>
+        
+        <hr style="border:0; border-top:1px solid var(--line); margin:20px 0 16px;">
+        
         <p class="section-label">Measurement Fields</p>
         <div id="rowsList"></div>
         <div style="margin-top:10px;">
           <button class="btn" id="addValueBtn">+ Add measurement field</button>
+        </div>
+      </div>
+
+      <!-- Developer Data Model View -->
+      <div class="card" style="background:#0F172A; border-color:#1E293B; color:#F8FAFC; padding:18px 22px; margin-top:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="font-size:14px; font-weight:700; color:#38BDF8; margin:0 0 2px;">⚙️ Developer View — API & Database Data Model</h3>
+            <p style="font-size:11.5px; color:#94A3B8; margin:0;">Live database & API representation of the active step ("<span id="jsonStepTitle"></span>"). Updates automatically as you edit.</p>
+          </div>
+          <button class="btn" onclick="copyJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11.5px; padding:5px 12px; font-weight:600;">📋 Copy JSON Payload</button>
+        </div>
+
+        <div style="margin-top:14px;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. API JSON Payload Schema</span>
+          <pre id="jsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:360px;"></pre>
+        </div>
+
+        <div style="margin-top:20px;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">2. Relational SQL Database Tables</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">Normalized SQL records stored across database tables for this step.</p>
+          <div id="sqlTablesPreview"></div>
         </div>
       </div>
     </div>
@@ -138,6 +164,7 @@
 
 const UNIT_GROUPS = [
   {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Area", units:["cm²","m²","mm²","in²","ft²","yd²"]},
   {category:"Weight", units:["g","kg","oz","lb"]},
   {category:"Volume", units:["mL","L","cm³","m³"]},
   {category:"Temperature", units:["°C","°F"]},
@@ -156,15 +183,16 @@ const MC_TYPES = [
 ];
 
 const FORMULAS = [
-  {id:"passthrough",  label:"Take another value",                  arity:1, unit:"sameAsOperands", shortLabel:"Take value"},
-  {id:"pctchange",    label:"Percent change — (B − A) / A × 100",   arity:2, expr:"(B − A) / A × 100", unit:"%", shortLabel:"Percent change"},
-  {id:"difference",   label:"Difference — A − B",                   arity:2, expr:"A − B",             unit:"sameAsOperands", shortLabel:"Difference"},
-  {id:"ratio",        label:"Ratio — A / B",                        arity:2, expr:"A / B",             unit:"unitless", shortLabel:"Ratio"},
-  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",    arity:2, expr:"A / B × 100",       unit:"%", shortLabel:"Ratio %"},
-  {id:"product",      label:"Product — A × B",                      arity:2, expr:"A × B",             unit:"product", shortLabel:"Product"},
-  {id:"sum",          label:"Total of included values",             arity:"many",                     unit:"sameAsOperands", shortLabel:"Total"},
-  {id:"average",      label:"Average of included values",           arity:"many",                     unit:"sameAsOperands", shortLabel:"Average"},
-  {id:"custom",       label:"Custom expression",                    arity:"letters", custom:true,      unit:"custom", shortLabel:"Custom"}
+  {id:"pctchange",    label:"Percent change — (B − A) / A × 100",   arity:2, expr:"(B − A) / A × 100", unit:"%", shortLabel:"Percent change", mvp:true},
+  {id:"difference",   label:"Difference — A − B",                   arity:2, expr:"A − B",             unit:"sameAsOperands", shortLabel:"Difference", mvp:true},
+  {id:"ratio",        label:"Ratio — A / B",                        arity:2, expr:"A / B",             unit:"unitless", shortLabel:"Ratio", mvp:true},
+  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",    arity:2, expr:"A / B × 100",       unit:"%", shortLabel:"Ratio %", mvp:true},
+  {id:"product",      label:"Product — A × B",                      arity:2, expr:"A × B",             unit:"product", shortLabel:"Product", mvp:true},
+  {id:"average",      label:"Average of included values",           arity:"many",                     unit:"sameAsOperands", shortLabel:"Average", mvp:true},
+
+  {id:"passthrough",  label:"Take another value (Non-MVP)",         arity:1, unit:"sameAsOperands", shortLabel:"Take value", mvp:false},
+  {id:"sum",          label:"Total of included values (Non-MVP)",    arity:"many",                     unit:"sameAsOperands", shortLabel:"Total", mvp:false},
+  {id:"custom",       label:"Custom expression (Non-MVP)",           arity:"letters", custom:true,      unit:"custom", shortLabel:"Custom", mvp:false}
 ];
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -212,7 +240,7 @@ const op = (id)=>({id:id});
 
 const data = {
   garment_chart: {
-    sampling: {method:"bysizeperstyle", value:"2"},
+    sampling: {method:"by_size_per_style", value:"2"},
     name: "Garment POM Measurements",
     mc: {types:["Dimension"]},
     rows: [
@@ -220,7 +248,7 @@ const data = {
     ]
   },
   shrinkage_chart: {
-    sampling: {method:"determinedquantity", value:"1"},
+    sampling: {method:"fixed_quantity", value:"1"},
     name: "Shrinkage & Wash Performance",
     mc: {types:["Dimension"]},
     rows: [
@@ -230,7 +258,7 @@ const data = {
     ]
   },
   cookware_weight: {
-    sampling: {method:"determinedquantity", value:"3"},
+    sampling: {method:"fixed_quantity", value:"3"},
     name: "Cookware Set Weight",
     mc: {types:["Weight"]},
     rows: [
@@ -238,7 +266,7 @@ const data = {
     ]
   },
   dyelot_approval: {
-    sampling: {method:"determinedquantity", value:"1"},
+    sampling: {method:"fixed_quantity", value:"1"},
     name: "Dyelot Quality Approval",
     mc: null,
     rows: [
@@ -252,7 +280,7 @@ const data = {
     ]
   },
   fabric_weight: {
-    sampling: {method:"pctavailable", value:"10"},
+    sampling: {method:"pct_available", value:"10"},
     name: "Fabric GSM (Swatch Test)",
     mc: null,
     rows: [
@@ -260,7 +288,7 @@ const data = {
       col(13, "Swatch width",  {unit:"cm"}),
       col(14, "Swatch area",   {unit:"cm²", f:{type:"product", ops:[op(12), op(13)]}}),
       col(15, "Swatch weight", {unit:"g"}),
-      col(16, "Fabric weight (GSM)", {unit:"GSM", f:{type:"custom", ops:[op(15), op(14)], customExpr:"A / B × 10,000"}, crit:R.rangelimit(150, 200)})
+      col(16, "Fabric weight (GSM)", {unit:"GSM", f:{type:"custom", ops:[op(15), op(14)], customExpr:"D / C × 10,000"}, crit:R.rangelimit(150, 200)})
     ]
   }
 };
@@ -397,6 +425,182 @@ function esc(s){
   return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+function stepToDbSchema(key, d){
+  const isChart = hasChart(d);
+  
+  const samplingMethodMap = {
+    "bysizeperstyle": "by_size_per_style",
+    "byitem": "by_item",
+    "bycolorperstyle": "by_color_per_style",
+    "determinedquantity": "fixed_quantity",
+    "pctavailable": "pct_available",
+    "aqlstandard": "aql_table",
+    "inspectordecide": "inspector_decide"
+  };
+
+  return {
+    section_uuid: key,
+    title: d.name,
+    type: "configurable_measurement",
+    is_affect_overall_result: true,
+    measurement_config: {
+      sampling_plan: {
+        method: samplingMethodMap[d.sampling.method] || d.sampling.method,
+        sample_size_value: (d.sampling.method !== "inspector_decide" && d.sampling.method !== "aql_table" && d.sampling.method !== "inspectordecide" && d.sampling.method !== "aqlstandard") ? d.sampling.value : null
+      },
+      measurement_chart: {
+        is_bound: isChart,
+        allowed_types: (isChart && d.mc.types && d.mc.types.length) ? d.mc.types : []
+      },
+      fields: d.rows.map((row, idx) => {
+        const isCalc = !!row.formula;
+        const c = row.criteria || R.none();
+        
+        let evalPayload = { mode: c.mode };
+        if (c.mode === "rule"){
+          const r = c.rule || {};
+          evalPayload.source = r.source;
+          evalPayload.preset = r.preset;
+          if (r.preset === "rangelimit"){
+            const loStr = r.lower ? String(r.lower.value).trim() : "";
+            const hiStr = r.upper ? String(r.upper.value).trim() : "";
+            evalPayload.bounds = {
+              min_limit: loStr !== "" ? (isNaN(Number(loStr)) ? loStr : Number(loStr)) : null,
+              max_limit: hiStr !== "" ? (isNaN(Number(hiStr)) ? hiStr : Number(hiStr)) : null
+            };
+          }
+        }
+
+        let formulaPayload = null;
+        if (isCalc){
+          const fm = row.formula;
+          const fDef = formulaDef(fm);
+          const ops = opsOf(fm);
+          const eligible = eligibleOperands(d, row.id);
+
+          formulaPayload = {
+            type: fm.type,
+            label: fDef ? fDef.label : fm.type,
+            operand_field_ids: ops.map(o => o.id),
+            custom_expression_ui: fm.type === "custom" ? (fm.customExpr || "A / B") : null,
+            custom_expression_db: fm.type === "custom" ? String(fm.customExpr || "A / B").replace(/\b[A-Z]\b/g, m => {
+              const idx = LETTERS.indexOf(m);
+              return (idx >= 0 && idx < eligible.length) ? "{" + eligible[idx].id + "}" : m;
+            }) : null
+          };
+        }
+
+        return {
+          field_id: row.id,
+          name: row.name,
+          unit: row.unit || null,
+          data_source: isCalc ? "calculated" : (row.source === "pom" ? "measurement_chart" : "inspector_entry"),
+          position: idx + 1,
+          formula: formulaPayload,
+          evaluation_rule: evalPayload
+        };
+      })
+    }
+  };
+}
+
+function renderSqlTables(){
+  const container = document.getElementById("sqlTablesPreview");
+  if (!container || !curStep()) return;
+  const d = curStep();
+  const isChart = hasChart(d);
+
+  let html = '';
+
+  // 1. TABLE: workflow_step_sections (inspections_workflowstepsection)
+  html += '<div style="margin-top:10px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections (inspections_workflowstepsection)</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>title</th><th>type</th><th>position</th></tr></thead><tbody>'
+    + '<tr><td>sec_'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>configurable_measurement</td><td>1</td></tr>'
+    + '</tbody></table></div>';
+
+  // 2. TABLE: workflow_step_section_measurement_configs
+  const samplingMap = {
+    "bysizeperstyle":"by_size_per_style",
+    "byitem":"by_item",
+    "bycolorperstyle":"by_color_per_style",
+    "determinedquantity":"fixed_quantity",
+    "pctavailable":"pct_available",
+    "aqlstandard":"aql_table",
+    "inspectordecide":"inspector_decide"
+  };
+  const samplingMethod = samplingMap[d.sampling.method] || d.sampling.method;
+  const mcTypesJson = (isChart && d.mc.types && d.mc.types.length) ? JSON.stringify(d.mc.types) : '[]';
+
+  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_section_measurement_configs</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>is_chart_bound</th><th>allowed_chart_types (JSONB)</th></tr></thead><tbody>'
+    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+(isChart?'TRUE':'FALSE')+'</td><td>'+esc(mcTypesJson)+'</td></tr>'
+    + '</tbody></table></div>';
+
+  // 3. TABLE: workflow_measurement_fields
+  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_fields</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>config_id (FK)</th><th>field_id</th><th>name</th><th>unit</th><th>data_source</th><th>position_order</th><th>formula_config (JSONB)</th><th>evaluation_config (JSONB)</th></tr></thead><tbody>';
+  
+  d.rows.forEach((row, i)=>{
+    const isCalc = !!row.formula;
+    const srcType = isCalc ? "calculated" : (row.source === "pom" ? "measurement_chart" : "inspector_entry");
+    
+    let formulaJson = 'NULL';
+    if (isCalc){
+      const fm = row.formula;
+      const ops = opsOf(fm).map(o=>o.id);
+      const eligible = eligibleOperands(d, row.id);
+      let payloadObj = { type: fm.type, operand_field_ids: ops };
+      if (fm.type === "custom"){
+        const expr = fm.customExpr || "A / B";
+        payloadObj.custom_expression_db = String(expr).replace(/\b[A-Z]\b/g, m => {
+          const idx = LETTERS.indexOf(m);
+          return (idx >= 0 && idx < eligible.length) ? "{" + eligible[idx].id + "}" : m;
+        });
+      }
+      formulaJson = JSON.stringify(payloadObj);
+    }
+
+    const c = row.criteria || R.none();
+    let evalObj = { mode: c.mode };
+    if (c.mode === "rule"){
+      const r = c.rule || {};
+      evalObj.source = r.source;
+      evalObj.preset = r.preset;
+      if (r.preset === "rangelimit"){
+        const loStr = r.lower ? String(r.lower.value).trim() : "";
+        const hiStr = r.upper ? String(r.upper.value).trim() : "";
+        evalObj.min_limit = loStr !== "" ? (isNaN(Number(loStr)) ? loStr : Number(loStr)) : null;
+        evalObj.max_limit = hiStr !== "" ? (isNaN(Number(hiStr)) ? hiStr : Number(hiStr)) : null;
+      }
+    }
+    const evalJson = JSON.stringify(evalObj);
+
+    html += '<tr><td>fld_'+row.id+'</td><td>cfg_'+esc(active)+'</td><td>'+row.id+'</td><td>'+esc(row.name)+'</td><td>'+esc(row.unit || 'NULL')+'</td><td>'+srcType+'</td><td>'+(i+1)+'</td><td>'+esc(formulaJson)+'</td><td>'+esc(evalJson)+'</td></tr>';
+  });
+  html += '</tbody></table></div>';
+
+  container.innerHTML = html;
+}
+
+function renderJsonPreview(){
+  const el = document.getElementById("jsonPreview");
+  const titleEl = document.getElementById("jsonStepTitle");
+  if (titleEl && curStep()) titleEl.textContent = curStep().name;
+  if (!el || !curStep()) return;
+  const payload = stepToDbSchema(active, curStep());
+  el.textContent = JSON.stringify(payload, null, 2);
+  renderSqlTables();
+}
+
+function copyJsonPayload(){
+  const payload = stepToDbSchema(active, curStep());
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(()=>{
+    alert("Step JSON Data Model copied to clipboard!");
+  }).catch(()=>{
+    alert("Copied!");
+  });
+}
+
 // ---------------------------------------------------------------------------
 // UI Rendering
 // ---------------------------------------------------------------------------
@@ -405,6 +609,7 @@ function render(){
   renderSidebar();
   renderStepHeader();
   renderRows();
+  renderJsonPreview();
 }
 
 function renderSidebar(){
@@ -469,13 +674,13 @@ function renderStepHeader(){
   // Sampling
   const sBody = document.getElementById("samplingBody");
   const sMethods = [
-    {id:"bysizeperstyle", label:"By Size Per Style"},
-    {id:"byitem", label:"By Item"},
-    {id:"bycolorperstyle", label:"By Color Per Style"},
-    {id:"determinedquantity", label:"Fixed Quantity"},
-    {id:"pctavailable", label:"% Available Quantity"},
-    {id:"aqlstandard", label:"AQL Standard Table"},
-    {id:"inspectordecide", label:"Inspector Decides"}
+    {id:"by_size_per_style", label:"By Size Per Style"},
+    {id:"by_item", label:"By Item"},
+    {id:"by_color_per_style", label:"By Color Per Style"},
+    {id:"fixed_quantity", label:"Fixed Quantity"},
+    {id:"pct_available", label:"% Available Quantity"},
+    {id:"aql_table", label:"AQL Standard Table"},
+    {id:"inspector_decide", label:"Inspector Decides"}
   ];
 
   let smOpts = sMethods.map(m=>'<option value="'+m.id+'"'+(d.sampling.method===m.id?' selected':'')+'>'+m.label+'</option>').join("");
@@ -484,7 +689,7 @@ function renderStepHeader(){
     + '<label class="field-label">Sample Size Determination (per step execution)</label>'
     + '<div style="display:flex; gap:10px; align-items:center;">'
     + '<select onchange="updateSamplingMethod(this.value)" style="flex:1;">'+smOpts+'</select>'
-    + (d.sampling.method!=="inspectordecide" && d.sampling.method!=="aqlstandard"
+    + (d.sampling.method!=="inspector_decide" && d.sampling.method!=="aql_table" && d.sampling.method!=="inspectordecide" && d.sampling.method!=="aqlstandard"
         ? '<input type="text" value="'+esc(d.sampling.value)+'" onchange="updateSamplingValue(this.value)" style="width:70px; text-align:center;">'
         : '')
     + '</div></div>';
@@ -522,6 +727,51 @@ function renderStepHeader(){
     + '</select>'
     + typePopoverHtml
     + '</div>';
+
+  // Step Execution Options (Photos & Other Controls)
+  const optsBody = document.getElementById("stepOptionsBody");
+  if (optsBody){
+    const photoOpt = (d.options && d.options.photo) || "none";
+    const commentOpt = (d.options && d.options.requireComment) || false;
+
+    optsBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
+      + '<span class="field-label" style="margin:0 0 8px 0; font-weight:700; color:var(--navy); font-size:11px; letter-spacing:.02em;">STEP OPTIONS:</span>'
+      + '<div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">'
+      
+      // Photos Control
+      + '<div style="display:flex; align-items:center; gap:8px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600; min-width:60px;">Photos:</span>'
+      + '<select onchange="updateStepPhotoOption(this.value)" style="min-width:240px;">'
+      + '<option value="none"'+(photoOpt==="none"?' selected':'')+'>📷 No photos required</option>'
+      + '<option value="per_field"'+(photoOpt==="per_field"?' selected':'')+'>📷 Require photo per measurement field</option>'
+      + '<option value="overall"'+(photoOpt==="overall"?' selected':'')+'>📷 Require overall step photo</option>'
+      + '</select>'
+      + '</div>'
+
+      // Failed Values Comment Control
+      + '<div style="display:flex; align-items:center; gap:8px;">'
+      + '<label class="chk" style="font-weight:600; color:var(--text);">'
+      + '<input type="checkbox" '+(commentOpt?'checked':'')+' onchange="updateStepCommentOption(this.checked)">'
+      + '💬 Require comment on failed / out-of-spec values'
+      + '</label>'
+      + '</div>'
+
+      + '</div></div>';
+  }
+}
+
+function updateStepPhotoOption(val){
+  const d = curStep();
+  if (!d.options) d.options = {};
+  d.options.photo = val;
+  renderJsonPreview();
+}
+
+function updateStepCommentOption(checked){
+  const d = curStep();
+  if (!d.options) d.options = {};
+  d.options.requireComment = checked;
+  renderJsonPreview();
 }
 
 function toggleMcPopover(e){
@@ -691,6 +941,7 @@ function toggleFormulaDrawer(id){
   if (openFormula.has(id)) openFormula.delete(id);
   else {
     openFormula.add(id);
+    openEval.delete(id);
     const row = findRow(curStep(), id);
     if (row && row.formula) autoAssignOperands(curStep(), row);
   }
@@ -735,6 +986,7 @@ function renderFormulaDrawer(d, row){
     FORMULAS.forEach(f=>{
       html += '<option value="'+f.id+'"'+(fm.type===f.id?' selected':'')+'>'+f.label+'</option>';
     });
+
     html += '</select></div>';
 
     // Unified Operand Selection UI
@@ -936,7 +1188,10 @@ function renderEvalDrawer(d, row){
 
 function toggleEvalDrawer(id){
   if (openEval.has(id)) openEval.delete(id);
-  else openEval.add(id);
+  else {
+    openEval.add(id);
+    openFormula.delete(id);
+  }
   renderRows();
 }
 
