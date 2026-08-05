@@ -1,13 +1,19 @@
 ---
-description: Plan a framed task — author Test Plan (tests first) then Impl Plan, and run the Definition-of-Ready gate.
-argument-hint: "<task-id>"
+description: RETIRED — S5 and S6 now run as separate steps. Use /ag-test-plan then /ag-impl-plan (or just /ag).
+argument-hint: "<container-id>"
 ---
 
-Plan task **$ARGUMENTS**. Requires `.orchestration/runs/$ARGUMENTS/spec.md` (run `/ag-frame` first if missing).
+**`/ag-plan` is retired.** Planning is two separately-scored steps with a gate after them, because a
+single combined step could not be evaluated or improved independently — see `WORKFLOW.md` §4.
 
-1. Invoke **ag-test-plan** → `TP.md` (+ real failing tests, red state captured).
-2. Invoke **ag-impl-plan** → `IP.md` (explore the codebase for reuse first).
-3. Run the **Definition-of-Ready gate**: every AC has a test AND an impl step; no orphan
-   R/IM; every AC testable. If it fails, fix and re-check — do not proceed.
+For **$ARGUMENTS**, do this instead:
 
-Report the gate result. When green, tell the user it's ready for `/ag-delegate $ARGUMENTS`.
+1. `/ag-test-plan <id>` — S5, tests first with the red state captured.
+2. `/ag-impl-plan <id>` — S6, approach and `IM` steps.
+3. `/ag-review-ready <id>` — G2, the Definition-of-Ready gate, run by an independent assessor rather
+   than by the planner.
+
+Or simply `/ag <id>`, which advances whichever of these is next.
+
+Do not try to do S5 and S6 in one pass: the Impl Plan is written **against** the Test Plan, so the
+tests must exist and be red first. Tell the user this command is retired, then run the correct step.

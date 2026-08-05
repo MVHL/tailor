@@ -1,23 +1,22 @@
 ---
-description: Run the full orchestration loop on an idea or PRP — frame → plan → delegate → review → record — autonomously, stopping only for real decisions.
-argument-hint: "<idea, PRP paste/link, or bug report>"
+description: RETIRED — a single session no longer runs the whole loop. Use /ag "<ask>" to start, or /ag <id> --to <step> to chain explicitly.
+argument-hint: "<idea, ask, or bug report>"
 ---
 
-Run the whole loop for: **$ARGUMENTS**
+**`/ag-run` is retired.** One session running frame → plan → delegate → close is the exact behaviour
+the step contract exists to remove: it produced a single record for nine steps, so no step could be
+scored, attributed, or improved on its own (`WORKFLOW.md` R4).
 
-You are the Conductor. Execute end-to-end, following the autonomy contract in `CLAUDE.md`:
-proceed without asking unless the problem/scope is ambiguous, requirements conflict, there's
-no AC for something you'd build, an action is irreversible/outward-facing, or agy exhausts
-its iteration budget. Log every human exchange as a `DEC`.
+For **$ARGUMENTS**, do this instead:
 
-1. **Frame** — `ag-frame` skill → `spec.md`. Grill until it holds. (This is where the human's
-   attention is spent; stop and ask on real decisions.)
-2. **Plan** — `ag-test-plan` → `TP.md` (tests first, red captured), then `ag-impl-plan`
-   → `IP.md`. Run the Definition-of-Ready gate.
-3. **Delegate** — `ag-delegate` skill: worktree, brief, adapter, bounded review loop.
-4. **Record & close** — write `RECORD.md` (with the mandatory assumptions/problems/bugs/
-   issues section), update `graph.md` + `runs/index.md`, merge the worktree, commit.
+- **New ask:** `/ag "<the ask>"` — sizes it by evidence (not by wording), then advances one step at a
+  time.
+- **Resume:** `/ag <container-id>`.
+- **Chain deliberately:** `/ag <id> --to <step>` — the only supported way to advance multiple steps,
+  and it **still halts** at HG0, HG1, and HG2.
 
-If not yet onboarded (no `.orchestration/`), run `/ag-init` first.
+The human stops are not optional and cannot be chained through: **HG0** (the bet), **HG1** (the scope
+triple `P` + `R` + `NG`), **HG2** (the merge). Everything between them loops until pass with no human
+involvement, which is where the automation actually lives.
 
-At the end, report: the branch/diff, AC pass/fail, and the four closing-section highlights.
+Tell the user this command is retired, then run `/ag` with their input.
