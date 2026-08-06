@@ -734,10 +734,7 @@ function renderStepHeader(){
     const photoOpt = (d.options && d.options.photo) || "none";
     const commentOpt = (d.options && d.options.requireComment) || false;
 
-    optsBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
-      + '<span class="field-label" style="margin:0 0 8px 0; font-weight:700; color:var(--navy); font-size:11px; letter-spacing:.02em;">STEP OPTIONS:</span>'
-      + '<div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">'
-      
+    optsBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; gap:20px; align-items:center; flex-wrap:wrap;">'
       // Photos Control
       + '<div style="display:flex; align-items:center; gap:8px;">'
       + '<span class="field-label" style="margin:0; font-weight:600; min-width:60px;">Photos:</span>'
@@ -756,7 +753,7 @@ function renderStepHeader(){
       + '</label>'
       + '</div>'
 
-      + '</div></div>';
+      + '</div>';
   }
 }
 
