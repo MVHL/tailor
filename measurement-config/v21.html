@@ -394,7 +394,12 @@ function unitOf(d, row, seen){
 
 function critOptions(d, row){
   if (hasChart(d)){
-    return [preset("pom"), preset("rangelimit"), CHOICE_INSPECTOR, CHOICE_NONE];
+    return [
+      preset("pom"),
+      {id:"rangelimit", label:"Custom range / limit values (Non-MVP)"},
+      CHOICE_INSPECTOR,
+      CHOICE_NONE
+    ];
   }
   const list = PRESETS.filter(p=>!p.pomOnly).slice();
   return list.concat([CHOICE_INSPECTOR, CHOICE_NONE]);
@@ -446,7 +451,8 @@ function stepToDbSchema(key, d){
     measurement_config: {
       sampling_plan: {
         method: samplingMethodMap[d.sampling.method] || d.sampling.method,
-        sample_size_value: (d.sampling.method !== "inspector_decide" && d.sampling.method !== "aql_table" && d.sampling.method !== "inspectordecide" && d.sampling.method !== "aqlstandard") ? d.sampling.value : null
+        sample_size_value: (d.sampling.method !== "inspector_decide" && d.sampling.method !== "aql_table" && d.sampling.method !== "inspectordecide" && d.sampling.method !== "aqlstandard") ? d.sampling.value : null,
+        include_reference_sample: !!(d.sampling && d.sampling.includeReference)
       },
       measurement_chart: {
         is_bound: isChart,
@@ -532,8 +538,8 @@ function renderSqlTables(){
   const mcTypesJson = (isChart && d.mc.types && d.mc.types.length) ? JSON.stringify(d.mc.types) : '[]';
 
   html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_section_measurement_configs</span>'
-    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>is_chart_bound</th><th>allowed_chart_types (JSONB)</th></tr></thead><tbody>'
-    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+(isChart?'TRUE':'FALSE')+'</td><td>'+esc(mcTypesJson)+'</td></tr>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>include_ref_sample</th><th>is_chart_bound</th><th>allowed_chart_types (JSONB)</th></tr></thead><tbody>'
+    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+((d.sampling && d.sampling.includeReference)?'TRUE':'FALSE')+'</td><td>'+(isChart?'TRUE':'FALSE')+'</td><td>'+esc(mcTypesJson)+'</td></tr>'
     + '</tbody></table></div>';
 
   // 3. TABLE: workflow_measurement_fields
@@ -684,6 +690,7 @@ function renderStepHeader(){
   ];
 
   let smOpts = sMethods.map(m=>'<option value="'+m.id+'"'+(d.sampling.method===m.id?' selected':'')+'>'+m.label+'</option>').join("");
+  const incRef = d.sampling && d.sampling.includeReference;
   
   sBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
     + '<label class="field-label">Sample Size Determination (per step execution)</label>'
@@ -692,7 +699,14 @@ function renderStepHeader(){
     + (d.sampling.method!=="inspector_decide" && d.sampling.method!=="aql_table" && d.sampling.method!=="inspectordecide" && d.sampling.method!=="aqlstandard"
         ? '<input type="text" value="'+esc(d.sampling.value)+'" onchange="updateSamplingValue(this.value)" style="width:70px; text-align:center;">'
         : '')
-    + '</div></div>';
+    + '</div>'
+    + '<div style="margin-top:8px; display:flex; align-items:center;">'
+    + '<label class="chk" style="font-size:12.5px; color:var(--text); font-weight:500;">'
+    + '<input type="checkbox" '+(incRef?'checked':'')+' onchange="updateSamplingIncludeReference(this.checked)">'
+    + 'Include a reference sample'
+    + '</label>'
+    + '</div>'
+    + '</div>';
 
   // Measurement Chart Selection
   const mcBody = document.getElementById("mcBody");
@@ -801,6 +815,11 @@ function toggleMcType(typeId, e){
 
 function updateSamplingMethod(val){ curStep().sampling.method = val; render(); }
 function updateSamplingValue(val){ curStep().sampling.value = val; render(); }
+function updateSamplingIncludeReference(checked){
+  if (!curStep().sampling) curStep().sampling = {};
+  curStep().sampling.includeReference = checked;
+  renderJsonPreview();
+}
 
 function updateMcMode(val){
   const d = curStep();
