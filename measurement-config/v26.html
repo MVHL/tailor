@@ -1,0 +1,2059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection workflow — Measurement steps configuration (v26)</title>
+<style>
+  :root{
+    --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
+    --green:#2E7D32; --green-l:#E5F2E6;
+    --amber:#B57A00; --amber-l:#FBF0D9; --amber-line:#E8D5A8;
+    --red:#C8102E;
+    --text:#333333; --mut:#667085; --muted2:#98A2B3;
+    --line:#C9D4E4; --surface1:#F5F7FA; --surface2:#FFFFFF; --page:#F0F2F5;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--page); color:var(--text); font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.5;}
+  .page{max-width:1120px; margin:0 auto; padding:28px 20px 60px;}
+  header.top{margin-bottom:22px;}
+  header.top h1{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px;}
+  header.top p{font-size:13px; color:var(--mut); margin:0 0 10px;}
+  .badge-mvp{display:inline-block; background:var(--tint); color:var(--blue); border:1px solid #C3D8F0; font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--radius); margin-left:8px; vertical-align:2px;}
+  
+  .layout{display:flex; gap:18px; align-items:flex-start;}
+  .sidebar{width:230px; flex-shrink:0; background:var(--surface1); border-radius:12px; padding:14px; border:1px solid var(--line);}
+  .sidebar h2{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:700;}
+  .ct-row{display:flex; align-items:center; gap:2px; margin-bottom:4px;}
+  .step-row{border-radius:var(--radius);}
+  .step-row.dragging{opacity:0.4;}
+  .step-num{flex-shrink:0; font-size:11px; font-weight:700; color:var(--muted2); width:14px; text-align:right;}
+  .ct-item{flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ct-item.active{background:var(--tint); color:var(--blue); font-weight:700;}
+  .ct-item:not(.active){color:var(--text);}
+  .ct-item:not(.active):hover{background:#EDEFF3;}
+  .ct-remove{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .ct-remove:hover{background:#FCEBEB; color:var(--red);}
+
+  .main{flex:1; min-width:0;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin-bottom:14px;}
+  .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:4px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
+  .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
+  .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
+  .section-label{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.02em; margin:0 0 10px; font-weight:700;}
+  .drag-handle{width:18px; height:22px; display:grid; grid-template-columns:repeat(2,4px); grid-template-rows:repeat(3,4px); gap:2px; cursor:grab; flex-shrink:0; align-content:center; justify-content:center;}
+  .drag-handle span{width:4px; height:4px; border-radius:50%; background:var(--muted2);}
+
+  input[type=text]{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text);}
+  select{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); background:#fff;}
+  select:disabled{background:var(--surface1); color:var(--mut);}
+  button.btn{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--text); font-family:inherit;}
+  button.btn:hover{background:var(--surface1);}
+  button.btn-primary{background:var(--blue); border-color:var(--blue); color:#fff;}
+  button.btn-primary:hover{background:#00408A;}
+  .field-label{font-size:12px; color:var(--mut); display:block; margin-bottom:4px;}
+
+  /* ---- chart type popover ---- */
+  .mctype-wrap{position:relative; display:inline-block;}
+  .mctype-trigger{border:1px solid var(--line); border-radius:8px; padding:7px 12px; font-size:13px; background:#fff; color:var(--text); cursor:pointer; display:inline-flex; align-items:center; gap:8px; min-width:150px; justify-content:space-between;}
+  .mctype-trigger:hover{background:var(--surface1);}
+  .mctype-caret{color:var(--muted2); font-size:10px;}
+  .mctype-panel{display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:20; background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 10px; box-shadow:0 4px 14px rgba(10,42,85,0.14); min-width:210px;}
+  .mctype-panel label{display:flex; align-items:center; gap:6px; font-size:13px; padding:5px 6px; cursor:pointer; white-space:nowrap; border-radius:4px;}
+  .mctype-panel label:hover{background:var(--surface1);}
+
+  /* ---- field row cards ---- */
+  .row-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .row-card.dragging{opacity:0.4;}
+  .row-header{display:flex; align-items:center; gap:10px;}
+  .row-line{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px;}
+
+  .row-dup{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .row-dup:hover{background:var(--tint); color:var(--blue);}
+
+  .chk{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--mut); cursor:pointer;}
+
+  /* ---- status chips / badges ---- */
+  .chip{display:inline-flex; align-items:center; gap:6px; border-radius:6px; padding:5px 10px; font-size:12.5px; cursor:pointer; border:1px solid transparent; user-select:none;}
+  .chip-formula{background:var(--tint); border-color:#C3D8F0; color:var(--blue); font-weight:600;}
+  .chip-formula:hover{background:#DDEAF8;}
+  .chip-eval-pom{background:var(--green-l); border-color:#CBE4CC; color:var(--green); font-weight:600;}
+  .chip-eval-rule{background:var(--tint); border-color:#C3D8F0; color:var(--blue); font-weight:600;}
+  .chip-eval-warn{background:var(--amber-l); border-color:var(--amber-line); color:var(--amber); font-weight:600;}
+  .chip-eval-muted{background:var(--surface1); border-color:var(--line); color:var(--mut);}
+  .chip-eval-muted:hover{background:#EDEFF3; color:var(--text);}
+  .chip .caret{font-size:10px; margin-left:4px; opacity:0.8;}
+
+  /* ---- inline drawers ---- */
+  .drawer-open{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-top:8px;}
+
+  .letter-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;}
+  .letter-tag{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:5px; background:var(--tint); color:var(--blue); border:1px solid #C3D8F0; font-weight:700; font-size:12.5px; font-family:'Courier New',monospace;}
+  .sql-table{width:100%; border-collapse:collapse; font-size:11.5px; font-family:'Courier New',Consolas,monospace; margin-top:6px; overflow-x:auto; display:block;}
+  .sql-table th{background:#1E293B; color:#38BDF8; text-align:left; padding:6px 10px; border:1px solid #334155; font-weight:700;}
+  .sql-table td{padding:6px 10px; border:1px solid #334155; color:#E2E8F0; background:#020617; white-space:nowrap;}
+  .dev-tab{background:#1E293B; color:#94A3B8; border:1px solid #334155; border-radius:6px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;}
+  .dev-tab:hover{background:#334155; color:#F8FAFC;}
+  .dev-tab.active{background:#0284C7; color:#FFFFFF; border-color:#0284C7;}
+  footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v26</span></h1>
+    <p>Simplified Data Binding model: <b>1 Step = 1 Custom POM</b> when Data Binding = None. Step name is the Custom POM name.</p>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <h2>Inspection Order</h2>
+      <div id="checkList"></div>
+      <p style="font-size:11px; color:var(--muted2); margin:8px 0 0; line-height:1.4;">Steps execute top-to-bottom. Drag handle to reorder.</p>
+      <button class="btn btn-primary" id="addStepBtn" style="width:100%; margin-top:10px;">+ Add measurement step</button>
+    </div>
+    
+    <div class="main">
+      <div class="card">
+        <input type="text" id="ctName" class="ct-name-input" placeholder="Step Name / Custom POM Name">
+        <p class="meta" id="ctMeta" style="margin-bottom:14px;"></p>
+        <div id="samplingBody"></div>
+        <div id="mcBody"></div>
+        <div id="stepOptionsBody"></div>
+        
+        <hr style="border:0; border-top:1px solid var(--line); margin:20px 0 16px;">
+        
+        <!-- MEASUREMENT FIELDS (COLUMNS) SECTION -->
+        <p class="section-label">MEASUREMENT FIELDS (COLUMNS)</p>
+        <div id="rowsList"></div>
+        <div style="margin-top:10px;">
+          <button class="btn" id="addValueBtn">+ Add measurement field</button>
+        </div>
+      </div>
+
+      <!-- Developer Data Model View -->
+      <div class="card" style="background:#0F172A; border-color:#1E293B; color:#F8FAFC; padding:18px 22px; margin-top:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="font-size:14px; font-weight:700; color:#38BDF8; margin:0 0 2px;">⚙️ Developer View — API Schemas & Execution Results Data Model</h3>
+            <p style="font-size:11.5px; color:#94A3B8; margin:0;">Live representation of workflow definitions and execution measurement submission payloads.</p>
+          </div>
+          <button class="btn" onclick="copyJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11.5px; padding:5px 12px; font-weight:600;">📋 Copy Current Tab JSON</button>
+        </div>
+
+        <!-- 4 Developer Tabs -->
+        <div style="display:flex; gap:8px; margin-bottom:14px; border-bottom:1px solid #1E293B; padding-bottom:10px; flex-wrap:wrap;">
+          <button class="dev-tab active" onclick="switchDevTab('configJson')" id="devTab_configJson">⚙️ 1. Config JSON Schema</button>
+          <button class="dev-tab" onclick="switchDevTab('configSql')" id="devTab_configSql">🗄️ 2. Config SQL Schema</button>
+          <button class="dev-tab" onclick="switchDevTab('resultJson')" id="devTab_resultJson">📝 3. Result Submit Payload (JSON)</button>
+          <button class="dev-tab" onclick="switchDevTab('resultSql')" id="devTab_resultSql">📊 4. Result DB SQL Tables</button>
+        </div>
+
+        <!-- Tab 1: Config JSON -->
+        <div id="devBox_configJson" style="display:block;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. API JSON Payload Schema (Step Definition for "<span id="jsonStepTitle"></span>")</span>
+          <pre id="jsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:380px;"></pre>
+        </div>
+
+        <!-- Tab 2: Config SQL -->
+        <div id="devBox_configSql" style="display:none;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">2. Relational SQL Database Storage Schema (Configuration)</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">Normalized PostgreSQL records stored across database tables for step definition ([Workflow Sections] × [Step Columns]).</p>
+          <div id="sqlTablesPreview"></div>
+        </div>
+
+        <!-- Tab 3: Result Submit Payload JSON -->
+        <div id="devBox_resultJson" style="display:none;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">3. Inspection Execution Result JSON Payload (Frontend Submit Data)</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">Full JSON payload submitted by mobile/tablet inspection app when inspector completes all steps in report.</p>
+          <pre id="resultJsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:380px;"></pre>
+        </div>
+
+        <!-- Tab 4: Result DB SQL -->
+        <div id="devBox_resultSql" style="display:none;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">4. Relational SQL Database Storage Schema (Measurement Execution Results)</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">PostgreSQL database tables storing completed inspection results, sample entries, formula values, and evaluation decisions.</p>
+          <div id="resultSqlTablesPreview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    Reorder steps or fields using drag handles. Formulas reference other fields within the step or from earlier steps.
+  </footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Reference Data & Definitions
+// ---------------------------------------------------------------------------
+
+const UNIT_GROUPS = [
+  {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Area", units:["cm²","m²","mm²","in²","ft²","yd²"]},
+  {category:"Weight", units:["g","kg","oz","lb"]},
+  {category:"Volume", units:["mL","L","cm³","m³"]},
+  {category:"Temperature", units:["°C","°F"]},
+  {category:"Area Density", units:["GSM","oz/yd²"]},
+  {category:"Scale", units:["grade (1–5)"]},
+  {category:"Other", units:["%"]}
+];
+
+const MC_TYPES = [
+  {id:"Dimension",   unitCategory:"Dimension"},
+  {id:"Weight",      unitCategory:"Weight"},
+  {id:"Volume",      unitCategory:"Volume"},
+  {id:"Temperature", unitCategory:"Temperature"}
+];
+
+const FORMULAS = [
+  {id:"pctchange",    label:"Percent change — (B − A) / A × 100",   arity:2, expr:"(B − A) / A × 100", unit:"%", shortLabel:"Percent change", mvp:true},
+  {id:"difference",   label:"Difference — A − B",                   arity:2, expr:"A − B",             unit:"sameAsOperands", shortLabel:"Difference", mvp:true},
+  {id:"ratio",        label:"Ratio — A / B",                        arity:2, expr:"A / B",             unit:"unitless", shortLabel:"Ratio", mvp:true},
+  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",    arity:2, expr:"A / B × 100",       unit:"%", shortLabel:"Ratio %", mvp:true},
+  {id:"product",      label:"Product — A × B",                      arity:2, expr:"A × B",             unit:"product", shortLabel:"Product", mvp:true},
+  {id:"average",      label:"Average of included values",           arity:"many",                     unit:"sameAsOperands", shortLabel:"Average", mvp:true},
+
+  {id:"passthrough",  label:"Take another value (Non-MVP)",         arity:1, unit:"sameAsOperands", shortLabel:"Take value", mvp:false},
+  {id:"sum",          label:"Total of included values (Non-MVP)",    arity:"many",                     unit:"sameAsOperands", shortLabel:"Total", mvp:false},
+  {id:"custom",       label:"Custom expression (Non-MVP)",           arity:"letters", custom:true,      unit:"custom", shortLabel:"Custom", mvp:false}
+];
+
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function letterOf(i){ return LETTERS[i] || "?"; }
+
+function lettersUsed(expr){
+  const found = new Set();
+  String(expr||"").replace(/\b[A-Z]\b/g, m=>{ found.add(m); return m; });
+  return [...found].sort();
+}
+
+const R = {
+  fixedRange: (lo, hi, override=false) => ({ mode:"fixed_range", lower:{value:lo!=null?String(lo):""}, upper:{value:hi!=null?String(hi):""}, allowInspectorOverride:override }),
+  standardVal: (sd, tolType, tolMinus, tolPlus, override=false) => ({ mode:"standard_val", standard:sd, tolType:tolType, tolMinus:tolMinus, tolPlus:tolPlus, allowInspectorOverride:override }),
+  useSpec: (override=false) => ({ mode:"use_spec", allowInspectorOverride:override }),
+  use_spec: (override=false) => ({ mode:"use_spec", allowInspectorOverride:override }),
+  none: () => ({ mode:"none", allowInspectorOverride:false }),
+  rangelimit: (lo, hi, override=false) => ({ mode:"fixed_range", lower:{value:lo!=null?String(lo):""}, upper:{value:hi!=null?String(hi):""}, allowInspectorOverride:override })
+};
+
+function col(id, name, o){
+  o = o || {};
+  return {
+    id: id,
+    name: name,
+    required: o.opt ? false : true,
+    source: o.src || "inspector",
+    unit: "auto",
+    formula: o.f || null,
+    criteria: o.crit || R.useSpec(true)
+  };
+}
+
+const op = (id)=>({id:id});
+
+const data = {
+  garment_chart: {
+    sampling: {method:"by_size_per_style", value:"2"},
+    name: "Garment POM Measurements",
+    mc: {mode:"pom", types:["Dimension"]},
+    rows: [
+      col(1, "POM Measurement", {src:"inspector", crit:R.useSpec(true)})
+    ]
+  },
+  shrinkage_chart: {
+    sampling: {method:"fixed_quantity", value:"1"},
+    name: "Shrinkage & Wash Performance",
+    mc: {mode:"pom", types:["Dimension"]},
+    rows: [
+      col(21, "Before wash", {src:"inspector", crit:R.useSpec(true)}),
+      col(22, "After wash",  {src:"inspector", crit:R.none(false)}),
+      col(23, "% Shrinkage", {src:"custom", f:{type:"pctchange", ops:[op(21), op(22)]}, crit:R.fixedRange(-5, 5, true)})
+    ]
+  },
+  dyelot_approval: {
+    sampling: {method:"fixed_quantity", value:"1"},
+    name: "Dyelot Quality Approval",
+    mc: {mode:"none", unit:"grade (1–5)"},
+    rows: [
+      col(41, "Colour / shade vs standard", {src:"inspector", crit:R.fixedRange(4, 5, true)}),
+      col(42, "Dry crocking",               {src:"inspector", crit:R.fixedRange(4, 5, true)}),
+      col(43, "Wet crocking",               {src:"inspector", crit:R.fixedRange(4, 5, true)})
+    ]
+  },
+  cookware_weight: {
+    sampling: {method:"fixed_quantity", value:"3"},
+    name: "Pot Weight",
+    mc: {mode:"none", unit:"g"},
+    rows: [
+      col(60, "Measured Weight", {src:"inspector", crit:R.none()}),
+      col(61, "Weight Variance %", {src:"custom", unit:"%", f:{type:"custom", ops:[op(60)], customExpr:"(A - SD) / SD * 100", outputUnit:"%"}, crit:R.standardVal(100, "pct", 3, 3, true)})
+    ]
+  },
+  swatch_length: {
+    sampling: {method:"pct_available", value:"10"},
+    name: "Swatch Length",
+    mc: {mode:"none", unit:"cm"},
+    rows: [
+      col(301, "Try 1", {src:"inspector", crit:R.none()}),
+      col(302, "Try 2", {src:"inspector", crit:R.none()}),
+      col(303, "Try 3", {src:"inspector", crit:R.none()}),
+      col(304, "Value", {src:"formula_fields", f:{type:"average", ops:[op(301), op(302), op(303)]}, crit:R.none()}),
+      col(305, "Standard", {src:"inspector", crit:R.none()}),
+      col(306, "Evaluation", {src:"formula_fields", f:{type:"difference", ops:[op(304), op(305)]}, crit:R.fixedRange(-5, 5, true)})
+    ]
+  },
+  swatch_width: {
+    sampling: {method:"pct_available", value:"10"},
+    name: "Swatch Width",
+    mc: {mode:"none", unit:"cm"},
+    rows: [
+      col(311, "Try 1", {src:"inspector", crit:R.none()}),
+      col(312, "Try 2", {src:"inspector", crit:R.none()}),
+      col(313, "Try 3", {src:"inspector", crit:R.none()}),
+      col(314, "Value", {src:"formula_fields", f:{type:"average", ops:[op(311), op(312), op(313)]}, crit:R.none()}),
+      col(315, "Standard", {src:"inspector", crit:R.none()}),
+      col(316, "Evaluation", {src:"formula_fields", f:{type:"difference", ops:[op(314), op(315)]}, crit:R.fixedRange(-5, 5, true)})
+    ]
+  },
+  swatch_area: {
+    sampling: {method:"pct_available", value:"10"},
+    name: "Swatch Area",
+    mc: {mode:"none", unit:"cm²"},
+    rows: [
+      col(320, "Value", {src:"formula_poms", f:{type:"product", ops:[{key:"swatch_length", fieldName:"Value"}, {key:"swatch_width", fieldName:"Value"}]}, crit:R.none()})
+    ]
+  },
+  swatch_weight: {
+    sampling: {method:"pct_available", value:"10"},
+    name: "Swatch Weight",
+    mc: {mode:"none", unit:"g"},
+    rows: [
+      col(322, "Value", {src:"inspector", crit:R.none()})
+    ]
+  },
+  fabric_gsm: {
+    sampling: {method:"pct_available", value:"10"},
+    name: "Fabric Weight (GSM)",
+    mc: {mode:"none", unit:"GSM"},
+    rows: [
+      col(323, "Value", {src:"formula_poms", f:{type:"custom", ops:[{key:"swatch_weight", fieldName:"Value"}, {key:"swatch_area", fieldName:"Value"}], customExpr:"A / B × 10,000"}, crit:R.none()}),
+      col(324, "Standard", {src:"inspector", crit:R.none()}),
+      col(325, "Evaluation", {src:"formula_fields", f:{type:"difference", ops:[op(323), op(324)]}, crit:R.standardVal(100, "pct", 5, 5, true)})
+    ]
+  }
+};
+
+const order = ["garment_chart","shrinkage_chart","dyelot_approval","cookware_weight","swatch_length","swatch_width","swatch_area","swatch_weight","fabric_gsm"];
+let active = "garment_chart";
+let nextRowId = 400;
+let mcPopoverOpen = false;
+
+const openEval = new Set();
+const openFormula = new Set();
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function curStep(){ return data[active]; }
+function findRow(d, id){ return d.rows.find(r=>r.id===id); }
+function rowIndex(d, id){ return d.rows.findIndex(r=>r.id===id); }
+function rowName(d, id){ const r = findRow(d,id); return r ? r.name : null; }
+
+function hasChart(d){ d = d || curStep(); return !!(d && d.mc && d.mc.mode === "pom"); }
+function mcModeOf(d){ d = d || curStep(); return (d && d.mc && d.mc.mode) ? d.mc.mode : "none"; }
+function chartTypes(d){ return (d && d.mc && d.mc.types) || []; }
+
+function formulaDef(fm){ return fm ? FORMULAS.find(x=>x.id===fm.type) : null; }
+function opsOf(fm){ return (fm && fm.ops) ? fm.ops : []; }
+function operandIdsOf(fm){ return opsOf(fm).map(o=>o.id).filter(x=>x!=null); }
+
+function dependsOn(fromStepKey, candidateId, targetStepKey, targetId, seen){
+  if (fromStepKey === targetStepKey && candidateId === targetId) return true;
+  seen = seen || new Set();
+  const stateKey = fromStepKey + ":" + candidateId;
+  if (seen.has(stateKey)) return false;
+  seen.add(stateKey);
+
+  const st = data[fromStepKey];
+  if (!st) return false;
+  const r = findRow(st, candidateId);
+  if (!r || !r.formula) return false;
+
+  const ops = opsOf(r.formula);
+  for (const o of ops){
+    if (o.key){
+      // Cross-step dependency
+      const targetStep = data[o.key];
+      if (targetStep){
+        const fName = o.fieldName || "Value";
+        const valRow = targetStep.rows.find(x => x.name === fName);
+        if (valRow){
+          if (dependsOn(o.key, valRow.id, targetStepKey, targetId, seen)) return true;
+        }
+      }
+    } else if (o.id != null){
+      // Intra-step dependency
+      if (dependsOn(fromStepKey, o.id, targetStepKey, targetId, seen)) return true;
+    }
+  }
+
+  return false;
+}
+
+function eligibleOperands(d, rowId){
+  const activeKey = active;
+  return d.rows.filter(r => !dependsOn(activeKey, r.id, activeKey, rowId));
+}
+
+function validateWorkflowDag(){
+  const errors = [];
+  order.forEach(stepKey => {
+    const st = data[stepKey];
+    if (!st || !st.rows) return;
+    st.rows.forEach(r => {
+      if (r.formula){
+        const ops = opsOf(r.formula);
+        ops.forEach(op => {
+          if (op.key){
+            const targetStep = data[op.key];
+            const fName = op.fieldName || "Value";
+            const targetField = targetStep ? targetStep.rows.find(x => x.name === fName) : null;
+            if (targetField){
+              if (dependsOn(op.key, targetField.id, stepKey, r.id)){
+                errors.push('Cyclic formula dependency detected between step "'+st.name+'" ('+r.name+') and step "'+targetStep.name+'" ('+targetField.name+')!');
+              }
+            }
+          }
+        });
+      }
+    });
+  });
+  return errors;
+}
+
+function autoAssignOperands(d, row){
+  if (!row || !row.formula) return;
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return;
+  const eligible = eligibleOperands(d, row.id);
+  if (!eligible.length) return;
+
+  if (!fm.ops) fm.ops = [];
+
+  if (f.arity === 1){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+  } else if (f.arity === 2){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+    if (!fm.ops[1] || !fm.ops[1].id){
+      fm.ops[1] = {id: eligible[1] ? eligible[1].id : eligible[0].id};
+    }
+  } else if (f.arity === "many"){
+    if (!fm.ops || !fm.ops.length){
+      fm.ops = eligible.map(e=>({id: e.id}));
+    }
+  } else if (f.arity === "letters"){
+    const expr = fm.customExpr || "A / B";
+    const used = lettersUsed(expr);
+    fm.ops = [];
+    used.forEach(let=>{
+      const idx = LETTERS.indexOf(let);
+      if (idx >= 0 && idx < eligible.length){
+        fm.ops.push({id: eligible[idx].id});
+      }
+    });
+  }
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function mcTypeSummary(types){
+  if (!types || types.length === 0) return "Any type";
+  if (types.length === 1) return types[0];
+  return types.length + " types selected";
+}
+
+function renderUnitOptions(selected){
+  let html = '<option value="">(No unit)</option>';
+  UNIT_GROUPS.forEach(g=>{
+    html += '<optgroup label="'+g.category+'">';
+    g.units.forEach(u=>{
+      html += '<option value="'+u+'"'+(selected===u?' selected':'')+'>'+u+'</option>';
+    });
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// Developer Data Model JSON & SQL Tables
+// ---------------------------------------------------------------------------
+
+function parseNum(val){
+  if (val === null || val === undefined || String(val).trim() === "") return null;
+  const n = Number(val);
+  return isNaN(n) ? null : n;
+}
+
+function parseAbsNum(val){
+  const n = parseNum(val);
+  return n === null ? null : Math.abs(n);
+}
+
+function derivedUnit(d, row){
+  if (!row) return "auto";
+  if (row.unit && row.unit !== "auto") return row.unit;
+  
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
+
+  if (row.formula){
+    const fmType = row.formula.type;
+    if (fmType === "pctchange" || fmType === "pctvariance") return "%";
+    
+    const ops = opsOf(row.formula);
+    if (fmType === "product"){
+      const u1 = getOperandUnit(d, ops[0]);
+      if (u1 === "cm") return "cm²";
+      if (u1 === "m") return "m²";
+      if (u1 === "in") return "in²";
+      if (u1 === "mm") return "mm²";
+      return (u1 && u1 !== "auto") ? u1 + "²" : "cm²";
+    }
+    
+    if (fmType === "sum" || fmType === "average" || fmType === "difference" || fmType === "ratio" || fmType === "passthrough"){
+      const opUnit = getOperandUnit(d, ops[0]);
+      if (opUnit && opUnit !== "auto") return opUnit;
+    }
+    
+    if (fmType === "custom"){
+      if (row.formula.outputUnit) return row.formula.outputUnit;
+      if (!isChart && d.mc && d.mc.unit && d.mc.unit !== "auto") return d.mc.unit;
+      const opUnit = getOperandUnit(d, ops[0]);
+      if (opUnit && opUnit !== "auto") return opUnit;
+    }
+  }
+
+  // Chart-bound steps (mode: "pom") cannot resolve non-formula field unit at config time
+  if (isChart) return "auto";
+
+  return (d && d.mc && d.mc.unit && d.mc.unit !== "auto") ? d.mc.unit : "cm";
+}
+
+function getOperandUnit(currentStep, opItem){
+  if (!opItem) return null;
+  if (opItem.key){
+    const targetStep = data[opItem.key];
+    if (!targetStep) return null;
+    const fName = opItem.fieldName || "Value";
+    const targetField = targetStep.rows.find(r => r.name === fName);
+    return targetField ? derivedUnit(targetStep, targetField) : (targetStep.mc ? targetStep.mc.unit : null);
+  }
+  if (opItem.id != null){
+    const r = findRow(currentStep, opItem.id);
+    return r ? derivedUnit(currentStep, r) : null;
+  }
+  return null;
+}
+
+function compileFormulaDbExpression(fmType, customExpr, operands, currentCriteria){
+  // Reject compilation if any operand field_id is unresolvable/null
+  if (operands.some(o => o.field_id == null)){
+    return null;
+  }
+
+  const opIds = operands.map(o => "{" + o.field_id + "}");
+  
+  if (fmType === "sum"){
+    return opIds.length ? opIds.join(" + ") : null;
+  }
+  if (fmType === "average"){
+    return opIds.length ? "(" + opIds.join(" + ") + ") / " + opIds.length : null;
+  }
+  if (fmType === "product"){
+    return opIds.length ? opIds.join(" * ") : null;
+  }
+  if (fmType === "difference"){
+    return opIds.length >= 2 ? opIds[0] + " - " + opIds[1] : null;
+  }
+  if (fmType === "pctchange"){
+    return opIds.length >= 2 ? "(" + opIds[1] + " - " + opIds[0] + ") / " + opIds[0] + " * 100" : null;
+  }
+  if (fmType === "ratio"){
+    return opIds.length >= 2 ? opIds[0] + " / " + opIds[1] : null;
+  }
+  if (fmType === "ratiopercent"){
+    return opIds.length >= 2 ? "(" + opIds[0] + " / " + opIds[1] + ") * 100" : null;
+  }
+  if (fmType === "passthrough"){
+    return opIds.length >= 1 ? opIds[0] : null;
+  }
+  if (fmType === "custom"){
+    if (!customExpr) return null;
+    let expr = String(customExpr)
+      .replace(/−/g, "-")
+      .replace(/×/g, "*")
+      .replace(/÷/g, "/")
+      .replace(/,/g, "");
+
+    const letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
+    operands.forEach((op, idx) => {
+      const letter = letters[idx];
+      if (letter && op.field_id != null){
+        const reg = new RegExp("\\b" + letter + "\\b", "g");
+        expr = expr.replace(reg, "{" + op.field_id + "}");
+      }
+    });
+
+    if (expr.includes("SD")){
+      expr = expr.replace(/\bSD\b/g, "{standard}");
+    }
+
+    return expr;
+  }
+  return null;
+}
+
+function stepToDbSchema(key, d){
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
+  
+  const samplingMethodMap = {
+    "bysizeperstyle": "by_size_per_style",
+    "byitem": "by_item",
+    "bycolorperstyle": "by_color_per_style",
+    "determinedquantity": "fixed_quantity",
+    "pctavailable": "pct_available",
+    "aqlstandard": "aql_table",
+    "inspectordecide": "inspector_decide"
+  };
+
+  const samMethod = samplingMethodMap[d.sampling.method] || d.sampling.method;
+  const nullValueMethods = ["aql_table", "inspector_decide"];
+  const sampleSizeValue = nullValueMethods.includes(samMethod) ? null : parseNum(d.sampling.value);
+
+  return {
+    section_uuid: "sec_" + key,
+    title: d.name,
+    type: "configurable_measurement",
+    step_type: "measurement",
+    is_affect_overall_result: true,
+    measurement_config: {
+      sampling_plan: {
+        method: samMethod,
+        sample_size_value: sampleSizeValue
+      },
+      data_binding: {
+        mode: mcMode,
+        is_chart_bound: isChart,
+        allowed_chart_types: (isChart && d.mc.types) ? d.mc.types : [],
+        unit: mcMode === "none" ? (d.mc.unit || "cm") : "auto",
+        custom_pom_name: mcMode === "none" ? d.name : null
+      },
+      fields: d.rows.map((row, idx) => {
+        const isCalc = !!row.formula;
+        const c = row.criteria || {};
+        const curMode = c.mode || (isChart ? "use_spec" : "fixed_range");
+
+        let evalPayload = {
+          mode: curMode,
+          params: null,
+          allow_inspector_override: !!c.allowInspectorOverride
+        };
+
+        if (curMode === "fixed_range" || curMode === "rangelimit"){
+          evalPayload.mode = "fixed_range";
+          const minVal = c.lower ? parseNum(c.lower.value) : null;
+          const maxVal = c.upper ? parseNum(c.upper.value) : null;
+          evalPayload.params = {
+            min_limit: minVal,
+            max_limit: maxVal
+          };
+        } else if (curMode === "standard_val"){
+          evalPayload.params = {
+            standard: parseNum(c.standard),
+            tolerance_type: c.tolType || "pct",
+            tolerance_lower: parseAbsNum(c.tolMinus),
+            tolerance_upper: parseAbsNum(c.tolPlus)
+          };
+        } else if (curMode === "none"){
+          evalPayload.allow_inspector_override = false;
+        }
+
+        let formulaPayload = null;
+        if (isCalc){
+          const fm = row.formula;
+          const opsRaw = opsOf(fm);
+
+          const operands = opsRaw.map(o => {
+            if (o.key){
+              // Cross-step reference (formula_poms)
+              const targetStep = data[o.key];
+              const fName = o.fieldName || "Value";
+              const targetField = targetStep ? targetStep.rows.find(r => r.name === fName) : null;
+              return {
+                step_ref: o.key,
+                field_name: fName,
+                field_id: targetField ? targetField.id : null
+              };
+            } else {
+              // Same-step reference (formula_fields)
+              const sameRow = findRow(d, o.id);
+              return {
+                step_ref: null,
+                field_name: sameRow ? sameRow.name : null,
+                field_id: o.id != null ? o.id : null
+              };
+            }
+          }).filter(op => op.field_id != null || op.step_ref != null);
+
+          const compiledExpr = compileFormulaDbExpression(fm.type, fm.customExpr, operands, c);
+
+          formulaPayload = {
+            type: fm.type,
+            operands: operands,
+            custom_expression: compiledExpr
+          };
+        }
+
+        return {
+          field_id: row.id,
+          name: row.name,
+          required: row.required !== false,
+          unit: derivedUnit(d, row),
+          data_source: isCalc ? (row.source || "calculated") : "inspector_input",
+          position: idx + 1,
+          formula: formulaPayload,
+          evaluation_rule: evalPayload
+        };
+      })
+    }
+  };
+}
+
+let currentDevTab = "configJson";
+
+function switchDevTab(tabId){
+  currentDevTab = tabId;
+  ["configJson", "configSql", "resultJson", "resultSql"].forEach(t => {
+    const btn = document.getElementById("devTab_" + t);
+    const box = document.getElementById("devBox_" + t);
+    if (btn) btn.classList.toggle("active", t === tabId);
+    if (box) box.style.display = (t === tabId) ? "block" : "none";
+  });
+}
+
+function renderSqlTables(){
+  const container = document.getElementById("sqlTablesPreview");
+  if (!container || !curStep()) return;
+  const d = curStep();
+  const mcMode = mcModeOf(d);
+
+  let html = '';
+
+  // 1. TABLE: workflow_step_sections
+  html += '<div style="margin-top:4px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>title (POM Name)</th><th>data_binding_mode</th><th>unit</th></tr></thead><tbody>'
+    + '<tr><td>sec_'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>'+esc(mcMode)+'</td><td>'+(mcMode==="none"?esc(d.mc.unit||"cm"):"auto")+'</td></tr>'
+    + '</tbody></table></div>';
+
+  // 2. TABLE: workflow_measurement_fields (Columns)
+  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_fields (Step Columns)</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>field_name</th><th>data_source</th><th>eval_mode</th><th>allow_override</th></tr></thead><tbody>';
+  
+  d.rows.forEach((row, i)=>{
+    const isCalc = !!row.formula;
+    const c = row.criteria || {};
+    html += '<tr><td>fld_'+row.id+'</td><td>sec_'+esc(active)+'</td><td>'+esc(row.name)+'</td><td>'+(isCalc?'calculated':'inspector_input')+'</td><td>'+esc(c.mode || 'use_spec')+'</td><td>'+(c.allowInspectorOverride?'TRUE':'FALSE')+'</td></tr>';
+  });
+  html += '</tbody></table></div>';
+
+  container.innerHTML = html;
+}
+
+function generateResultPayloadJson(stepKey, d){
+  stepKey = stepKey || active;
+  d = d || curStep();
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
+  
+  let stepResultPayload = null;
+
+  if (isChart){
+    // Data Binding = pom (Number of POMs in MC x Number of Fields)
+    const chartPoms = [
+      { id: "pom_chest_width", name: "Chest Width", spec: 52.0, tolMinus: 0.5, tolPlus: 0.5 },
+      { id: "pom_body_length", name: "Body Length", spec: 70.0, tolMinus: 1.0, tolPlus: 1.0 },
+      { id: "pom_sleeve_length", name: "Sleeve Length", spec: 64.0, tolMinus: 0.5, tolPlus: 0.5 }
+    ];
+
+    const pomRows = chartPoms.map((pom, pIdx) => {
+      const fieldCols = {};
+      d.rows.forEach((r, rIdx) => {
+        const isCalc = !!r.formula;
+        const c = r.criteria || {};
+
+        let actualVal = pom.spec + (pIdx === 0 ? 0.2 : (pIdx === 1 ? -0.2 : 0.0));
+        let diffVal = actualVal - pom.spec;
+        let evalStatus = (c.mode && c.mode !== "none") ? "PASSED" : "NOT_EVALUATED";
+
+        if (r.name.includes("Before")) actualVal = pom.spec;
+        else if (r.name.includes("After")) actualVal = pom.spec - 0.5;
+        else if (r.name.includes("Shrinkage")) { actualVal = -0.96; diffVal = -0.96; }
+
+        fieldCols[r.name] = {
+          field_id: r.id,
+          data_source: isCalc ? "calculated" : "inspector_input",
+          spec_value: pom.spec,
+          measured_numeric_value: actualVal,
+          difference: Number(diffVal.toFixed(2)),
+          unit: "cm",
+          evaluation_rule: c.mode || "use_spec",
+          evaluation_status: evalStatus,
+          is_inspector_overridden: false
+        };
+      });
+
+      return {
+        pom_id: pom.id,
+        pom_name: pom.name,
+        fields: fieldCols
+      };
+    });
+
+    stepResultPayload = {
+      step_id: stepKey,
+      step_name: d.name,
+      data_binding_mode: "pom",
+      overall_status: "PASSED",
+      matrix_dimensions: chartPoms.length + " POMs in MC × " + d.rows.length + " Step Fields",
+      samples: [
+        {
+          sample_index: 1,
+          size: "M",
+          garment_piece_id: "PC-001",
+          pom_entries: pomRows
+        }
+      ]
+    };
+  } else {
+    // Data Binding = none (1 Step = 1 Custom POM)
+    const fieldValues = {};
+    d.rows.forEach(r => {
+      const isCalc = !!r.formula;
+      const c = r.criteria || {};
+      
+      let sampleVal = 0;
+      let evalStatus = "NOT_EVALUATED";
+      
+      if (stepKey === "swatch_length"){
+        if (r.id === 301) sampleVal = 10.1;
+        else if (r.id === 302) sampleVal = 10.0;
+        else if (r.id === 303) sampleVal = 9.9;
+        else if (r.id === 304) sampleVal = 10.0;
+        else if (r.id === 305) sampleVal = 10.0;
+        else if (r.id === 306) { sampleVal = 0.0; evalStatus = "PASSED"; }
+      } else if (stepKey === "swatch_width"){
+        if (r.id === 311) sampleVal = 10.0;
+        else if (r.id === 312) sampleVal = 10.1;
+        else if (r.id === 313) sampleVal = 9.9;
+        else if (r.id === 314) sampleVal = 10.0;
+        else if (r.id === 315) sampleVal = 10.0;
+        else if (r.id === 316) { sampleVal = 0.0; evalStatus = "PASSED"; }
+      } else if (stepKey === "swatch_area"){
+        sampleVal = 100.0;
+      } else if (stepKey === "swatch_weight"){
+        sampleVal = 2.05;
+      } else if (stepKey === "fabric_gsm"){
+        if (r.id === 323) sampleVal = 205.0;
+        else if (r.id === 324) sampleVal = 200.0;
+        else if (r.id === 325) { sampleVal = 2.5; evalStatus = "PASSED"; }
+      } else {
+        sampleVal = isCalc ? 10.0 : 9.8;
+        if (c.mode && c.mode !== "none") evalStatus = "PASSED";
+      }
+      
+      fieldValues[r.name] = {
+        field_id: r.id,
+        data_source: isCalc ? (r.source || "calculated") : "inspector_input",
+        measured_numeric_value: sampleVal,
+        unit: d.mc ? (d.mc.unit || "auto") : "auto",
+        evaluation_rule: c.mode || "none",
+        evaluation_status: (c.mode && c.mode !== "none") ? evalStatus : "NOT_EVALUATED",
+        is_inspector_overridden: false
+      };
+    });
+
+    stepResultPayload = {
+      step_id: stepKey,
+      custom_pom_name: d.name,
+      unit: d.mc ? (d.mc.unit || "auto") : "auto",
+      data_binding_mode: "none",
+      overall_status: "PASSED",
+      fields_count: d.rows.length,
+      samples: [
+        {
+          sample_index: 1,
+          field_values: fieldValues
+        }
+      ]
+    };
+  }
+
+  return {
+    inspection_report_id: "INSP-2026-08912",
+    purchase_order_id: "PO-99482",
+    style_id: "STYLE-7701",
+    colorway: "Navy Blue",
+    inspected_at: "2026-08-14T01:48:00Z",
+    inspector: { user_id: "usr_8812", name: "Jane Doe" },
+    active_step_result: stepResultPayload
+  };
+}
+
+function renderResultSqlTables(){
+  const container = document.getElementById("resultSqlTablesPreview");
+  if (!container || !curStep()) return;
+  const d = curStep();
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
+
+  let html = '';
+
+  // 1. TABLE: inspection_step_results (1 row for active step)
+  html += '<div style="margin-top:4px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: inspection_step_results (Active Step Execution Summary)</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>report_id (FK)</th><th>step_id</th><th>step_name</th><th>binding_mode</th><th>unit</th><th>status</th></tr></thead><tbody>'
+    + '<tr><td>res_'+esc(active)+'</td><td>INSP-2026-08912</td><td>'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>'+esc(mcMode)+'</td><td>'+(mcMode==="none"?esc(d.mc.unit||"cm"):"auto")+'</td><td><span style="color:#4ADE80; font-weight:700;">PASSED</span></td></tr>'
+    + '</tbody></table></div>';
+
+  // 2. TABLE: inspection_sample_entries
+  html += '<div style="margin-top:16px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: inspection_sample_entries (Sample Entries for this Step)</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>step_result_id (FK)</th><th>sample_index</th><th>size_code</th><th>piece_id</th></tr></thead><tbody>'
+    + '<tr><td>smp_'+esc(active)+'_1</td><td>res_'+esc(active)+'</td><td>1</td><td>'+(isChart?'M':'N/A')+'</td><td>'+(isChart?'PC-001':'SW-001')+'</td></tr>'
+    + '</tbody></table></div>';
+
+  // 3. TABLE: inspection_field_values (POMs x Fields for 'pom' vs Fields for 'none')
+  if (isChart){
+    html += '<div style="margin-top:16px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: inspection_pom_field_values (Matrix: 3 POMs in MC × '+d.rows.length+' Step Fields)</span>'
+      + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>sample_entry_id (FK)</th><th>pom_name</th><th>field_name</th><th>data_source</th><th>value</th><th>eval_status</th><th>eval_rule</th></tr></thead><tbody>';
+
+    const samplePoms = ["Chest Width", "Body Length", "Sleeve Length"];
+    samplePoms.forEach((pomName, pIdx) => {
+      d.rows.forEach((r, rIdx) => {
+        const isCalc = !!r.formula;
+        const c = r.criteria || {};
+        const evalRule = c.mode || "use_spec";
+        const evalStatus = (evalRule === "none") ? "NOT_EVALUATED" : "PASSED";
+        const evalColor = (evalStatus === "PASSED") ? "#4ADE80" : "#94A3B8";
+
+        const valStr = rIdx === 0 ? (pIdx===0?"52.20":pIdx===1?"70.00":"64.00") : (rIdx===1?"51.50":"-0.96");
+        const valUnit = r.name.includes("%") ? "%" : "cm";
+
+        html += '<tr><td>val_'+pIdx+'_'+r.id+'</td><td>smp_'+esc(active)+'_1</td><td>'+esc(pomName)+'</td><td>'+esc(r.name)+'</td><td>'+(isCalc?'calculated':'inspector_input')+'</td><td><b>'+valStr+' '+valUnit+'</b></td><td><span style="color:'+evalColor+'; font-weight:700;">'+evalStatus+'</span></td><td>'+esc(evalRule)+'</td></tr>';
+      });
+    });
+    html += '</tbody></table></div>';
+  } else {
+    html += '<div style="margin-top:16px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: inspection_field_values (Custom POM Step Fields)</span>'
+      + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>sample_entry_id (FK)</th><th>field_name</th><th>data_source</th><th>numeric_value</th><th>unit</th><th>eval_status</th><th>eval_rule</th><th>overridden</th></tr></thead><tbody>';
+
+    d.rows.forEach((r, idx) => {
+      const isCalc = !!r.formula;
+      const c = r.criteria || {};
+      let sampleVal = isCalc ? "10.00" : "9.80";
+      const evalRule = c.mode || "none";
+      const evalStatus = (evalRule === "none") ? "NOT_EVALUATED" : "PASSED";
+      const evalColor = (evalStatus === "PASSED") ? "#4ADE80" : "#94A3B8";
+      
+      if (active === "swatch_length"){
+        if (r.id === 301) sampleVal = "10.10";
+        else if (r.id === 302) sampleVal = "10.00";
+        else if (r.id === 303) sampleVal = "9.90";
+        else if (r.id === 304) sampleVal = "10.00";
+        else if (r.id === 305) sampleVal = "10.00";
+        else if (r.id === 306) sampleVal = "0.00";
+      } else if (active === "fabric_gsm"){
+        if (r.id === 323) sampleVal = "205.00";
+        else if (r.id === 324) sampleVal = "200.00";
+        else if (r.id === 325) sampleVal = "2.50";
+      }
+
+      html += '<tr><td>val_'+r.id+'</td><td>smp_'+esc(active)+'_1</td><td>'+esc(r.name)+'</td><td>'+(isCalc?(r.source||'calculated'):'inspector_input')+'</td><td><b>'+sampleVal+'</b></td><td>'+esc(d.mc.unit||'auto')+'</td><td><span style="color:'+evalColor+'; font-weight:700;">'+evalStatus+'</span></td><td>'+esc(evalRule)+'</td><td>FALSE</td></tr>';
+    });
+
+    html += '</tbody></table></div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function renderJsonPreview(){
+  const el = document.getElementById("jsonPreview");
+  const resultEl = document.getElementById("resultJsonPreview");
+  const titleEl = document.getElementById("jsonStepTitle");
+  if (titleEl && curStep()) titleEl.textContent = curStep().name;
+  
+  if (el && curStep()){
+    const payload = stepToDbSchema(active, curStep());
+    el.textContent = JSON.stringify(payload, null, 2);
+  }
+  
+  if (resultEl){
+    const resultPayload = generateResultPayloadJson();
+    resultEl.textContent = JSON.stringify(resultPayload, null, 2);
+  }
+
+  renderSqlTables();
+  renderResultSqlTables();
+}
+
+function copyJsonPayload(){
+  let text = "";
+  if (currentDevTab === "resultJson"){
+    text = JSON.stringify(generateResultPayloadJson(), null, 2);
+  } else {
+    text = JSON.stringify(stepToDbSchema(active, curStep()), null, 2);
+  }
+  navigator.clipboard.writeText(text).then(()=>{
+    alert("JSON Payload copied to clipboard!");
+  }).catch(()=>{
+    alert("Copied!");
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Main UI Rendering
+// ---------------------------------------------------------------------------
+
+function render(){
+  renderSidebar();
+  renderStepHeader();
+  renderRows();
+  renderJsonPreview();
+}
+
+function renderSidebar(){
+  const el = document.getElementById("checkList");
+  let html = "";
+  order.forEach((key, i)=>{
+    const d = data[key];
+    const act = key===active ? " active" : "";
+    
+    html += '<div class="ct-row step-row" data-key="'+key+'" draggable="true">'
+      + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+      + '<span class="step-num">'+(i+1)+'</span>'
+      + '<div class="ct-item'+act+'" onclick="selectStep(\''+key+'\')">'
+      + '<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(d.name)+'</span>'
+      + '</div>'
+      + '<div class="ct-remove" onclick="removeStep(\''+key+'\')" title="Delete step">&times;</div>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+  bindStepDrag();
+}
+
+function selectStep(key){ active = key; mcPopoverOpen = false; render(); }
+
+function removeStep(key){
+  if (order.length <= 1) return;
+  const targetStep = data[key];
+  if (!targetStep) return;
+
+  const inboundRefs = [];
+  if (targetStep.rows){
+    targetStep.rows.forEach(r => {
+      const refs = findInboundReferences(key, r.id, r.name);
+      if (refs.length > 0) inboundRefs.push(...refs);
+    });
+  }
+
+  if (inboundRefs.length > 0){
+    const refSummary = inboundRefs.map(ref => `• Step "${ref.stepName}" (${ref.fieldName})`).join("\n");
+    alert(`❌ Cannot delete step "${targetStep.name}" because downstream step(s) reference its fields in a formula:\n\n${refSummary}\n\nPlease update or remove downstream formula references first.`);
+    return;
+  }
+
+  const idx = order.indexOf(key);
+  if (idx !== -1) order.splice(idx, 1);
+  delete data[key];
+  if (active === key) active = order[Math.max(0, idx - 1)];
+  render();
+}
+
+document.getElementById("addStepBtn").onclick = ()=>{
+  const newKey = "step_" + Date.now();
+  data[newKey] = {
+    type: "measurement",
+    sampling: {method:"by_size_per_style", value:"2"},
+    name: "New Measurement Step",
+    mc: {mode:"pom", types:[]},
+    rows: [ col(nextRowId++, "Measured Value", {src:"inspector", crit:R.useSpec(true)}) ]
+  };
+  order.push(newKey);
+  active = newKey;
+  render();
+};
+
+function renderStepHeader(){
+  const d = curStep();
+  document.getElementById("ctName").value = d.name;
+  document.getElementById("ctName").onchange = (e)=>{ d.name = e.target.value; renderSidebar(); renderJsonPreview(); };
+  document.getElementById("ctMeta").textContent = "Step Type: Configurable Measurement Step";
+
+  // Sampling
+  const sBody = document.getElementById("samplingBody");
+  const sMethods = [
+    {id:"by_size_per_style", label:"By Size Per Style"},
+    {id:"by_item", label:"By Item"},
+    {id:"by_color_per_style", label:"By Color Per Style"},
+    {id:"fixed_quantity", label:"Fixed Quantity"},
+    {id:"pct_available", label:"% Available Quantity"},
+    {id:"aql_table", label:"AQL Standard Table"},
+    {id:"inspector_decide", label:"Inspector Decides"}
+  ];
+
+  let smOpts = sMethods.map(m=>'<option value="'+m.id+'"'+(d.sampling.method===m.id?' selected':'')+'>'+m.label+'</option>').join("");
+  
+  sBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
+    + '<label class="field-label">Sample Size Determination (per step execution)</label>'
+    + '<div style="display:flex; gap:10px; align-items:center;">'
+    + '<select onchange="updateSamplingMethod(this.value)" style="flex:1;">'+smOpts+'</select>'
+    + (d.sampling.method!=="inspector_decide" && d.sampling.method!=="aql_table"
+        ? '<input type="text" value="'+esc(d.sampling.value)+'" onchange="updateSamplingValue(this.value)" style="width:70px; text-align:center;">'
+        : '')
+    + '</div>'
+    + '</div>';
+
+  // Data Binding Box
+  const mcBody = document.getElementById("mcBody");
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
+  const selectedTypes = isChart ? (d.mc.types || []) : [];
+
+  let typePopoverHtml = "";
+  if (mcMode === "pom"){
+    let panelLabels = '<label style="font-weight:600; border-bottom:1px solid var(--line); margin-bottom:4px; padding-bottom:4px;" onclick="event.stopPropagation()"><input type="checkbox" '+(selectedTypes.length===0?'checked':'')+' onchange="selectAnyMcType(event)"> Any type</label>';
+    panelLabels += MC_TYPES.map(t=>{
+      const checked = selectedTypes.includes(t.id) ? "checked" : "";
+      return '<label onclick="event.stopPropagation()"><input type="checkbox" '+checked+' onchange="toggleMcType(\''+t.id+'\', event)"> '+t.id+'</label>';
+    }).join("");
+
+    typePopoverHtml = '<span style="color:var(--mut); font-size:13px; margin:0 4px 0 8px;">of type</span>'
+      + '<div class="mctype-wrap">'
+      + '<button class="mctype-trigger" onclick="toggleMcPopover(event)">'
+      + '<span>'+esc(mcTypeSummary(selectedTypes))+'</span>'
+      + '<span class="mctype-caret">▼</span>'
+      + '</button>'
+      + '<div class="mctype-panel" style="display:'+(mcPopoverOpen?'block':'none')+'" onclick="event.stopPropagation()">'
+      + panelLabels
+      + '</div></div>';
+  } else if (mcMode === "none"){
+    const curUnit = d.mc.unit || "cm";
+    typePopoverHtml = '<span style="color:var(--mut); font-size:13px; margin:0 4px 0 10px; font-weight:600;">Custom POM Unit:</span>'
+      + '<select onchange="updateStepUnit(this.value)" style="width:120px;">'
+      + renderUnitOptions(curUnit)
+      + '</select>';
+  }
+
+  mcBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">'
+    + '<span class="field-label" style="margin:0; font-weight:600; min-width:130px;">Data Binding:</span>'
+    + '<select onchange="updateMcMode(this.value)" style="min-width:280px;">'
+    + '<option value="pom"'+(mcMode==="pom"?' selected':'')+'>Every POM in the Measurement Chart</option>'
+    + '<option value="none"'+(mcMode==="none"?' selected':'')+'>None (Single Custom POM step)</option>'
+    + '</select>'
+    + typePopoverHtml
+    + '</div>';
+}
+
+function toggleMcPopover(e){
+  if (e) e.stopPropagation();
+  mcPopoverOpen = !mcPopoverOpen;
+  renderStepHeader();
+}
+
+document.addEventListener("click", ()=>{
+  if (mcPopoverOpen){ mcPopoverOpen = false; renderStepHeader(); }
+});
+
+function selectAnyMcType(e){
+  if (e) e.stopPropagation();
+  const d = curStep();
+  if (d.mc) d.mc.types = [];
+  renderStepHeader();
+}
+
+function toggleMcType(typeId, e){
+  if (e) e.stopPropagation();
+  const d = curStep();
+  if (!d.mc) d.mc = {mode:"pom", types:[]};
+  if (!d.mc.types) d.mc.types = [];
+  const idx = d.mc.types.indexOf(typeId);
+  if (idx !== -1) d.mc.types.splice(idx, 1);
+  else d.mc.types.push(typeId);
+  renderStepHeader();
+}
+
+function updateSamplingMethod(val){ curStep().sampling.method = val; render(); }
+function updateSamplingValue(val){ curStep().sampling.value = val; render(); }
+
+function updateStepUnit(val){
+  const d = curStep();
+  if (d.mc) d.mc.unit = val;
+  renderJsonPreview();
+}
+
+function updateMcMode(val){
+  const d = curStep();
+  if (val==="pom"){
+    d.mc = {mode:"pom", types:[]};
+    d.rows = [ col(nextRowId++, "POM Measurement", {src:"inspector", crit:R.useSpec(true)}) ];
+  } else {
+    d.mc = {mode:"none", unit: d.mc.unit || "cm"};
+    d.rows = [ col(nextRowId++, "Measured Value", {src:"inspector", crit:R.useSpec(true)}) ];
+  }
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// Measurement Fields List (Columns)
+// ---------------------------------------------------------------------------
+
+function renderRows(){
+  const d = curStep();
+  const listEl = document.getElementById("rowsList");
+  let html = "";
+
+  d.rows.forEach((row, i)=>{
+    const isEvalOpen = openEval.has(row.id);
+    const isFormulaOpen = openFormula.has(row.id);
+
+    html += '<div class="row-card" data-id="'+row.id+'" draggable="true">'
+      + '<div class="row-header">'
+      + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+      + '<input type="text" value="'+esc(row.name)+'" onchange="updateRowName('+row.id+', this.value)" style="flex:1; font-weight:600;" placeholder="Field Name">'
+      
+      + '<div class="row-dup" onclick="duplicateRow('+row.id+')" title="Duplicate field">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>'
+      + '</div>'
+      + '<div class="ct-remove" onclick="removeRow('+row.id+')" title="Delete field">&times;</div>'
+      + '</div>'
+
+      // Status Chips for Data Source & Evaluation
+      + '<div class="row-line">'
+      + renderFormulaChip(d, row, isFormulaOpen)
+      + renderEvalSummary(d, row, isEvalOpen)
+      + '</div>'
+
+      // Expandable Inline Drawers
+      + (isFormulaOpen ? renderFormulaDrawer(d, row) : '')
+      + (isEvalOpen ? renderEvalDrawer(d, row) : '')
+      + '</div>';
+  });
+
+  listEl.innerHTML = html;
+  bindRowDrag();
+}
+
+// ---------------------------------------------------------------------------
+// Data Source & Evaluation Drawers for Measurement Fields (Columns)
+// ---------------------------------------------------------------------------
+
+function precedingCustomPomSteps(activeKey){
+  const activeIdx = order.indexOf(activeKey);
+  if (activeIdx <= 0) return [];
+  const result = [];
+  for (let i = 0; i < activeIdx; i++){
+    const key = order[i];
+    const st = data[key];
+    if (st && st.mc && st.mc.mode === "none"){
+      const tag = letterOf(i); // Global step tag in workflow sequence (e.g. 4=>E, 5=>F, 6=>G, 7=>H)
+      result.push({ key: key, name: st.name, unit: (st.mc && st.mc.unit) || "", tag: tag, stepIndex: i + 1 });
+    }
+  }
+  return result;
+}
+
+function autoAssignPomStepOperands(d, row){
+  if (!row || !row.formula) return;
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return;
+  const preceding = precedingCustomPomSteps(active);
+  if (!preceding.length) return;
+
+  if (!fm.ops) fm.ops = [];
+
+  if (f.arity === 1){
+    if (!fm.ops[0] || !fm.ops[0].key) fm.ops[0] = {key: preceding[0].key, fieldName: "Value"};
+  } else if (f.arity === 2){
+    if (!fm.ops[0] || !fm.ops[0].key) fm.ops[0] = {key: preceding[0].key, fieldName: "Value"};
+    if (!fm.ops[1] || !fm.ops[1].key){
+      fm.ops[1] = {key: preceding[1] ? preceding[1].key : preceding[0].key, fieldName: "Value"};
+    }
+  } else if (f.arity === "many"){
+    if (!fm.ops || !fm.ops.length){
+      fm.ops = preceding.map(p => ({key: p.key, fieldName: "Value"}));
+    }
+  } else if (f.arity === "letters"){
+    const expr = fm.customExpr || "A / B × 10,000";
+    const used = lettersUsed(expr);
+    fm.ops = [];
+    used.forEach(let => {
+      const found = preceding.find(p => p.tag === let);
+      if (found){
+        fm.ops.push({key: found.key, fieldName: "Value"});
+      }
+    });
+  }
+}
+
+function formulaChipText(d, row){
+  if (!row || !row.formula) return "Configure formula";
+  const fm = row.formula;
+  const f = formulaDef(fm);
+  if (!f) return "Configure formula";
+
+  const isCrossPom = row.source === "formula_poms";
+  let names = [];
+
+  if (isCrossPom){
+    const preceding = precedingCustomPomSteps(active);
+    const ops = opsOf(fm);
+    names = ops.map(o => {
+      const found = preceding.find(p => p.key === o.key);
+      return found ? found.name : null;
+    }).filter(n => n != null);
+  } else {
+    const ops = opsOf(fm);
+    names = ops.map(o => rowName(d, o.id)).filter(n => n != null);
+  }
+
+  if (f.arity === 1){
+    return names[0] ? f.shortLabel + ": " + names[0] : f.shortLabel + " (pick input)";
+  }
+  if (f.arity === 2){
+    const a = names[0] || "A";
+    const b = names[1] || "B";
+    if (f.id === "pctchange") return "Percent change: " + a + " → " + b;
+    if (f.id === "difference") return "Difference: " + a + " − " + b;
+    if (f.id === "ratio") return "Ratio: " + a + " / " + b;
+    if (f.id === "ratiopercent") return "Ratio %: " + a + " / " + b;
+    if (f.id === "product") return "Product: " + a + " × " + b;
+    return f.shortLabel + ": " + a + ", " + b;
+  }
+  if (f.arity === "many"){
+    if (!names.length) return f.shortLabel + " (select inputs)";
+    return f.id === "sum"
+      ? "Total: " + names.join(" + ")
+      : "Average: " + names.join(", ");
+  }
+  if (f.arity === "letters"){
+    const expr = fm.customExpr || "H / G × 10,000";
+    if (isCrossPom){
+      const preceding = precedingCustomPomSteps(active);
+      const substituted = String(expr).replace(/\b[A-Z]\b/g, m => {
+        const found = preceding.find(p => p.tag === m);
+        return found ? found.name : m;
+      });
+      return "Custom: " + substituted;
+    } else {
+      const eligible = eligibleOperands(d, row.id);
+      const substituted = String(expr).replace(/\b[A-Z]\b/g, m => {
+        const idx = LETTERS.indexOf(m);
+        if (idx >= 0 && idx < eligible.length){
+          return eligible[idx].name;
+        }
+        return m;
+      });
+      return "Custom: " + substituted;
+    }
+  }
+  return f.label;
+}
+
+function renderFormulaChip(d, row, isOpen){
+  const isCalc = !!row.formula;
+  let labelText = "Inspector Input";
+  let chipStyle = "chip-eval-muted";
+
+  if (isCalc){
+    const summary = formulaChipText(d, row);
+    const modeTag = row.source === "formula_poms" ? " (from POM Steps)" : "";
+    labelText = "ƒ " + summary + modeTag;
+    chipStyle = "chip-formula";
+  } else {
+    labelText = "✍️ Inspector Input";
+    chipStyle = "chip-eval-muted";
+  }
+
+  return '<div class="chip '+chipStyle+'" onclick="toggleFormulaDrawer('+row.id+')">'
+    + '<span>Source: <b>'+esc(labelText)+'</b></span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function toggleFormulaDrawer(id){
+  if (openFormula.has(id)) openFormula.delete(id);
+  else {
+    openFormula.add(id);
+    openEval.delete(id);
+    const row = findRow(curStep(), id);
+    if (row && row.formula){
+      if (row.source === "formula_poms") autoAssignPomStepOperands(curStep(), row);
+      else autoAssignOperands(curStep(), row);
+    }
+  }
+  renderRows();
+}
+
+function updateSourceModeInline(id, val){
+  const row = findRow(curStep(), id);
+  if (!row) return;
+  if (val === "inspector"){
+    row.source = "inspector";
+    row.formula = null;
+  } else if (val === "formula_fields"){
+    row.source = "formula_fields";
+    if (!row.formula) row.formula = {type:"sum", ops:[]};
+    autoAssignOperands(curStep(), row);
+  } else if (val === "formula_poms"){
+    row.source = "formula_poms";
+    if (!row.formula) row.formula = {type:"product", ops:[]};
+    autoAssignPomStepOperands(curStep(), row);
+  }
+  renderRows();
+  renderJsonPreview();
+}
+
+function renderFormulaDrawer(d, row){
+  const isCalc = !!row.formula;
+  const isCrossPom = row.source === "formula_poms";
+  const fm = row.formula || {type:"sum", ops:[]};
+  if (isCalc){
+    if (isCrossPom) autoAssignPomStepOperands(d, row);
+    else autoAssignOperands(d, row);
+  }
+  const eligible = eligibleOperands(d, row.id);
+  const precedingPoms = precedingCustomPomSteps(active);
+  const curSrcMode = isCalc ? (isCrossPom ? "formula_poms" : "formula_fields") : "inspector";
+
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+    + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Data Source:</label>'
+    + '<select onchange="updateSourceModeInline('+row.id+', this.value)" style="min-width:280px;">'
+    + '<option value="inspector"'+(curSrcMode==="inspector"?' selected':'')+'>✍️ Inspector Input (manually entered)</option>'
+    + '<option value="formula_fields"'+(curSrcMode==="formula_fields"?' selected':'')+'>ƒ Calculated Value (from Fields in this step)</option>'
+    + '<option value="formula_poms"'+(curSrcMode==="formula_poms"?' selected':'')+'>ƒ Calculated Value (from POM Steps in workflow)</option>'
+    + '</select></div>';
+
+  if (!isCalc){
+    html += '<div style="font-size:12.5px; color:var(--mut); font-style:italic; margin-top:4px; padding-left:120px;">'
+      + 'Records standard inspector entry for this field.'
+      + '</div>';
+  } else {
+    html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+      + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Formula Type:</label>'
+      + '<select onchange="updateFormulaTypeInline('+row.id+', this.value)" style="flex:1; min-width:200px;">';
+
+    FORMULAS.forEach(f=>{
+      html += '<option value="'+f.id+'"'+(fm.type===f.id?' selected':'')+'>'+f.label+'</option>';
+    });
+
+    html += '</select></div>';
+
+    // Operand Selection UI
+    const fDef = formulaDef(fm);
+    if (fDef){
+      html += '<div style="margin-top:8px;">';
+      
+      if (isCrossPom){
+        // CROSS-POM OPERANDS (E, F, G, H... matching global workflow step letter tags)
+        if (!precedingPoms.length){
+          html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px;">'
+            + '⚠️ No preceding Custom POM steps available in this workflow to reference.'
+            + '</div>';
+        } else if (fDef.arity === "many"){
+          html += '<span class="field-label" style="margin-bottom:8px;">Select Included Custom POM Steps (Column: "<b>'+esc(row.name)+'</b>"):</span>'
+            + '<div style="display:flex; flex-direction:column; gap:6px;">';
+          precedingPoms.forEach((p)=>{
+            const isChecked = fm.ops.some(o=>o.key==p.key);
+            html += '<div class="letter-row" style="cursor:pointer;" onclick="const cb=this.querySelector(\'input\'); cb.checked=!cb.checked; toggleInlineManyPomStepOperand('+row.id+', \''+p.key+'\', cb.checked);">'
+              + '<input type="checkbox" '+(isChecked?'checked':'')+' onclick="event.stopPropagation(); toggleInlineManyPomStepOperand('+row.id+', \''+p.key+'\', this.checked)">'
+              + '<span class="letter-tag">'+p.tag+'</span>'
+              + '<span style="font-weight:600; font-size:13px; color:var(--navy);">'+esc(p.name)+' <span style="font-size:11.5px; color:var(--mut); font-weight:normal;">['+esc(p.unit||'no unit')+']</span></span>'
+              + '</div>';
+          });
+          html += '</div>';
+        } else if (fDef.arity === "letters"){
+          const expr = fm.customExpr || "H / G × 10,000";
+          const used = lettersUsed(expr);
+          const validTags = precedingPoms.map(p => p.tag);
+          const invalidLetters = used.filter(let => !validTags.includes(let));
+
+          html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">'
+            + '<span class="field-label" style="margin:0; min-width:110px;">Expression:</span>'
+            + '<input type="text" value="'+esc(expr)+'" onchange="updateInlineCustomExpr('+row.id+', this.value)" style="flex:1;" placeholder="e.g. H / G * 10000">'
+            + '</div>';
+
+          if (invalidLetters.length > 0){
+            html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-bottom:8px;">'
+              + '⚠️ Invalid step variable '+(invalidLetters.length>1?'tags':'tag')+': "'+invalidLetters.join(', ')+'". Available preceding POM step tags are <b>'+validTags.join(', ')+'</b>.'
+              + '</div>';
+          }
+
+          html += '<span class="field-label" style="margin-bottom:6px;">Available Preceding Custom POM Steps (Column: "<b>'+esc(row.name)+'</b>"):</span>'
+            + '<div style="display:flex; flex-direction:column; gap:6px;">';
+          precedingPoms.forEach((p)=>{
+            const isUsedInExpr = used.includes(p.tag);
+            html += '<div class="letter-row" style="opacity:'+(isUsedInExpr?'1':'0.65')+';">'
+              + '<span class="letter-tag" style="'+(isUsedInExpr?'background:var(--blue); color:#fff; border-color:var(--blue);':'')+'">'+p.tag+'</span>'
+              + '<span style="font-weight:600; font-size:13px; color:var(--navy);">'+esc(p.name)+' <span style="font-size:11.5px; color:var(--mut); font-weight:normal;">['+esc(p.unit||'no unit')+']</span></span>'
+              + (isUsedInExpr ? '<span style="font-size:11px; color:var(--blue); margin-left:auto; font-weight:600;">(Used in expression)</span>' : '')
+              + '</div>';
+          });
+          html += '</div>';
+        } else {
+          const lettersNeeded = fDef.arity === 1 ? [precedingPoms[0]?precedingPoms[0].tag:"A"] : [precedingPoms[0]?precedingPoms[0].tag:"A", precedingPoms[1]?precedingPoms[1].tag:"B"];
+          html += '<div style="display:flex; flex-direction:column; gap:6px;">';
+          lettersNeeded.forEach((sTag, idx)=>{
+            const curKey = fm.ops[idx] ? fm.ops[idx].key : "";
+            html += '<div class="letter-row"><span class="letter-tag">'+sTag+'</span>'
+              + '<select onchange="updateInlinePomStepOperand('+row.id+', '+idx+', this.value)" style="flex:1;"><option value="">-- Pick POM Step for '+sTag+' (Column: "'+esc(row.name)+'") --</option>'
+              + precedingPoms.map(p=>'<option value="'+p.key+'"'+(curKey==p.key?' selected':'')+'>['+p.tag+'] '+esc(p.name)+' ['+esc(p.unit||'no unit')+']</option>').join('') + '</select></div>';
+          });
+          html += '</div>';
+        }
+      } else {
+        // INTRA-STEP OPERANDS (A, B, C... from fields in this step)
+        if (fDef.arity === "many"){
+          html += '<span class="field-label" style="margin-bottom:8px;">Select Included Inputs (line by line):</span>'
+            + '<div style="display:flex; flex-direction:column; gap:6px;">';
+          eligible.forEach((e, idx)=>{
+            const isChecked = fm.ops.some(o=>o.id==e.id);
+            html += '<div class="letter-row" style="cursor:pointer;" onclick="const cb=this.querySelector(\'input\'); cb.checked=!cb.checked; toggleInlineManyOperand('+row.id+', '+e.id+', cb.checked);">'
+              + '<input type="checkbox" '+(isChecked?'checked':'')+' onclick="event.stopPropagation(); toggleInlineManyOperand('+row.id+', '+e.id+', this.checked)">'
+              + '<span class="letter-tag">'+letterOf(idx)+'</span>'
+              + '<span style="font-weight:600; font-size:13px; color:var(--navy);">'+esc(e.name)+'</span>'
+              + '</div>';
+          });
+          html += '</div>';
+        } else if (fDef.arity === "letters"){
+          const expr = fm.customExpr || "A / B";
+          const used = lettersUsed(expr);
+          const maxIdx = eligible.length - 1;
+          const invalidLetters = used.filter(let => LETTERS.indexOf(let) > maxIdx || LETTERS.indexOf(let) === -1);
+
+          html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">'
+            + '<span class="field-label" style="margin:0; min-width:110px;">Expression:</span>'
+            + '<input type="text" value="'+esc(expr)+'" onchange="updateInlineCustomExpr('+row.id+', this.value)" style="flex:1;" placeholder="e.g. A / B * 100">'
+            + '</div>'
+            + '<div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">'
+            + '<span class="field-label" style="margin:0; min-width:110px;">Output Unit:</span>'
+            + '<input type="text" value="'+esc(fm.outputUnit||'')+'" onchange="updateInlineCustomOutputUnit('+row.id+', this.value)" style="width:140px;" placeholder="e.g. % or GSM">'
+            + '</div>';
+
+          if (invalidLetters.length > 0){
+            const maxLetter = letterOf(maxIdx);
+            html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-bottom:8px;">'
+              + '⚠️ Invalid variable '+(invalidLetters.length>1?'letters':'letter')+': "'+invalidLetters.join(', ')+'". Available variables in this step are <b>A</b> to <b>'+maxLetter+'</b>.'
+              + '</div>';
+          }
+
+          html += '<span class="field-label" style="margin-bottom:6px;">Available Field Variables (in order):</span>'
+            + '<div style="display:flex; flex-direction:column; gap:6px;">';
+          eligible.forEach((e, idx)=>{
+            const isUsedInExpr = used.includes(letterOf(idx));
+            html += '<div class="letter-row" style="opacity:'+(isUsedInExpr?'1':'0.65')+';">'
+              + '<span class="letter-tag" style="'+(isUsedInExpr?'background:var(--blue); color:#fff; border-color:var(--blue);':'')+'">'+letterOf(idx)+'</span>'
+              + '<span style="font-weight:600; font-size:13px; color:var(--navy);">'+esc(e.name)+'</span>'
+              + (isUsedInExpr ? '<span style="font-size:11px; color:var(--blue); margin-left:auto; font-weight:600;">(Used in expression)</span>' : '')
+              + '</div>';
+          });
+          html += '</div>';
+        } else {
+          const lettersNeeded = fDef.arity === 1 ? ["A"] : ["A", "B"];
+          html += '<div style="display:flex; flex-direction:column; gap:6px;">';
+          lettersNeeded.forEach((let, idx)=>{
+            const curId = fm.ops[idx] ? fm.ops[idx].id : "";
+            html += '<div class="letter-row"><span class="letter-tag">'+let+'</span>'
+              + '<select onchange="updateInlineOperand('+row.id+', '+idx+', this.value)" style="flex:1;"><option value="">-- Pick input for '+let+' --</option>'
+              + eligible.map(e=>'<option value="'+e.id+'"'+(curId==e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('') + '</select></div>';
+          });
+          html += '</div>';
+        }
+      }
+
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function updateInlineCustomOutputUnit(id, val){
+  const row = findRow(curStep(), id);
+  if (row && row.formula){
+    row.formula.outputUnit = val ? String(val).trim() : null;
+  }
+  renderRows();
+  renderJsonPreview();
+}
+
+function updateFormulaTypeInline(id, type){
+  const row = findRow(curStep(), id);
+  if (row){
+    row.formula = {type:type, ops:[]};
+    autoAssignOperands(curStep(), row);
+  }
+  renderRows();
+}
+
+function updateInlineOperand(id, idx, val){
+  const row = findRow(curStep(), id);
+  if (!row || !row.formula) return;
+  if (!row.formula.ops) row.formula.ops = [];
+  const prevOp = row.formula.ops[idx];
+  row.formula.ops[idx] = {id: parseInt(val,10)};
+
+  const dagErrors = validateWorkflowDag();
+  if (dagErrors.length > 0){
+    alert("❌ Cannot assign operand due to formula dependency cycle:\n\n" + dagErrors.join("\n"));
+    if (prevOp) row.formula.ops[idx] = prevOp;
+    else row.formula.ops.splice(idx, 1);
+    renderRows();
+    return;
+  }
+
+  renderRows();
+  renderJsonPreview();
+}
+
+function updateInlinePomStepOperand(id, idx, stepKey){
+  const row = findRow(curStep(), id);
+  if (!row || !row.formula) return;
+  if (!row.formula.ops) row.formula.ops = [];
+  const prevOp = row.formula.ops[idx];
+  const existingField = row.formula.ops[idx] ? row.formula.ops[idx].fieldName : "Value";
+  row.formula.ops[idx] = {key: stepKey, fieldName: existingField || "Value"};
+
+  const dagErrors = validateWorkflowDag();
+  if (dagErrors.length > 0){
+    alert("❌ Cannot assign operand due to formula dependency cycle or invalid execution order:\n\n" + dagErrors.join("\n"));
+    if (prevOp) row.formula.ops[idx] = prevOp;
+    else row.formula.ops.splice(idx, 1);
+    renderRows();
+    return;
+  }
+
+  renderRows();
+  renderJsonPreview();
+}
+
+function toggleInlineManyOperand(rowId, opId, checked){
+  const row = findRow(curStep(), rowId);
+  if (!row || !row.formula) return;
+  if (!row.formula.ops) row.formula.ops = [];
+  if (checked){
+    if (!row.formula.ops.some(o=>o.id===opId)) row.formula.ops.push({id:opId});
+  } else {
+    row.formula.ops = row.formula.ops.filter(o=>o.id!==opId);
+  }
+  renderRows();
+}
+
+function toggleInlineManyPomStepOperand(rowId, stepKey, checked){
+  const row = findRow(curStep(), rowId);
+  if (!row || !row.formula) return;
+  if (!row.formula.ops) row.formula.ops = [];
+  if (checked){
+    if (!row.formula.ops.some(o=>o.key===stepKey)) row.formula.ops.push({key:stepKey, fieldName: "Value"});
+  } else {
+    row.formula.ops = row.formula.ops.filter(o=>o.key!==stepKey);
+  }
+  renderRows();
+  renderJsonPreview();
+}
+
+function updateInlineCustomExpr(id, val){
+  const row = findRow(curStep(), id);
+  if (row && row.formula){
+    row.formula.customExpr = val;
+    autoAssignOperands(curStep(), row);
+  }
+  renderRows();
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation Chip & Inline Drawer for Measurement Fields (Columns)
+// ---------------------------------------------------------------------------
+
+function renderEvalSummary(d, row, isOpen){
+  const mcMode = mcModeOf(d);
+  const isPomChart = mcMode === "pom";
+  const c = row.criteria || {mode: isPomChart ? "use_spec" : "fixed_range"};
+  let curMode = c.mode || (isPomChart ? "use_spec" : "fixed_range");
+  if (!isPomChart && curMode === "use_spec") curMode = "fixed_range";
+
+  let text = "Not evaluated";
+  let cls = "chip-eval-muted";
+
+  if (isPomChart && curMode === "use_spec"){
+    text = "⚙️ Use spec";
+    cls = "chip-eval-pom";
+  } else if (curMode === "fixed_range"){
+    const loStr = c.lower ? String(c.lower.value).trim() : "";
+    const hiStr = c.upper ? String(c.upper.value).trim() : "";
+    if (loStr !== "" && hiStr !== "") text = "📐 Range: "+loStr+" to "+hiStr;
+    else if (loStr !== "") text = "📐 Min limit: ≥ "+loStr;
+    else if (hiStr !== "") text = "📐 Max limit: ≤ "+hiStr;
+    else text = "📐 Fixed Range (enter min/max)";
+    cls = "chip-eval-rule";
+  } else if (curMode === "standard_val"){
+    const sd = c.standard != null ? String(c.standard).trim() : "";
+    const tType = c.tolType === "pct" ? "%" : "";
+    const tm = c.tolMinus != null ? String(c.tolMinus).trim() : "0";
+    const tp = c.tolPlus != null ? String(c.tolPlus).trim() : "0";
+    if (sd !== ""){
+      text = "🎯 Spec: " + sd + " (-" + tm + tType + " / +" + tp + tType + ")";
+    } else {
+      text = "🎯 Standard Value";
+    }
+    cls = "chip-eval-rule";
+  } else {
+    text = "Not evaluated";
+    cls = "chip-eval-muted";
+  }
+
+  if (c.allowInspectorOverride){
+    text += " (editable)";
+  }
+
+  return '<div class="chip '+cls+'" onclick="toggleEvalDrawer('+row.id+')">'
+    + '<span>Eval: <b>'+esc(text)+'</b></span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function renderEvalDrawer(d, row){
+  const mcMode = mcModeOf(d);
+  const isPomChart = mcMode === "pom";
+  const c = row.criteria || {mode: isPomChart ? "use_spec" : "fixed_range"};
+  let curMode = c.mode || (isPomChart ? "use_spec" : "fixed_range");
+  if (!isPomChart && curMode === "use_spec") curMode = "fixed_range";
+
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+    + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Evaluation Rule:</label>'
+    + '<select onchange="updateEvalModeInline('+row.id+', this.value)" style="min-width:260px;">'
+    + (isPomChart ? '<option value="use_spec"'+(curMode==="use_spec"?' selected':'')+'>⚙️ Use spec</option>' : '')
+    + '<option value="fixed_range"'+(curMode==="fixed_range"?' selected':'')+'>📐 Fixed Range (Min / Max)</option>'
+    + '<option value="standard_val"'+(curMode==="standard_val"?' selected':'')+'>🎯 Standard Value ± Tolerance</option>'
+    + '<option value="none"'+(curMode==="none"?' selected':'')+'>⚪ Not evaluated</option>'
+    + '</select>'
+    + '</div>';
+
+  if (curMode === "fixed_range"){
+    const loVal = (c.lower && c.lower.value != null) ? c.lower.value : "";
+    const hiVal = (c.upper && c.upper.value != null) ? c.upper.value : "";
+    const isMissingBoth = loVal === "" && hiVal === "";
+
+    html += '<div style="margin-top:8px; padding-left:120px;">'
+      + '<div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Min Limit:</span>'
+      + '<input type="text" value="'+esc(loVal)+'" onchange="updateEvalFixedRange('+row.id+', \'lower\', this.value)" style="width:85px; text-align:center;" placeholder="Min">'
+      + '</div>'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Max Limit:</span>'
+      + '<input type="text" value="'+esc(hiVal)+'" onchange="updateEvalFixedRange('+row.id+', \'upper\', this.value)" style="width:85px; text-align:center;" placeholder="Max">'
+      + '</div>'
+      + '</div>';
+
+    if (isMissingBoth){
+      html += '<div style="color:var(--amber); font-size:12px; margin-top:6px;">⚠️ Please enter at least 1 limit (Min limit, Max limit, or both).</div>';
+    }
+    html += '</div>';
+
+  } else if (curMode === "standard_val"){
+    const sdVal = c.standard != null ? c.standard : "";
+    const tolType = c.tolType || "pct";
+    const tolMinus = c.tolMinus != null ? c.tolMinus : "";
+    const tolPlus = c.tolPlus != null ? c.tolPlus : "";
+    const isMissing = sdVal === "" || tolMinus === "" || tolPlus === "";
+
+    html += '<div style="margin-top:8px; padding-left:120px;">'
+      + '<div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Standard Value (SD):</span>'
+      + '<input type="text" value="'+esc(sdVal)+'" onchange="updateEvalStandardVal('+row.id+', \'standard\', this.value)" style="width:90px; text-align:center;" placeholder="e.g. 100">'
+      + '</div>'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Tolerance Type:</span>'
+      + '<select onchange="updateEvalStandardVal('+row.id+', \'tolType\', this.value)" style="width:140px;">'
+      + '<option value="pct"'+(tolType==="pct"?' selected':'')+'>Percentage (%)</option>'
+      + '<option value="absolute"'+(tolType==="absolute"?' selected':'')+'>Absolute Value</option>'
+      + '</select>'
+      + '</div>'
+      + '</div>'
+      + '<div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Tolerance (-) :</span>'
+      + '<input type="text" value="'+esc(tolMinus)+'" onchange="updateEvalStandardVal('+row.id+', \'tolMinus\', this.value)" style="width:85px; text-align:center;" placeholder="Tol - (e.g. 5)">'
+      + '</div>'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Tolerance (+) :</span>'
+      + '<input type="text" value="'+esc(tolPlus)+'" onchange="updateEvalStandardVal('+row.id+', \'tolPlus\', this.value)" style="width:85px; text-align:center;" placeholder="Tol + (e.g. 5)">'
+      + '</div>'
+      + '</div>';
+
+    if (isMissing){
+      html += '<div style="color:var(--amber); font-size:12px; margin-top:6px;">⚠️ Standard Value, Tol Type, Tol (-), and Tol (+) are all required (enter 0 for exact match).</div>';
+    }
+    html += '</div>';
+  }
+
+  // Divider line & "Allow inspector to override" checkbox
+  html += '<hr style="border:0; border-top:1px solid var(--line); margin:12px 0 10px;">'
+    + '<div style="display:flex; align-items:center; gap:8px;">'
+    + '<label class="chk" style="font-weight:600; color:var(--text); cursor:pointer;">'
+    + '<input type="checkbox" '+(c.allowInspectorOverride ? 'checked' : '')+' onchange="updateEvalAllowOverride('+row.id+', this.checked)">'
+    + 'Allow inspector to override auto-evaluate result'
+    + '</label>'
+    + '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function toggleEvalDrawer(id){
+  if (openEval.has(id)) openEval.delete(id);
+  else {
+    openEval.add(id);
+    openFormula.delete(id);
+  }
+  renderRows();
+}
+
+function updateEvalModeInline(id, mode){
+  const row = findRow(curStep(), id);
+  if (!row) return;
+  if (!row.criteria) row.criteria = {mode:"fixed_range"};
+  row.criteria.mode = mode;
+  if (mode === "fixed_range" && !row.criteria.lower){
+    row.criteria.lower = {value:""};
+    row.criteria.upper = {value:""};
+  } else if (mode === "standard_val"){
+    if (row.criteria.standard == null) row.criteria.standard = "";
+    if (row.criteria.tolType == null) row.criteria.tolType = "pct";
+    if (row.criteria.tolMinus == null) row.criteria.tolMinus = "";
+    if (row.criteria.tolPlus == null) row.criteria.tolPlus = "";
+  }
+  renderRows();
+  renderJsonPreview();
+}
+
+function updateEvalFixedRange(id, type, val){
+  const row = findRow(curStep(), id);
+  if (!row || !row.criteria) return;
+  if (type === "lower") row.criteria.lower = {value: val};
+  if (type === "upper") row.criteria.upper = {value: val};
+  renderRows();
+  renderJsonPreview();
+}
+
+function updateEvalStandardVal(id, key, val){
+  const row = findRow(curStep(), id);
+  if (!row || !row.criteria) return;
+  if (key === "standard") row.criteria.standard = val;
+  if (key === "tolType") row.criteria.tolType = val;
+  if (key === "tolMinus") row.criteria.tolMinus = val;
+  if (key === "tolPlus") row.criteria.tolPlus = val;
+  renderRows();
+  renderJsonPreview();
+}
+
+function updateEvalAllowOverride(id, checked){
+  const row = findRow(curStep(), id);
+  if (!row) return;
+  if (!row.criteria) row.criteria = {mode:"fixed_range"};
+  row.criteria.allowInspectorOverride = checked;
+  renderRows();
+  renderJsonPreview();
+}
+
+function findInboundReferences(stepKey, fieldId, fieldName){
+  const refs = [];
+  order.forEach(k => {
+    if (k === stepKey) return;
+    const st = data[k];
+    if (!st || !st.rows) return;
+    st.rows.forEach(r => {
+      if (r.formula){
+        const ops = opsOf(r.formula);
+        ops.forEach(op => {
+          if (op.key === stepKey){
+            if (op.fieldName === fieldName || (op.id != null && op.id === fieldId)){
+              refs.push({ stepName: st.name, fieldName: r.name });
+            }
+          }
+        });
+      }
+    });
+  });
+  return refs;
+}
+
+function updateRowName(id, val){
+  const d = curStep();
+  const r = findRow(d, id);
+  if (!r) return;
+  const newName = String(val).trim();
+  if (newName === r.name) return;
+
+  const inboundRefs = findInboundReferences(active, r.id, r.name);
+  if (inboundRefs.length > 0){
+    const refSummary = inboundRefs.map(ref => `• Step "${ref.stepName}" (${ref.fieldName})`).join("\n");
+    alert(`❌ Cannot rename field "${r.name}" because downstream step(s) reference it in a formula:\n\n${refSummary}\n\nPlease update or remove downstream formula references first.`);
+    renderRows();
+    return;
+  }
+
+  const isDuplicate = d.rows.some(x => x.id !== id && x.name === newName);
+  if (isDuplicate){
+    let counter = 2;
+    let uniqueName = newName + " (" + counter + ")";
+    while (d.rows.some(x => x.id !== id && x.name === uniqueName)){
+      counter++;
+      uniqueName = newName + " (" + counter + ")";
+    }
+    r.name = uniqueName;
+  } else {
+    r.name = newName;
+  }
+
+  renderRows();
+  renderJsonPreview();
+}
+
+function duplicateRow(id){
+  const d = curStep();
+  const r = findRow(d, id);
+  if (!r) return;
+  const clone = JSON.parse(JSON.stringify(r));
+  clone.id = nextRowId++;
+  
+  let baseName = r.name.replace(/\s*\(Copy\s*\d*\)$/, "");
+  let newName = baseName + " (Copy)";
+  let counter = 2;
+  while (d.rows.some(x => x.name === newName)){
+    newName = baseName + " (Copy " + counter + ")";
+    counter++;
+  }
+  clone.name = newName;
+  d.rows.push(clone);
+  renderRows();
+  renderJsonPreview();
+}
+
+function removeRow(id){
+  const d = curStep();
+  if (d.rows.length <= 1) return;
+  const r = findRow(d, id);
+  if (!r) return;
+
+  const inboundRefs = findInboundReferences(active, r.id, r.name);
+  if (inboundRefs.length > 0){
+    const refSummary = inboundRefs.map(ref => `• Step "${ref.stepName}" (${ref.fieldName})`).join("\n");
+    alert(`❌ Cannot delete field "${r.name}" because downstream step(s) reference it in a formula:\n\n${refSummary}\n\nPlease update or remove downstream formula references first.`);
+    return;
+  }
+
+  d.rows = d.rows.filter(x => x.id !== id);
+  openEval.delete(id);
+  openFormula.delete(id);
+  renderRows();
+  renderJsonPreview();
+}
+
+document.getElementById("addValueBtn").onclick = ()=>{
+  const d = curStep();
+  let baseName = "Measurement " + (d.rows.length + 1);
+  let newName = baseName;
+  let counter = 1;
+  while (d.rows.some(x => x.name === newName)){
+    counter++;
+    newName = "Measurement " + counter;
+  }
+  d.rows.push(col(nextRowId++, newName, {src:"inspector", crit:R.useSpec(true)}));
+  renderRows();
+  renderJsonPreview();
+};
+
+// ---------------------------------------------------------------------------
+// Drag & Drop
+// ---------------------------------------------------------------------------
+
+function bindStepDrag(){
+  const rows = document.querySelectorAll(".step-row");
+  let draggedKey = null;
+  rows.forEach(r=>{
+    r.ondragstart = (e)=>{ draggedKey = r.getAttribute("data-key"); r.classList.add("dragging"); };
+    r.ondragend = ()=>{ r.classList.remove("dragging"); };
+    r.ondragover = (e)=>{ e.preventDefault(); };
+    r.ondrop = (e)=>{
+      e.preventDefault();
+      const targetKey = r.getAttribute("data-key");
+      if (draggedKey && targetKey && draggedKey!==targetKey){
+        const fromIdx = order.indexOf(draggedKey);
+        const toIdx = order.indexOf(targetKey);
+
+        const prevOrder = [...order];
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedKey);
+        
+        const dagErrors = validateWorkflowDag();
+        if (dagErrors.length > 0){
+          alert("❌ Cannot reorder step due to formula dependencies:\n\n" + dagErrors.join("\n"));
+          order.length = 0;
+          order.push(...prevOrder);
+          render();
+          return;
+        }
+        render();
+      }
+    };
+  });
+}
+
+function bindRowDrag(){
+  const cards = document.querySelectorAll(".row-card[data-id]");
+  let draggedId = null;
+  cards.forEach(c=>{
+    c.ondragstart = (e)=>{ draggedId = parseInt(c.getAttribute("data-id"),10); c.classList.add("dragging"); };
+    c.ondragend = ()=>{ c.classList.remove("dragging"); };
+    c.ondragover = (e)=>{ e.preventDefault(); };
+    c.ondrop = (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(c.getAttribute("data-id"),10);
+      const d = curStep();
+      if (draggedId && targetId && draggedId!==targetId){
+        const fromIdx = rowIndex(d, draggedId);
+        const toIdx = rowIndex(d, targetId);
+        const item = d.rows.splice(fromIdx, 1)[0];
+        d.rows.splice(toIdx, 0, item);
+        renderRows();
+      }
+    };
+  });
+}
+
+// Initial Run
+render();
+</script>
+</body>
+</html>

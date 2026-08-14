@@ -1,0 +1,1847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inspection workflow — Measurement steps configuration (v23)</title>
+<style>
+  :root{
+    --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
+    --green:#2E7D32; --green-l:#E5F2E6;
+    --amber:#B57A00; --amber-l:#FBF0D9; --amber-line:#E8D5A8;
+    --red:#C8102E;
+    --text:#333333; --mut:#667085; --muted2:#98A2B3;
+    --line:#C9D4E4; --surface1:#F5F7FA; --surface2:#FFFFFF; --page:#F0F2F5;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--page); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px; line-height:1.5;}
+  .page{max-width:1120px; margin:0 auto; padding:28px 20px 60px;}
+  header.top{margin-bottom:22px;}
+  header.top h1{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px; display:flex; align-items:center;}
+  header.top p{font-size:13px; color:var(--mut); margin:0 0 10px;}
+  .badge-mvp{display:inline-block; background:#0050AA; color:#FFFFFF; font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--radius); margin-left:10px; vertical-align:2px;}
+  
+  .layout{display:flex; gap:18px; align-items:flex-start;}
+  .sidebar{width:230px; flex-shrink:0; background:var(--surface1); border-radius:12px; padding:14px; border:1px solid var(--line);}
+  .sidebar h2{font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:700;}
+  .ct-row{display:flex; align-items:center; gap:2px; margin-bottom:4px;}
+  .step-row{border-radius:var(--radius);}
+  .step-row.dragging{opacity:0.4;}
+  .step-num{flex-shrink:0; font-size:11px; font-weight:700; color:var(--muted2); width:14px; text-align:right;}
+  .ct-item{flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:var(--radius); cursor:pointer; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ct-item.active{background:var(--tint); color:var(--blue); font-weight:700;}
+  .ct-item:not(.active){color:var(--text);}
+  .ct-item:not(.active):hover{background:#EDEFF3;}
+  .ct-remove{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .ct-remove:hover{background:#FCEBEB; color:var(--red);}
+
+  .main{flex:1; min-width:0;}
+  .card{background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin-bottom:14px;}
+  .ct-name-input{font-size:16px; font-weight:700; color:var(--navy); border:1px solid transparent; border-radius:var(--radius); padding:4px 6px; margin:0 0 3px -6px; width:calc(100% + 6px); background:transparent; font-family:inherit;}
+  .ct-name-input:hover, .ct-name-input:focus{border-color:var(--line); background:#fff;}
+  .meta{font-size:12.5px; color:var(--mut); margin:0 0 16px;}
+  .section-label{font-size:11.5px; color:var(--navy); text-transform:uppercase; letter-spacing:.03em; margin:0 0 10px; font-weight:800;}
+  .drag-handle{width:18px; height:22px; display:grid; grid-template-columns:repeat(2,4px); grid-template-rows:repeat(3,4px); gap:2px; cursor:grab; flex-shrink:0; align-content:center; justify-content:center;}
+  .drag-handle span{width:4px; height:4px; border-radius:50%; background:var(--muted2);}
+
+  input[type=text]{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text);}
+  select{border:1px solid var(--line); border-radius:var(--radius); padding:7px 10px; font-size:13px; font-family:inherit; color:var(--text); background:#fff;}
+  select:disabled{background:var(--surface1); color:var(--mut);}
+  button.btn{border:1px solid var(--line); background:#fff; border-radius:var(--radius); padding:7px 12px; font-size:12.5px; cursor:pointer; color:var(--text); font-family:inherit;}
+  button.btn:hover{background:var(--surface1);}
+  button.btn-primary{background:var(--blue); border-color:var(--blue); color:#fff;}
+  button.btn-primary:hover{background:#00408A;}
+  .field-label{font-size:12px; color:var(--mut); display:block; margin-bottom:4px;}
+
+  /* ---- domain boxes ---- */
+  .box-container{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:14px;}
+  
+  /* ---- row cards for POM & Stage ---- */
+  .item-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
+  .item-card.dragging{opacity:0.4;}
+  .item-header{display:flex; align-items:center; gap:10px;}
+  .item-line{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:9px;}
+
+  .row-dup{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:var(--radius); cursor:pointer; color:var(--muted2); font-size:15px;}
+  .row-dup:hover{background:var(--tint); color:var(--blue);}
+
+  .chk{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--mut); cursor:pointer;}
+
+  /* ---- status chips / badges ---- */
+  .chip{display:inline-flex; align-items:center; gap:6px; border-radius:6px; padding:5px 10px; font-size:12.5px; cursor:pointer; border:1px solid transparent; user-select:none;}
+  .chip-formula{background:var(--tint); border-color:#C3D8F0; color:var(--blue); font-weight:600;}
+  .chip-formula:hover{background:#DDEAF8;}
+  .chip-eval-pom{background:var(--green-l); border-color:#CBE4CC; color:var(--green); font-weight:600;}
+  .chip-eval-rule{background:var(--tint); border-color:#C3D8F0; color:var(--blue); font-weight:600;}
+  .chip-eval-warn{background:var(--amber-l); border-color:var(--amber-line); color:var(--amber); font-weight:600;}
+  .chip-eval-muted{background:var(--surface1); border-color:var(--line); color:var(--mut);}
+  .chip-eval-muted:hover{background:#EDEFF3; color:var(--text);}
+  .chip .caret{font-size:10px; margin-left:4px; opacity:0.8;}
+
+  /* ---- inline drawers ---- */
+  .drawer-open{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; margin-top:8px;}
+
+  .letter-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px;}
+  .letter-tag{flex-shrink:0; width:24px; height:24px; display:flex; align-items:center; justify-content:center; border-radius:5px; background:var(--tint); color:var(--blue); border:1px solid #C3D8F0; font-weight:700; font-size:12.5px; font-family:'Courier New',monospace;}
+  .sql-table{width:100%; border-collapse:collapse; font-size:11.5px; font-family:'Courier New',Consolas,monospace; margin-top:6px; overflow-x:auto; display:block;}
+  .sql-table th{background:#1E293B; color:#38BDF8; text-align:left; padding:6px 10px; border:1px solid #334155; font-weight:700;}
+  .sql-table td{padding:6px 10px; border:1px solid #334155; color:#E2E8F0; background:#020617; white-space:nowrap;}
+  .mctype-wrap{position:relative; display:inline-block;}
+  .mctype-trigger{display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:6px 10px; font-size:13px; color:var(--text); cursor:pointer; font-family:inherit;}
+  .mctype-trigger:hover{background:var(--surface1);}
+  .mctype-caret{font-size:10px; color:var(--mut);}
+  .mctype-panel{position:absolute; top:calc(100% + 4px); left:0; z-index:100; background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:8px 10px; box-shadow:0 4px 12px rgba(0,0,0,0.12); min-width:160px;}
+  .mctype-panel label{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text); padding:4px 0; cursor:pointer;}
+  .mctype-panel label:hover{color:var(--blue);}
+
+  footer.foot{font-size:11.5px; color:var(--muted2); margin-top:18px; border-top:1px solid var(--line); padding-top:12px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v23</span></h1>
+    <p>Unified step structure: Select <b>Data Binding</b> (Every POM in existing MC vs Custom). When Custom, define POMs right under Data Binding. Below, configure <b>MEASUREMENT STAGES</b>.</p>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <h2>Inspection Order</h2>
+      <div id="checkList"></div>
+      <p style="font-size:11px; color:var(--muted2); margin:8px 0 0; line-height:1.4;">Steps execute top-to-bottom. Drag handle to reorder.</p>
+      <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+        <button class="btn btn-primary" id="addStepBtn" style="width:100%;">+ Measurement Step</button>
+        <button class="btn" id="addBarcodeStepBtn" style="width:100%; background:var(--tint); color:var(--blue); border-color:#C3D8F0; font-weight:600;">🏷️ + Barcode Step</button>
+        <button class="btn" id="addGeoStepBtn" style="width:100%; background:var(--surface1); color:var(--navy); border-color:var(--line); font-weight:600;">📍 + Geolocation Step</button>
+      </div>
+    </div>
+    
+    <div class="main">
+      <div class="card">
+        <input type="text" id="ctName" class="ct-name-input" placeholder="Step Name">
+        <p class="meta" id="ctMeta" style="margin-bottom:14px;"></p>
+        
+        <!-- 1. SAMPLING PLAN BOX -->
+        <div id="samplingBody"></div>
+
+        <!-- 2. DATA BINDING & POM SET DEFINITION (TOP SECTION) -->
+        <div class="box-container" style="background:#FAFBFD;">
+          <div id="mcBody"></div>
+          <div id="customPomContainer" style="margin-top:10px;"></div>
+        </div>
+
+        <!-- 3. STEP OPTIONS BOX -->
+        <div id="stepOptionsBody"></div>
+        
+        <hr style="border:0; border-top:1px solid var(--line); margin:20px 0 16px;">
+        
+        <!-- 4. MEASUREMENT STAGES (UNIFIED BOTTOM SECTION) -->
+        <div class="section-label">
+          <span>2. MEASUREMENT STAGES</span>
+        </div>
+
+        <div id="stagesList"></div>
+        <div style="margin-top:10px;">
+          <button class="btn" id="addStageBtn" style="font-weight:600; background:var(--tint); color:var(--blue); border-color:#C3D8F0;">+ Add Stage</button>
+        </div>
+      </div>
+
+      <!-- Developer Data Model View -->
+      <div class="card" style="background:#0F172A; border-color:#1E293B; color:#F8FAFC; padding:18px 22px; margin-top:20px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="font-size:14px; font-weight:700; color:#38BDF8; margin:0 0 2px;">⚙️ Developer View — Unified API & Database Data Model</h3>
+            <p style="font-size:11.5px; color:#94A3B8; margin:0;">Live database & API representation for active step ("<span id="jsonStepTitle"></span>"). Updates automatically as you edit.</p>
+          </div>
+          <button class="btn" onclick="copyJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11.5px; padding:5px 12px; font-weight:600;">📋 Copy Config JSON</button>
+        </div>
+
+        <div style="margin-top:14px;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. Step Configuration API JSON Payload (Definition Schema)</span>
+          <pre id="jsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:360px;"></pre>
+        </div>
+
+        <div style="margin-top:20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:10px;">
+            <span style="font-size:12px; font-weight:700; color:#38BDF8;">2. Mobile Batch Upsert API Payload (POST /inspectorio/mobile/ics/{inspection_uuid}/captures)</span>
+            <button class="btn" onclick="copyResultJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11px; padding:3px 8px;">📋 Copy Captures API Payload</button>
+          </div>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 6px;">Batch captures matrix payload: [Sample] × [POM in Active Set] × [Measurement Stage].</p>
+          <pre id="resultJsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:380px;"></pre>
+        </div>
+
+        <div style="margin-top:20px;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">3. PostgreSQL Unified Storage Schema (inspection_captures Table)</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 6px;">How all evaluated inspection captures land in unified PostgreSQL tables.</p>
+          <div id="sqlTablesPreview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    Reorder steps, POMs, or stages using drag handles. Cross-POM formulas resolve within 1 stage; cross-stage formulas resolve across stages.
+  </footer>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Reference Data & Definitions
+// ---------------------------------------------------------------------------
+
+function esc(s){
+  return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+const UNIT_GROUPS = [
+  {category:"Dimension", units:["mm","cm","m","in","yd","ft"]},
+  {category:"Area", units:["cm²","m²","mm²","in²","ft²","yd²"]},
+  {category:"Weight", units:["g","kg","oz","lb"]},
+  {category:"Volume", units:["mL","L","cm³","m³"]},
+  {category:"Temperature", units:["°C","°F"]},
+  {category:"Area Density", units:["GSM","oz/yd²"]},
+  {category:"Barcodes & Identifiers", units:["EAN-13 string","UPC-A string","QR Code string","SKU barcode"]},
+  {category:"Geolocation & GPS", units:["GPS deg","lat/long coords","radius m"]},
+  {category:"Scale & Other", units:["grade (1–5)","%","count","pass/fail"]}
+];
+
+const SQUARE_UNITS = {cm:"cm²", m:"m²", in:"in²", yd:"yd²"};
+
+function renderUnitOptions(curUnit){
+  let h = "";
+  UNIT_GROUPS.forEach(g=>{
+    h += '<optgroup label="' + esc(g.category) + '">';
+    g.units.forEach(u=>{
+      h += '<option value="' + esc(u) + '"' + (curUnit===u?' selected':'') + '>' + esc(u) + '</option>';
+    });
+    h += '</optgroup>';
+  });
+  return h;
+}
+
+const MC_TYPES = [
+  {id:"Dimension",   unitCategory:"Dimension"},
+  {id:"Weight",      unitCategory:"Weight"},
+  {id:"Volume",      unitCategory:"Volume"},
+  {id:"Temperature", unitCategory:"Temperature"}
+];
+
+const FORMULAS = [
+  {id:"pctchange",    label:"Percent change — (B − A) / A × 100",   arity:2, expr:"(B − A) / A × 100", unit:"%", shortLabel:"Percent change", mvp:true},
+  {id:"difference",   label:"Difference — A − B",                   arity:2, expr:"A − B",             unit:"sameAsOperands", shortLabel:"Difference", mvp:true},
+  {id:"ratio",        label:"Ratio — A / B",                        arity:2, expr:"A / B",             unit:"unitless", shortLabel:"Ratio", mvp:true},
+  {id:"ratiopercent", label:"Ratio as percentage — A / B × 100",    arity:2, expr:"A / B × 100",       unit:"%", shortLabel:"Ratio %", mvp:true},
+  {id:"product",      label:"Product — A × B",                      arity:2, expr:"A × B",             unit:"product", shortLabel:"Product", mvp:true},
+  {id:"average",      label:"Average of included values",           arity:"many",                     unit:"sameAsOperands", shortLabel:"Average", mvp:true},
+
+  {id:"passthrough",  label:"Take another value (Non-MVP)",         arity:1, unit:"sameAsOperands", shortLabel:"Take value", mvp:false},
+  {id:"sum",          label:"Total of included values (Non-MVP)",    arity:"many",                     unit:"sameAsOperands", shortLabel:"Total", mvp:false},
+  {id:"custom",       label:"Custom expression (Non-MVP)",           arity:"letters", custom:true,      unit:"custom", shortLabel:"Custom", mvp:false}
+];
+
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function letterOf(i){ return LETTERS[i] || "?"; }
+
+function lettersUsed(expr){
+  const found = new Set();
+  String(expr||"").replace(/\b[A-Z]\b/g, m=>{ found.add(m); return m; });
+  return [...found].sort();
+}
+
+const PRESETS = [
+  {id:"pom",        label:"Within POM tolerance",              pomOnly:true},
+  {id:"rangelimit", label:"Numeric Range / Limit (Min & Max)", lower:true, upper:true}
+];
+const CHOICE_INSPECTOR = {id:"inspector", label:"Inspector decides (pass / fail)"};
+const CHOICE_NONE      = {id:"none",      label:"None"};
+
+function preset(id){ return PRESETS.find(p=>p.id===id); }
+
+// ---------------------------------------------------------------------------
+// Refined Data Model
+// ---------------------------------------------------------------------------
+
+const R = {
+  pom:        ()=>({mode:"rule", rule:{source:"pom", preset:"pom"}}),
+  none:       ()=>({mode:"none"}),
+  insp:       ()=>({mode:"inspector"}),
+  rangelimit: (a,b)=>({mode:"rule", rule:{source:"local", preset:"rangelimit", lower:{value:a!=null?String(a):""}, upper:{value:b!=null?String(b):""}}})
+};
+
+function createStage(id, name, o){
+  o = o || {};
+  return {
+    id: id,
+    name: name,
+    required: o.opt ? false : true,
+    source: o.src || "custom",
+    formula: o.f || null,
+    criteria: o.crit || R.pom()
+  };
+}
+const op = (id)=>({id:id});
+
+function createCustomPom(id, name, o){
+  o = o || {};
+  return {
+    id: id,
+    name: name,
+    unit: o.unit || "cm",
+    standardValue: o.sd != null ? String(o.sd) : "",
+    source: o.src || "custom",
+    formula: o.f || null,
+    criteria: o.crit || (o.min != null || o.max != null ? R.rangelimit(o.min, o.max) : R.none())
+  };
+}
+
+let nextPomId = 200;
+let nextStageId = 300;
+
+const openPomEval = new Set();
+const openPomFormula = new Set();
+const openStageEval = new Set();
+const openStageFormula = new Set();
+
+const data = {
+  garment_chart: {
+    type: "measurement",
+    sampling: {method:"by_size_per_style", value:"2", includeReference:false},
+    name: "Garment POM Measurements",
+    mc: {mode:"pom", types:["Dimension"]},
+    customPoms: [],
+    options: {photo:"none", requireComment:false},
+    stages: [
+      createStage(1, "POM Measurement Stage", {src:"custom", crit:R.pom()})
+    ]
+  },
+  shrinkage_chart: {
+    type: "measurement",
+    sampling: {method:"fixed_quantity", value:"1", includeReference:true},
+    name: "Shrinkage & Wash Performance",
+    mc: {mode:"pom", types:["Dimension"]},
+    customPoms: [],
+    options: {photo:"none", requireComment:false},
+    stages: [
+      createStage(21, "Before wash", {src:"custom", crit:R.pom()}),
+      createStage(22, "After wash",  {src:"custom", crit:R.none()}),
+      createStage(23, "% Shrinkage", {f:{type:"pctchange", ops:[op(21), op(22)]}, crit:R.rangelimit(-5, 5)})
+    ]
+  },
+  cookware_weight: {
+    type: "measurement",
+    sampling: {method:"fixed_quantity", value:"3", includeReference:false},
+    name: "Cookware Set Weight",
+    mc: null,
+    customPoms: [
+      createCustomPom(201, "Pot Weight", {unit:"g", sd:500, crit:R.none()}),
+      createCustomPom(202, "Lid Weight", {unit:"g", sd:200, crit:R.none()}),
+      createCustomPom(203, "Total Set Weight", {unit:"g", sd:700, f:{type:"sum", ops:[op(201), op(202)]}, crit:R.rangelimit(680, 720)})
+    ],
+    options: {photo:"none", requireComment:false},
+    stages: [
+      createStage(60, "Weight Check", {src:"custom", crit:R.pom()})
+    ]
+  },
+  dyelot_approval: {
+    type: "measurement",
+    sampling: {method:"fixed_quantity", value:"1", includeReference:false},
+    name: "Dyelot Quality Approval",
+    mc: null,
+    customPoms: [
+      createCustomPom(211, "Length shrinkage — 1st wash", {unit:"%", crit:R.rangelimit(-5, null)}),
+      createCustomPom(212, "Width shrinkage — 1st wash",  {unit:"%", crit:R.rangelimit(-5, null)}),
+      createCustomPom(213, "Fabric weight",               {unit:"GSM", sd:180, crit:R.rangelimit(170, 190)}),
+      createCustomPom(214, "Skewing — 1st wash",          {unit:"%", crit:R.rangelimit(null, 4)}),
+      createCustomPom(215, "Colour / shade vs standard",  {unit:"grade", crit:R.insp()}),
+      createCustomPom(216, "Dry crocking",                {unit:"grade (1–5)", sd:4, crit:R.rangelimit(4, null)}),
+      createCustomPom(217, "Wet crocking",                {unit:"grade (1–5)", sd:3, crit:R.rangelimit(3, null)})
+    ],
+    options: {photo:"none", requireComment:false},
+    stages: [
+      createStage(40, "Dyelot Approval Stage", {src:"custom", crit:R.pom()})
+    ]
+  },
+  fabric_weight: {
+    type: "measurement",
+    sampling: {method:"pct_available", value:"10", includeReference:false},
+    name: "Fabric GSM (Swatch Test)",
+    mc: null,
+    customPoms: [
+      createCustomPom(221, "Swatch length", {unit:"cm", sd:10, crit:R.none()}),
+      createCustomPom(222, "Swatch width",  {unit:"cm", sd:10, crit:R.none()}),
+      createCustomPom(223, "Swatch area",   {unit:"cm²", sd:100, f:{type:"product", ops:[op(221), op(222)]}, crit:R.none()}),
+      createCustomPom(224, "Swatch weight", {unit:"g", sd:1.8, crit:R.none()}),
+      createCustomPom(225, "Fabric weight (GSM)", {unit:"GSM", sd:180, f:{type:"custom", ops:[op(224), op(223)], customExpr:"D / C × 10,000"}, crit:R.rangelimit(150, 200)})
+    ],
+    options: {photo:"none", requireComment:true},
+    stages: [
+      createStage(50, "Swatch Test Stage", {src:"custom", crit:R.pom()})
+    ]
+  }
+};
+
+const order = ["garment_chart","shrinkage_chart","cookware_weight","dyelot_approval","fabric_weight"];
+let active = "garment_chart";
+let mcPopoverOpen = false;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function curStep(){ return data[active]; }
+function findStage(d, id){ return d.stages.find(r=>r.id===id); }
+function stageIndex(d, id){ return d.stages.findIndex(r=>r.id===id); }
+function stageName(d, id){ const r = findStage(d,id); return r ? r.name : null; }
+
+function findCustomPom(d, id){ return (d.customPoms||[]).find(r=>r.id===id); }
+function customPomIndex(d, id){ return (d.customPoms||[]).findIndex(r=>r.id===id); }
+function customPomName(d, id){ const r = findCustomPom(d,id); return r ? r.name : null; }
+
+function hasChart(d){ d = d || curStep(); return !!(d && d.mc); }
+function isPomBound(d){ d = d || curStep(); return hasChart(d) && d.mc.mode === "pom"; }
+
+function formulaDef(fm){ return fm ? FORMULAS.find(x=>x.id===fm.type) : null; }
+function opsOf(fm){ return (fm && fm.ops) ? fm.ops : []; }
+function operandIdsOf(fm){ return opsOf(fm).map(o=>o.id).filter(x=>x!=null); }
+
+function stageDependsOn(d, candidateId, targetId, seen){
+  if (candidateId===targetId) return true;
+  seen = seen || new Set();
+  if (seen.has(candidateId)) return false;
+  seen.add(candidateId);
+  const r = findStage(d, candidateId);
+  if (!r || !r.formula) return false;
+  return operandIdsOf(r.formula).some(id=>stageDependsOn(d, id, targetId, seen));
+}
+function eligibleStageOperands(d, stageId){
+  return d.stages.filter(r=>!stageDependsOn(d, r.id, stageId));
+}
+
+function pomDependsOn(d, candidateId, targetId, seen){
+  if (candidateId===targetId) return true;
+  seen = seen || new Set();
+  if (seen.has(candidateId)) return false;
+  seen.add(candidateId);
+  const r = findCustomPom(d, candidateId);
+  if (!r || !r.formula) return false;
+  return operandIdsOf(r.formula).some(id=>pomDependsOn(d, id, targetId, seen));
+}
+function eligiblePomOperands(d, pomId){
+  return (d.customPoms||[]).filter(r=>!pomDependsOn(d, r.id, pomId));
+}
+
+function autoAssignStageOperands(d, row){
+  if (!row || !row.formula) return;
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return;
+  const eligible = eligibleStageOperands(d, row.id);
+  if (!eligible.length) return;
+  if (!fm.ops) fm.ops = [];
+  if (f.arity === 1){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+  } else if (f.arity === 2){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+    if (!fm.ops[1] || !fm.ops[1].id){
+      fm.ops[1] = {id: eligible[1] ? eligible[1].id : eligible[0].id};
+    }
+  } else if (f.arity === "many"){
+    if (!fm.ops || !fm.ops.length){
+      fm.ops = eligible.map(e=>({id: e.id}));
+    }
+  }
+}
+
+function autoAssignPomOperands(d, row){
+  if (!row || !row.formula) return;
+  const fm = row.formula, f = formulaDef(fm);
+  if (!f) return;
+  const eligible = eligiblePomOperands(d, row.id);
+  if (!eligible.length) return;
+  if (!fm.ops) fm.ops = [];
+  if (f.arity === 1){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+  } else if (f.arity === 2){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+    if (!fm.ops[1] || !fm.ops[1].id){
+      fm.ops[1] = {id: eligible[1] ? eligible[1].id : eligible[0].id};
+    }
+  } else if (f.arity === "many"){
+    if (!fm.ops || !fm.ops.length){
+      fm.ops = eligible.map(e=>({id: e.id}));
+    }
+  }
+}
+
+function critChoice(row){
+  const c = (row && row.criteria) || R.none();
+  if (c.mode==="none") return "none";
+  return c.rule && c.rule.source==="pom" ? "pom" : ((c.rule && c.rule.preset) || "rangelimit");
+}
+
+function setCritChoice(row, choice){
+  const prevAllow = row.criteria ? !!row.criteria.allowInspectorOverride : false;
+  if (choice==="none"){ row.criteria = {mode:"none", allowInspectorOverride:prevAllow}; return; }
+  row.criteria = {
+    mode: "rule",
+    allowInspectorOverride: prevAllow,
+    rule: {
+      source: choice==="pom" ? "pom" : "local",
+      preset: choice,
+      lower: {value:""},
+      upper: {value:""}
+    }
+  };
+}
+
+function getRangeLimitError(r){
+  if (!r || r.preset!=="rangelimit") return null;
+  const loStr = r.lower ? String(r.lower.value).trim() : "";
+  const hiStr = r.upper ? String(r.upper.value).trim() : "";
+  const loNum = loStr !== "" ? Number(loStr) : null;
+  const hiNum = hiStr !== "" ? Number(hiStr) : null;
+
+  if (loStr === "" && hiStr === "") return "Needs at least one limit (Min or Max)";
+  if ((loStr !== "" && isNaN(loNum)) || (hiStr !== "" && isNaN(hiNum))) return "Limits must be valid numbers (digits only)";
+  if (loNum !== null && hiNum !== null && loNum > hiNum) return "Min limit ("+loStr+") cannot exceed Max limit ("+hiStr+")";
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// DB & API Schema Generators
+// ---------------------------------------------------------------------------
+
+function stepToDbSchema(key, d){
+  const bound = isPomBound(d);
+  
+  const samplingMethodMap = {
+    "bysizeperstyle": "by_size_per_style",
+    "byitem": "by_item",
+    "bycolorperstyle": "by_color_per_style",
+    "determinedquantity": "fixed_quantity",
+    "pctavailable": "pct_available",
+    "aqlstandard": "aql_table",
+    "inspectordecide": "inspector_decide"
+  };
+
+  const customPomsPayload = (!bound && d.customPoms) ? d.customPoms.map((cp, idx) => {
+    const c = cp.criteria || R.none();
+    let evalPayload = { mode: c.mode };
+    if (c.mode === "rule"){
+      const r = c.rule || {};
+      evalPayload.preset = r.preset;
+      if (r.preset === "rangelimit"){
+        const loStr = r.lower ? String(r.lower.value).trim() : "";
+        const hiStr = r.upper ? String(r.upper.value).trim() : "";
+        evalPayload.bounds = {
+          min_limit: loStr !== "" ? Number(loStr) : null,
+          max_limit: hiStr !== "" ? Number(hiStr) : null
+        };
+      }
+    }
+
+    return {
+      pom_id: cp.id,
+      name: cp.name,
+      unit: cp.unit,
+      standard_value: cp.standardValue || null,
+      position: idx + 1,
+      formula: cp.formula ? { type: cp.formula.type, operand_pom_ids: opsOf(cp.formula).map(o=>o.id), custom_expr: cp.formula.customExpr || null } : null,
+      evaluation_rule: evalPayload
+    };
+  }) : [];
+
+  const isSingleStage = d.stages.length === 1;
+
+  const stagesPayload = d.stages.map((stg, idx) => {
+    const isCalc = !!stg.formula;
+    const c = stg.criteria || R.none();
+    
+    let evalPayload = { mode: c.mode };
+    if (c.mode === "rule"){
+      const r = c.rule || {};
+      evalPayload.source = r.source;
+      evalPayload.preset = r.preset;
+      if (r.preset === "rangelimit"){
+        const loStr = r.lower ? String(r.lower.value).trim() : "";
+        const hiStr = r.upper ? String(r.upper.value).trim() : "";
+        evalPayload.bounds = {
+          min_limit: loStr !== "" ? Number(loStr) : null,
+          max_limit: hiStr !== "" ? Number(hiStr) : null
+        };
+      }
+    }
+
+    let formulaPayload = null;
+    if (isCalc){
+      const fm = stg.formula;
+      const fDef = formulaDef(fm);
+      const ops = opsOf(fm);
+      formulaPayload = {
+        type: fm.type,
+        label: fDef ? fDef.label : fm.type,
+        operand_stage_ids: ops.map(o => o.id),
+        custom_expression_ui: fm.type === "custom" ? (fm.customExpr || "A / B") : null
+      };
+    }
+
+    return {
+      stage_id: stg.id,
+      stage_name: isSingleStage ? "Default Stage" : stg.name,
+      stage_type: isCalc ? "derived_metric" : "entry_stage",
+      position: idx + 1,
+      formula: formulaPayload,
+      stage_evaluation_rule: evalPayload
+    };
+  });
+
+  return {
+    section_uuid: key,
+    title: d.name,
+    type: "configurable_measurement",
+    step_type: d.type || "measurement",
+    is_affect_overall_result: true,
+    measurement_config: {
+      sampling_plan: {
+        method: samplingMethodMap[d.sampling.method] || d.sampling.method,
+        sample_size_value: (d.sampling.method !== "inspector_decide" && d.sampling.method !== "aql_table" && d.sampling.method !== "inspectordecide" && d.sampling.method !== "aqlstandard") ? d.sampling.value : null,
+        include_reference_sample: !!(d.sampling && d.sampling.includeReference)
+      },
+      data_binding: {
+        mode: d.mc ? d.mc.mode : "none",
+        allowed_types: (d.mc && d.mc.types && d.mc.types.length) ? d.mc.types : [],
+        custom_poms: customPomsPayload.length > 0 ? customPomsPayload : null
+      },
+      measurement_stages: stagesPayload
+    }
+  };
+}
+
+function stepToExecutionResultPayload(key, d){
+  const stepType = d.type || "measurement";
+  const bound = isPomBound(d);
+  
+  const sampleCount = (d.sampling && d.sampling.method !== "none" && d.sampling.value) ? (parseInt(d.sampling.value, 10) || 1) : 1;
+  const captures = [];
+
+  const activePoms = bound ? [
+    {code:"POM-CHEST", name:"Chest Width", std:52.0},
+    {code:"POM-WAIST", name:"Waist Width", std:48.0}
+  ] : (d.customPoms || []).map(cp => ({
+    code: "CPOM-" + cp.id,
+    name: cp.name,
+    std: cp.standardValue ? parseFloat(cp.standardValue) : null,
+    formula: cp.formula
+  }));
+
+  for (let s = 1; s <= sampleCount; s++){
+    const sRef = "S" + s;
+    activePoms.forEach(pomItem => {
+      d.stages.forEach((stageRow, stgIdx) => {
+        const isCrossStageCalc = !!stageRow.formula;
+        const isCrossPomCalc = !!pomItem.formula;
+        const c = stageRow.criteria || {};
+        let valNum = (pomItem.std || 10.0) + (stgIdx * 0.4);
+        let stdNum = pomItem.std;
+        
+        let deriv = null;
+        if (isCrossStageCalc && stageRow.formula){
+          const ops = opsOf(stageRow.formula).map(o => "cap_" + pomItem.code + "_stg" + o.id + "_s" + s);
+          deriv = { type: stageRow.formula.type || "pctchange", level: "cross_stage", sources: ops };
+          valNum = 0.96;
+        } else if (isCrossPomCalc && pomItem.formula){
+          const ops = opsOf(pomItem.formula).map(o => "cap_CPOM-" + o.id + "_stg" + stageRow.id + "_s" + s);
+          deriv = { type: pomItem.formula.type || "sum", level: "cross_pom", sources: ops };
+          valNum = pomItem.std || 700;
+        }
+
+        let evalRule = { mode: c.mode };
+        if (c.mode === "rule" && c.rule && c.rule.source === "pom"){
+          evalRule = { mode: "rule", source: "pom", note: "Evaluated using POM default spec tolerance" };
+        } else if (c.mode === "rule"){
+          evalRule = { mode: "rule", source: "stage_override", preset: c.rule ? c.rule.preset : "rangelimit" };
+        }
+
+        captures.push({
+          externalId: "cap_" + pomItem.code + "_stg" + stageRow.id + "_s" + s,
+          level: "point",
+          itemId: "ITEM-8842",
+          sampleRef: sRef,
+          sampleType: "unit",
+          pomRef: pomItem.code,
+          pomName: pomItem.name,
+          stageRef: d.stages.length === 1 ? "DEFAULT" : ("STAGE-" + (stageRow.name.toUpperCase().replace(/\s+/g, '_'))),
+          fieldSource: (isCrossStageCalc || isCrossPomCalc) ? "calculated" : "inspector_entry",
+          dataType: "numeric",
+          valueNumeric: valNum,
+          standardValueNumeric: stdNum,
+          unit: stageRow.unit || (isCrossStageCalc ? "%" : "cm"),
+          stageEvaluationRule: evalRule,
+          autoResult: "pass",
+          result: "pass",
+          derivation: deriv
+        });
+      });
+    });
+  }
+
+  return {
+    stepId: "sec_" + key,
+    captures: captures
+  };
+}
+
+function renderResultJsonPreview(){
+  const el = document.getElementById("resultJsonPreview");
+  if (!el || !curStep()) return;
+  const payload = stepToExecutionResultPayload(active, curStep());
+  el.textContent = JSON.stringify(payload, null, 2);
+}
+
+function copyResultJsonPayload(){
+  const payload = stepToExecutionResultPayload(active, curStep());
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(()=>{
+    alert("Batch Mobile Step Captures Upload API Payload copied to clipboard!");
+  }).catch(()=>{
+    alert("Copied!");
+  });
+}
+
+function renderSqlTables(){
+  const container = document.getElementById("sqlTablesPreview");
+  if (!container || !curStep()) return;
+  const d = curStep();
+  const bound = isPomBound(d);
+  const resPayload = stepToExecutionResultPayload(active, d);
+
+  let html = '';
+
+  // HEADER A: CONFIGURATION TABLES
+  html += '<div style="font-size:11px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.05em; margin-top:10px; margin-bottom:4px;">A. Workflow Step Configuration Tables</div>';
+
+  // 1. TABLE: workflow_step_sections
+  html += '<div><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>title</th><th>type</th><th>position</th></tr></thead><tbody>'
+    + '<tr><td>sec_'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>configurable_measurement</td><td>1</td></tr>'
+    + '</tbody></table></div>';
+
+  // 2. TABLE: workflow_step_section_measurement_configs
+  const samplingMap = {
+    "bysizeperstyle":"by_size_per_style",
+    "byitem":"by_item",
+    "bycolorperstyle":"by_color_per_style",
+    "determinedquantity":"fixed_quantity",
+    "pctavailable":"pct_available",
+    "aqlstandard":"aql_table",
+    "inspectordecide":"inspector_decide"
+  };
+  const samplingMethod = samplingMap[d.sampling.method] || d.sampling.method;
+  const mcMode = d.mc ? d.mc.mode : "none";
+
+  html += '<div style="margin-top:12px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_section_measurement_configs</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>data_binding_mode</th><th>is_single_stage</th></tr></thead><tbody>'
+    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+esc(mcMode)+'</td><td>'+(d.stages.length===1?'TRUE':'FALSE')+'</td></tr>'
+    + '</tbody></table></div>';
+
+  // 3. TABLE: workflow_custom_poms (If Data Binding = None)
+  if (!bound && d.customPoms && d.customPoms.length > 0){
+    html += '<div style="margin-top:12px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_custom_poms</span>'
+      + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>config_id (FK)</th><th>pom_name</th><th>unit</th><th>standard_sd</th><th>cross_pom_formula</th><th>default_eval_config</th></tr></thead><tbody>';
+    d.customPoms.forEach(cp => {
+      const fJson = cp.formula ? JSON.stringify({type:cp.formula.type, operand_pom_ids: opsOf(cp.formula).map(o=>o.id)}) : 'NULL';
+      const c = cp.criteria || R.none();
+      const evalJson = JSON.stringify({ mode: c.mode });
+      html += '<tr><td>cpom_'+cp.id+'</td><td>cfg_'+esc(active)+'</td><td>'+esc(cp.name)+'</td><td>'+esc(cp.unit)+'</td><td>'+esc(cp.standardValue||'NULL')+'</td><td>'+esc(fJson)+'</td><td>'+esc(evalJson)+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+
+  // 4. TABLE: workflow_measurement_stages
+  html += '<div style="margin-top:12px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_stages</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>config_id (FK)</th><th>stage_name</th><th>stage_type</th><th>position</th><th>cross_stage_formula</th><th>stage_eval_override</th></tr></thead><tbody>';
+  
+  d.stages.forEach((stg, i)=>{
+    const isCalc = !!stg.formula;
+    let formulaJson = 'NULL';
+    if (isCalc){
+      const fm = stg.formula;
+      const ops = opsOf(fm).map(o=>o.id);
+      formulaJson = JSON.stringify({ type: fm.type, operand_stage_ids: ops });
+    }
+    const c = stg.criteria || R.none();
+    const evalJson = JSON.stringify({ mode: c.mode, source: c.rule ? c.rule.source : "local" });
+
+    html += '<tr>'
+      + '<td>stg_'+stg.id+'</td>'
+      + '<td>cfg_'+esc(active)+'</td>'
+      + '<td>'+(d.stages.length===1 ? 'Default Stage' : esc(stg.name))+'</td>'
+      + '<td>'+(isCalc?'derived_metric':'entry_stage')+'</td>'
+      + '<td>'+(i+1)+'</td>'
+      + '<td>'+esc(formulaJson)+'</td>'
+      + '<td>'+esc(evalJson)+'</td>'
+      + '</tr>';
+  });
+  html += '</tbody></table></div>';
+
+  // HEADER B: UNIFIED INSPECTION CAPTURE TABLE (Postgres)
+  html += '<div style="font-size:11px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.05em; margin-top:20px; margin-bottom:4px;">B. Unified Inspection Execution Capture Table (PostgreSQL)</div>';
+
+  html += '<div><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: inspection_captures</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>step_id</th><th>level</th><th>item_id</th><th>sample_ref</th><th>pom_ref</th><th>stage_ref</th><th>field_source</th><th>val_numeric</th><th>std_numeric</th><th>derivation</th></tr></thead><tbody>';
+
+  resPayload.captures.forEach((cap, idx) => {
+    const dbId = idx + 1;
+    const valNum = cap.valueNumeric != null ? cap.valueNumeric : 'NULL';
+    const stdNum = cap.standardValueNumeric != null ? cap.standardValueNumeric : 'NULL';
+    const derivJson = cap.derivation ? esc(JSON.stringify(cap.derivation)) : 'NULL';
+
+    html += '<tr>'
+      + '<td>' + dbId + '</td>'
+      + '<td>' + resPayload.stepId + '</td>'
+      + '<td>' + cap.level + '</td>'
+      + '<td>' + (cap.itemId ? cap.itemId : "''") + '</td>'
+      + '<td>' + (cap.sampleRef ? cap.sampleRef : "''") + '</td>'
+      + '<td>' + (cap.pomRef ? cap.pomRef : "''") + '</td>'
+      + '<td>' + (cap.stageRef ? cap.stageRef : "''") + '</td>'
+      + '<td>' + (cap.fieldSource ? cap.fieldSource : "NULL") + '</td>'
+      + '<td>' + valNum + '</td>'
+      + '<td>' + stdNum + '</td>'
+      + '<td>' + derivJson + '</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+function renderJsonPreview(){
+  const el = document.getElementById("jsonPreview");
+  const titleEl = document.getElementById("jsonStepTitle");
+  if (titleEl && curStep()) titleEl.textContent = curStep().name;
+  if (!el || !curStep()) return;
+  const payload = stepToDbSchema(active, curStep());
+  el.textContent = JSON.stringify(payload, null, 2);
+  
+  renderResultJsonPreview();
+  renderSqlTables();
+}
+
+function copyJsonPayload(){
+  const payload = stepToDbSchema(active, curStep());
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(()=>{
+    alert("Step Configuration JSON Schema copied to clipboard!");
+  }).catch(()=>{
+    alert("Copied!");
+  });
+}
+
+// ---------------------------------------------------------------------------
+// UI Rendering
+// ---------------------------------------------------------------------------
+
+function render(){
+  renderSidebar();
+  renderStepHeader();
+  renderDataBindingUI();
+  renderStages();
+  renderJsonPreview();
+}
+
+function renderSidebar(){
+  const el = document.getElementById("checkList");
+  let html = "";
+  order.forEach((key, i)=>{
+    const d = data[key];
+    const act = key===active ? " active" : "";
+    
+    html += '<div class="ct-row step-row" data-key="'+key+'" draggable="true">'
+      + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+      + '<span class="step-num">'+(i+1)+'</span>'
+      + '<div class="ct-item'+act+'" onclick="selectStep(\''+key+'\')">'
+      + '<span style="overflow:hidden;text-overflow:ellipsis;">'+esc(d.name)+'</span>'
+      + '</div>'
+      + '<div class="ct-remove" onclick="removeStep(\''+key+'\')" title="Delete step">&times;</div>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+  bindStepDrag();
+}
+
+function selectStep(key){ active = key; mcPopoverOpen = false; render(); }
+
+function removeStep(key){
+  if (order.length<=1) return;
+  const idx = order.indexOf(key);
+  if (idx!==-1) order.splice(idx,1);
+  delete data[key];
+  if (active===key) active = order[Math.max(0, idx-1)];
+  render();
+}
+
+document.getElementById("addStepBtn").onclick = ()=>{
+  const newKey = "step_" + Date.now();
+  data[newKey] = {
+    type: "measurement",
+    sampling: {method:"by_size_per_style", value:"2", includeReference:false},
+    name: "New Measurement Step",
+    mc: null,
+    customPoms: [ createCustomPom(nextPomId++, "Custom POM 1", {unit:"cm"}) ],
+    options: {photo:"none", requireComment:false},
+    stages: [ createStage(nextStageId++, "Initial Measurement Stage") ]
+  };
+  order.push(newKey);
+  active = newKey;
+  render();
+};
+
+const addBarBtn = document.getElementById("addBarcodeStepBtn");
+if (addBarBtn){
+  addBarBtn.onclick = ()=>{
+    const newKey = "barcode_" + Date.now();
+    data[newKey] = {
+      type: "barcode",
+      sampling: {method:"fixed_quantity", value:"1", includeReference:false},
+      name: "Barcode Check",
+      mc: {mode:"label", types:["Barcode","QR"]},
+      customPoms: [],
+      options: { allowOverride: true, photo: "none" },
+      stages: [ createStage(nextStageId++, "Barcode Scan Stage", {src:"label"}) ]
+    };
+    order.push(newKey);
+    active = newKey;
+    render();
+  };
+}
+
+const addGeoBtn = document.getElementById("addGeoStepBtn");
+if (addGeoBtn){
+  addGeoBtn.onclick = ()=>{
+    const newKey = "geo_" + Date.now();
+    data[newKey] = {
+      type: "geolocation",
+      sampling: {method:"fixed_quantity", value:"1", includeReference:false},
+      name: "Geolocation Check-in",
+      mc: {mode:"geo", targetAddress:"Factory #4 - Production Facility", lat:"10.762622", long:"106.660172", radius:"100"},
+      customPoms: [],
+      options: {photo:"none"},
+      stages: [ createStage(nextStageId++, "Location Arrival Stage", {src:"geo"}) ]
+    };
+    order.push(newKey);
+    active = newKey;
+    render();
+  };
+}
+
+function mcTypeSummary(selected){
+  if (!selected || selected.length===0) return "Any type";
+  if (selected.length < 3) return selected.join(", ");
+  return selected.length + " types selected";
+}
+
+function updateBarcodeOverride(checked){
+  const d = curStep();
+  if (!d.options) d.options = {};
+  d.options.allowOverride = checked;
+  renderJsonPreview();
+}
+
+function renderStepHeader(){
+  const d = curStep();
+  const nameInput = document.getElementById("ctName");
+  nameInput.value = d.name;
+  nameInput.onchange = (e)=>{ d.name = e.target.value; renderSidebar(); };
+
+  const bound = isPomBound(d);
+  const metaEl = document.getElementById("ctMeta");
+  metaEl.innerHTML = (bound ? "Bound to Measurement Chart POMs" : (d.customPoms ? d.customPoms.length + " Custom POM(s)" : "No chart"))
+    + " · " + (d.stages.length === 1 ? "Single Stage Execution" : d.stages.length + " Measurement Stages");
+
+  // Sampling Box
+  const sBody = document.getElementById("samplingBody");
+  const sMethods = [
+    {id:"by_size_per_style", label:"By Size Per Style"},
+    {id:"by_item", label:"By Item"},
+    {id:"by_color_per_style", label:"By Color Per Style"},
+    {id:"fixed_quantity", label:"Fixed Quantity"},
+    {id:"pct_available", label:"% Available Quantity"},
+    {id:"aql_table", label:"AQL Standard Table"},
+    {id:"inspector_decide", label:"Inspector Decides"}
+  ];
+  let smOpts = sMethods.map(m=>'<option value="'+m.id+'"'+(d.sampling.method===m.id?' selected':'')+'>'+m.label+'</option>').join("");
+  const incRef = d.sampling && d.sampling.includeReference;
+
+  sBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
+    + '<label class="field-label">Sample Size Determination (per step execution)</label>'
+    + '<div style="display:flex; gap:10px; align-items:center;">'
+    + '<select onchange="updateSamplingMethod(this.value)" style="flex:1;">'+smOpts+'</select>'
+    + (d.sampling.method!=="inspector_decide" && d.sampling.method!=="aql_table" && d.sampling.method!=="inspectordecide" && d.sampling.method!=="aqlstandard"
+        ? '<input type="text" value="'+esc(d.sampling.value)+'" onchange="updateSamplingValue(this.value)" style="width:70px; text-align:center;">'
+        : '')
+    + '</div>'
+    + '<div style="margin-top:8px; display:flex; align-items:center;">'
+    + '<label class="chk" style="font-size:12.5px; color:var(--text); font-weight:500;">'
+    + '<input type="checkbox" '+(incRef?'checked':'')+' onchange="updateSamplingIncludeReference(this.checked)">'
+    + 'Include a reference sample'
+    + '</label>'
+    + '</div>'
+    + '</div>';
+
+  // Step Options Box
+  const optsBody = document.getElementById("stepOptionsBody");
+  if (optsBody){
+    const photoOpt = (d.options && d.options.photo) || "none";
+    const commentOpt = (d.options && d.options.requireComment) || false;
+    const allowOverrideOpt = (d.options && d.options.allowOverride !== false) || false;
+
+    let barcodeOverrideHtml = "";
+    if (d.mc && d.mc.mode === "label"){
+      barcodeOverrideHtml = '<div style="display:flex; align-items:center; gap:8px; border-left:1px solid var(--line); padding-left:14px;">'
+        + '<label class="chk" style="font-weight:600; color:var(--text);">'
+        + '<input type="checkbox" '+(allowOverrideOpt?'checked':'')+' onchange="updateBarcodeOverride(this.checked)">'
+        + 'Allow inspectors to override barcode result'
+        + '</label>'
+        + '</div>';
+    }
+
+    optsBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; gap:20px; align-items:center; flex-wrap:wrap;">'
+      + '<div style="display:flex; align-items:center; gap:8px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600; min-width:60px;">Photos:</span>'
+      + '<select onchange="updateStepPhotoOption(this.value)" style="min-width:220px;">'
+      + '<option value="none"'+(photoOpt==="none"?' selected':'')+'>📷 No photos required</option>'
+      + '<option value="per_field"'+(photoOpt==="per_field"?' selected':'')+'>📷 Require photo per stage</option>'
+      + '<option value="overall"'+(photoOpt==="overall"?' selected':'')+'>📷 Require overall step photo</option>'
+      + '</select>'
+      + '</div>'
+      + '<div style="display:flex; align-items:center; gap:8px;">'
+      + '<label class="chk" style="font-weight:600; color:var(--text);">'
+      + '<input type="checkbox" '+(commentOpt?'checked':'')+' onchange="updateStepCommentOption(this.checked)">'
+      + '💬 Require comment on failed values'
+      + '</label>'
+      + '</div>'
+      + barcodeOverrideHtml
+      + '</div>';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Upper Section: Data Binding & Custom POM Definition
+// ---------------------------------------------------------------------------
+
+function toggleMcPopover(e){
+  if (e) e.stopPropagation();
+  mcPopoverOpen = !mcPopoverOpen;
+  renderDataBindingUI();
+}
+
+function selectAnyMcType(e){
+  const d = curStep();
+  if (d && d.mc){
+    d.mc.types = [];
+    renderDataBindingUI();
+    renderJsonPreview();
+  }
+}
+
+function toggleMcType(typeId, e){
+  const d = curStep();
+  if (!d || !d.mc) return;
+  if (!d.mc.types) d.mc.types = [];
+  const idx = d.mc.types.indexOf(typeId);
+  if (idx !== -1){
+    d.mc.types.splice(idx, 1);
+  } else {
+    d.mc.types.push(typeId);
+  }
+  renderDataBindingUI();
+  renderJsonPreview();
+}
+
+function updateMcMode(val){
+  const d = curStep();
+  if (!d) return;
+  if (val === "pom"){
+    if (!d.mc) d.mc = {mode:"pom", types:["Dimension"]};
+    else d.mc.mode = "pom";
+  } else if (val === "label" || val === "geo"){
+    if (!d.mc) d.mc = {mode:val};
+    else d.mc.mode = val;
+  } else {
+    d.mc = null; // Custom
+  }
+  renderDataBindingUI();
+  renderStepHeader();
+  renderJsonPreview();
+}
+
+document.addEventListener("click", ()=>{
+  if (mcPopoverOpen){ mcPopoverOpen = false; renderDataBindingUI(); }
+});
+
+function renderDataBindingUI(){
+  const d = curStep();
+  const mcBody = document.getElementById("mcBody");
+  const customPomContainer = document.getElementById("customPomContainer");
+
+  const isChart = hasChart(d);
+  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (isChart ? "pom" : "none");
+  const selectedTypes = isChart ? (d.mc.types || []) : [];
+  const stepType = d.type || "measurement";
+
+  let typePopoverHtml = "";
+  if (mcMode === "pom"){
+    let panelLabels = '<label style="font-weight:600; border-bottom:1px solid var(--line); margin-bottom:4px; padding-bottom:4px;" onclick="event.stopPropagation()"><input type="checkbox" '+(selectedTypes.length===0?'checked':'')+' onchange="selectAnyMcType(event)"> Any type</label>';
+    panelLabels += MC_TYPES.map(t=>{
+      const checked = selectedTypes.includes(t.id) ? "checked" : "";
+      return '<label onclick="event.stopPropagation()"><input type="checkbox" '+checked+' onchange="toggleMcType(\''+t.id+'\', event)"> '+t.id+'</label>';
+    }).join("");
+
+    typePopoverHtml = '<span style="color:var(--mut); font-size:13px; margin:0 4px 0 8px;">of type</span>'
+      + '<div class="mctype-wrap">'
+      + '<button class="mctype-trigger" onclick="toggleMcPopover(event)">'
+      + '<span>'+esc(mcTypeSummary(selectedTypes))+'</span>'
+      + '<span class="mctype-caret">▼</span>'
+      + '</button>'
+      + '<div class="mctype-panel" style="display:'+(mcPopoverOpen?'block':'none')+'" onclick="event.stopPropagation()">'
+      + panelLabels
+      + '</div></div>';
+  }
+
+  let dbSelectOpts = '<option value="pom"'+(mcMode==="pom"?' selected':'')+'>Every POM in existing MC</option>'
+    + '<option value="none"'+(mcMode==="none"?' selected':'')+'>Custom</option>';
+  if (stepType === "barcode"){
+    dbSelectOpts += '<option value="label"'+(mcMode==="label"?' selected':'')+'>Every Label on the Packaging</option>';
+  } else if (stepType === "geolocation"){
+    dbSelectOpts += '<option value="geo"'+(mcMode==="geo"?' selected':'')+'>Factory GPS Location & Geofence</option>';
+  }
+
+  mcBody.innerHTML = '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">'
+    + '<span class="field-label" style="margin:0; font-weight:600; min-width:130px;">Data Binding:</span>'
+    + '<select onchange="updateMcMode(this.value)" style="min-width:240px;">'
+    + dbSelectOpts
+    + '</select>'
+    + typePopoverHtml
+    + '</div>';
+
+  if (mcMode === "pom"){
+    customPomContainer.innerHTML = "";
+  } else if (mcMode === "none"){
+    let pomCardsHtml = "";
+    if (!d.customPoms) d.customPoms = [];
+    
+    d.customPoms.forEach((cp, idx) => {
+      const isFormulaOpen = openPomFormula.has(cp.id);
+      const isEvalOpen = openPomEval.has(cp.id);
+      const isCalc = !!cp.formula;
+
+      pomCardsHtml += '<div class="item-card" data-id="'+cp.id+'" draggable="true">'
+        + '<div class="item-header">'
+        + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+        + '<input type="text" value="'+esc(cp.name)+'" onchange="updateCustomPomField('+cp.id+', \'name\', this.value)" style="flex:1; font-weight:600;" placeholder="POM Name (e.g. Fabric weight)">'
+        + (!isCalc ? '<div style="display:flex; align-items:center; gap:4px;"><span style="font-size:11.5px; color:var(--mut); font-weight:600;">SD:</span><input type="text" value="'+esc(cp.standardValue || '')+'" onchange="updateCustomPomField('+cp.id+', \'standardValue\', this.value)" style="width:75px;" placeholder="Optional"></div>' : '')
+        + '<select onchange="updateCustomPomField('+cp.id+', \'unit\', this.value)" style="width:105px;">'+renderUnitOptions(cp.unit)+'</select>'
+        + '<div class="row-dup" onclick="duplicateCustomPom('+cp.id+')" title="Duplicate POM"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>'
+        + '<div class="ct-remove" onclick="removeCustomPom('+cp.id+')" title="Remove POM">&times;</div>'
+        + '</div>'
+
+        // Line 2: Status Chips for Source & POM Evaluation
+        + '<div class="item-line">'
+        + renderPomFormulaChip(d, cp, isFormulaOpen)
+        + renderPomEvalSummary(d, cp, isEvalOpen)
+        + '</div>'
+
+        // Expandable Inline Drawers
+        + (isFormulaOpen ? renderPomFormulaDrawer(d, cp) : '')
+        + (isEvalOpen ? renderPomEvalDrawer(d, cp) : '')
+        + '</div>';
+    });
+
+    customPomContainer.innerHTML = '<div style="margin-top:12px;">'
+      + '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">'
+      + '<span style="font-size:11px; font-weight:700; color:var(--muted2); text-transform:uppercase; letter-spacing:0.03em;">Custom POM Set</span>'
+      + '</div>'
+      + (pomCardsHtml || '<div style="text-align:center; color:var(--mut); padding:14px; background:#fff; border:1px solid var(--line); border-radius:8px;">No custom POMs defined. Click "+ Add POM" below to add a POM.</div>')
+      + '<div style="margin-top:10px;">'
+      + '<button class="btn" onclick="addCustomPom()" style="font-weight:600;">+ Add POM</button>'
+      + '</div>'
+      + '</div>';
+
+    bindPomDrag();
+  } else {
+    customPomContainer.innerHTML = "";
+  }
+}
+
+function updateCustomPomField(id, key, val){
+  const cp = findCustomPom(curStep(), id);
+  if (cp){ cp[key] = val; renderJsonPreview(); }
+}
+
+function addCustomPom(){
+  const d = curStep();
+  if (!d.customPoms) d.customPoms = [];
+  d.customPoms.push(createCustomPom(nextPomId++, "Custom POM " + (d.customPoms.length + 1), {unit:"cm"}));
+  renderDataBindingUI();
+  renderJsonPreview();
+}
+
+function duplicateCustomPom(id){
+  const d = curStep();
+  const cp = findCustomPom(d, id);
+  if (!cp) return;
+  const clone = JSON.parse(JSON.stringify(cp));
+  clone.id = nextPomId++;
+  clone.name += " (Copy)";
+  d.customPoms.push(clone);
+  renderDataBindingUI();
+  renderJsonPreview();
+}
+
+function removeCustomPom(id){
+  const d = curStep();
+  if (d.customPoms){
+    d.customPoms = d.customPoms.filter(x => x.id !== id);
+    openPomEval.delete(id);
+    openPomFormula.delete(id);
+    renderDataBindingUI();
+    renderJsonPreview();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom Card Drawers (Source & Evaluation)
+// ---------------------------------------------------------------------------
+
+function renderPomFormulaChip(d, row, isOpen){
+  const isCalc = !!row.formula;
+  let labelText = "✍️ Inspector entry";
+  let chipStyle = "chip-eval-muted";
+
+  if (isCalc){
+    const fm = row.formula;
+    const f = formulaDef(fm);
+    const ops = opsOf(fm);
+    const names = ops.map(o => customPomName(d, o.id)).filter(n => n != null);
+    let summary = f ? f.shortLabel : "Formula";
+    if (f && f.arity === 2 && names.length === 2) summary += ": " + names[0] + " × " + names[1];
+    else if (names.length) summary += ": " + names.join(", ");
+    
+    labelText = "ƒ Formula: " + summary;
+    chipStyle = "chip-formula";
+  }
+
+  return '<div class="chip '+chipStyle+'" onclick="togglePomFormulaDrawer('+row.id+')">'
+    + '<span>Source: <b>'+esc(labelText)+'</b></span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function togglePomFormulaDrawer(id){
+  if (openPomFormula.has(id)) openPomFormula.delete(id);
+  else {
+    openPomFormula.add(id);
+    openPomEval.delete(id);
+    const row = findCustomPom(curStep(), id);
+    if (row && row.formula) autoAssignPomOperands(curStep(), row);
+  }
+  renderDataBindingUI();
+}
+
+function updatePomSourceModeInline(id, val){
+  const row = findCustomPom(curStep(), id);
+  if (!row) return;
+  if (val === "custom"){
+    row.source = "custom";
+    row.formula = null;
+  } else if (val === "formula"){
+    row.source = "custom";
+    if (!row.formula) row.formula = {type:"product", ops:[]};
+    autoAssignPomOperands(curStep(), row);
+  }
+  renderDataBindingUI();
+  renderJsonPreview();
+}
+
+function renderPomFormulaDrawer(d, row){
+  const isCalc = !!row.formula;
+  const fm = row.formula || {type:"product", ops:[]};
+  if (isCalc) autoAssignPomOperands(d, row);
+  const eligible = eligiblePomOperands(d, row.id);
+  const curSrcMode = isCalc ? "formula" : "custom";
+
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+    + '<label class="field-label" style="margin:0; min-width:90px;">Data Source:</label>'
+    + '<select onchange="updatePomSourceModeInline('+row.id+', this.value)" style="min-width:240px;">'
+    + '<option value="custom"'+(curSrcMode==="custom"?' selected':'')+'>✍️ Inspector entry</option>'
+    + '<option value="formula"'+(curSrcMode==="formula"?' selected':'')+'>ƒ Calculated Formula</option>'
+    + '</select></div>';
+
+  if (isCalc){
+    html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+      + '<label class="field-label" style="margin:0; min-width:90px;">Formula Type:</label>'
+      + '<select onchange="updatePomFormulaTypeInline('+row.id+', this.value)" style="flex:1; min-width:200px;">';
+
+    FORMULAS.forEach(f=>{
+      html += '<option value="'+f.id+'"'+(fm.type===f.id?' selected':'')+'>'+f.label+'</option>';
+    });
+
+    html += '</select></div>';
+
+    const fDef = formulaDef(fm);
+    if (fDef && fDef.arity === 2){
+      const lettersNeeded = ["A", "B"];
+      html += '<div style="display:flex; flex-direction:column; gap:6px;">';
+      lettersNeeded.forEach((let, idx)=>{
+        const curId = fm.ops[idx] ? fm.ops[idx].id : "";
+        html += '<div class="letter-row"><span class="letter-tag">'+let+'</span>'
+          + '<select onchange="updatePomInlineOperand('+row.id+', '+idx+', this.value)" style="flex:1;"><option value="">-- Pick input for '+let+' --</option>'
+          + eligible.map(e=>'<option value="'+e.id+'"'+(curId==e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('') + '</select></div>';
+      });
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function updatePomFormulaTypeInline(id, type){
+  const row = findCustomPom(curStep(), id);
+  if (row){
+    row.formula = {type:type, ops:[]};
+    autoAssignPomOperands(curStep(), row);
+  }
+  renderDataBindingUI();
+}
+
+function updatePomInlineOperand(id, idx, val){
+  const row = findCustomPom(curStep(), id);
+  if (!row || !row.formula) return;
+  if (!row.formula.ops) row.formula.ops = [];
+  row.formula.ops[idx] = {id: parseInt(val,10)};
+  renderDataBindingUI();
+}
+
+function renderPomEvalSummary(d, row, isOpen){
+  const c = row.criteria || R.none();
+  let text = "Not evaluated";
+  let cls = "chip-eval-muted";
+
+  if (c.mode === "rule"){
+    const r = c.rule || {};
+    if (r.preset === "rangelimit"){
+      const err = getRangeLimitError(r);
+      if (err){
+        text = "⚠️ " + err;
+        cls = "chip-eval-warn";
+      } else {
+        const loStr = r.lower ? String(r.lower.value).trim() : "";
+        const hiStr = r.upper ? String(r.upper.value).trim() : "";
+        const u = row.unit ? ' '+row.unit : '';
+        if (loStr !== "" && hiStr !== "") text = "⚖️ Range: "+loStr+" to "+hiStr+u;
+        else if (loStr !== "") text = "⚖️ Min limit: ≥ "+loStr+u;
+        else if (hiStr !== "") text = "⚖️ Max limit: ≤ "+hiStr+u;
+        else text = "⚖️ Range limit configured";
+        cls = "chip-eval-rule";
+      }
+    }
+  } else if (c.mode === "inspector"){
+    text = "👤 Inspector decision";
+    cls = "chip-eval-rule";
+  }
+
+  return '<div class="chip '+cls+'" onclick="togglePomEvalDrawer('+row.id+')">'
+    + '<span>Eval: <b>'+esc(text)+'</b></span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function togglePomEvalDrawer(id){
+  if (openPomEval.has(id)) openPomEval.delete(id);
+  else {
+    openPomEval.add(id);
+    openPomFormula.delete(id);
+  }
+  renderDataBindingUI();
+}
+
+function renderPomEvalDrawer(d, row){
+  const cur = critChoice(row);
+  const c = row.criteria || {};
+  
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'
+    + '<label class="field-label" style="margin:0; min-width:90px;">Rule Preset:</label>'
+    + '<select onchange="changePomCritChoice('+row.id+', this.value)">'
+    + '<option value="rangelimit"'+(cur==="rangelimit"?' selected':'')+'>Numeric Range / Limit (Min & Max)</option>'
+    + '<option value="inspector"'+(cur==="inspector"?' selected':'')+'>Inspector decides (pass / fail)</option>'
+    + '<option value="none"'+(cur==="none"?' selected':'')+'>None (No evaluation)</option>'
+    + '</select></div>';
+
+  if (c && c.mode === "rule" && c.rule){
+    const r = c.rule;
+    const p = preset(r.preset);
+    const err = getRangeLimitError(r);
+
+    html += '<div style="display:flex; gap:12px; align-items:center; margin-top:10px;">';
+    if (p && p.lower){
+      html += '<div><span class="field-label">Min Limit / Lower (≥)</span>'
+        + '<input type="text" value="'+esc(r.lower ? r.lower.value : '')+'" onchange="updatePomRuleBound('+row.id+', \'lower\', this.value)" style="width:110px;" placeholder="Optional"></div>';
+    }
+    if (p && p.upper){
+      html += '<div><span class="field-label">Max Limit / Upper (≤)</span>'
+        + '<input type="text" value="'+esc(r.upper ? r.upper.value : '')+'" onchange="updatePomRuleBound('+row.id+', \'upper\', this.value)" style="width:110px;" placeholder="Optional"></div>';
+    }
+    html += '</div>';
+
+    if (err){
+      html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-top:8px;">⚠️ '+esc(err)+'</div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function changePomCritChoice(id, choice){
+  const row = findCustomPom(curStep(), id);
+  if (row) setCritChoice(row, choice);
+  renderDataBindingUI();
+  renderJsonPreview();
+}
+
+function updatePomRuleBound(id, key, val){
+  const row = findCustomPom(curStep(), id);
+  if (row && row.criteria && row.criteria.rule){
+    if (!row.criteria.rule[key]) row.criteria.rule[key] = {value:""};
+    row.criteria.rule[key].value = val;
+    renderJsonPreview();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lower Section: MEASUREMENT STAGES (With Override Capabilities)
+// ---------------------------------------------------------------------------
+
+function renderStages(){
+  const d = curStep();
+  const listEl = document.getElementById("stagesList");
+  const isSingleStage = d.stages.length === 1;
+
+  let html = "";
+
+  if (isSingleStage){
+    const row = d.stages[0];
+    const isFormulaOpen = openStageFormula.has(row.id);
+    const isEvalOpen = openStageEval.has(row.id);
+
+    html += '<div style="background:#FAFBFD; border:1px solid #C3D8F0; border-radius:10px; padding:12px 14px; margin-bottom:10px;">'
+      + '<div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">'
+      + '<div style="display:flex; align-items:center; gap:8px;">'
+      + '<span style="font-size:13px; font-weight:700; color:var(--navy);">⚡ Single Stage Execution</span>'
+      + '<span style="font-size:11.5px; color:var(--mut);">(1 measurement pass per POM. Units & specs derived directly from POM definitions).</span>'
+      + '</div>'
+      + '<div class="stage-line" style="margin-top:0;">'
+      + renderStageFormulaChip(d, row, isFormulaOpen)
+      + renderStageEvalSummary(d, row, isEvalOpen)
+      + '</div>'
+      + '</div>'
+      + (isFormulaOpen ? renderStageFormulaDrawer(d, row) : '')
+      + (isEvalOpen ? renderStageEvalDrawer(d, row) : '')
+      + '</div>';
+  } else {
+    d.stages.forEach((row, i)=>{
+      const isEvalOpen = openStageEval.has(row.id);
+      const isFormulaOpen = openStageFormula.has(row.id);
+
+      html += '<div class="item-card stage-card" data-id="'+row.id+'" draggable="true">'
+        + '<div class="item-header">'
+        + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+        + '<input type="text" value="'+esc(row.name)+'" onchange="updateStageName('+row.id+', this.value)" style="flex:1; font-weight:600;" placeholder="Stage Name (e.g. Before wash / 1st Pass)">'
+        + '<span style="font-size:11.5px; color:var(--muted2); font-weight:600; font-style:italic; padding:3px 8px; background:var(--surface1); border:1px solid var(--line); border-radius:6px;">unit: auto</span>'
+        + '<div class="row-dup" onclick="duplicateStage('+row.id+')" title="Duplicate stage"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>'
+        + '<div class="ct-remove" onclick="removeStage('+row.id+')" title="Delete stage">&times;</div>'
+        + '</div>'
+
+        + '<div class="stage-line">'
+        + renderStageFormulaChip(d, row, isFormulaOpen)
+        + renderStageEvalSummary(d, row, isEvalOpen)
+        + '</div>'
+
+        + (isFormulaOpen ? renderStageFormulaDrawer(d, row) : '')
+        + (isEvalOpen ? renderStageEvalDrawer(d, row) : '')
+        + '</div>';
+    });
+  }
+
+  listEl.innerHTML = html;
+  if (!isSingleStage) bindStageDrag();
+}
+
+function updateStageName(id, val){ const r = findStage(curStep(), id); if (r) r.name = val; }
+
+function duplicateStage(id){
+  const d = curStep();
+  const r = findStage(d, id);
+  if (!r) return;
+  const clone = JSON.parse(JSON.stringify(r));
+  clone.id = nextStageId++;
+  clone.name += " (Copy)";
+  d.stages.push(clone);
+  renderStages();
+}
+
+function removeStage(id){
+  const d = curStep();
+  if (d.stages.length<=1) return;
+  d.stages = d.stages.filter(r=>r.id!==id);
+  openStageEval.delete(id);
+  openStageFormula.delete(id);
+  renderStages();
+}
+
+document.getElementById("addStageBtn").onclick = ()=>{
+  const d = curStep();
+  d.stages.push(createStage(nextStageId++, "Measurement Stage " + (d.stages.length+1)));
+  renderStages();
+};
+
+// ---------------------------------------------------------------------------
+// Stage Drawers (Cross-Stage Formula & Stage Evaluation Override)
+// ---------------------------------------------------------------------------
+
+function stageFormulaChipText(d, row){
+  if (!row || !row.formula) return "Configure cross-stage formula";
+  const fm = row.formula;
+  const f = formulaDef(fm);
+  if (!f) return "Configure formula";
+
+  const ops = opsOf(fm);
+  const names = ops.map(o => stageName(d, o.id)).filter(n => n != null);
+
+  if (f.arity === 1){
+    return names[0] ? f.shortLabel + ": " + names[0] : f.shortLabel + " (pick stage)";
+  }
+  if (f.arity === 2){
+    const a = names[0] || "Stage A";
+    const b = names[1] || "Stage B";
+    if (f.id === "pctchange") return "Percent change: " + a + " → " + b;
+    if (f.id === "difference") return "Difference: " + a + " − " + b;
+    return f.shortLabel + ": " + a + ", " + b;
+  }
+  return f.label;
+}
+
+function renderStageFormulaChip(d, row, isOpen){
+  const isCalc = !!row.formula;
+  let labelText = "Use POM default";
+  let chipStyle = "chip-eval-pom";
+
+  if (row.source === "label"){
+    labelText = "🏷️ Barcode scan";
+    chipStyle = "chip-eval-pom";
+  } else if (row.source === "geo"){
+    labelText = "📍 Location capture";
+    chipStyle = "chip-eval-pom";
+  } else if (isCalc){
+    const summary = stageFormulaChipText(d, row);
+    labelText = "ƒ Formula: " + summary;
+    chipStyle = "chip-formula";
+  }
+
+  return '<div class="chip '+chipStyle+'" onclick="toggleStageFormulaDrawer('+row.id+')">'
+    + '<span>Source: <b>'+esc(labelText)+'</b></span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function toggleStageFormulaDrawer(id){
+  if (openStageFormula.has(id)) openStageFormula.delete(id);
+  else {
+    openStageFormula.add(id);
+    openStageEval.delete(id);
+    const row = findStage(curStep(), id);
+    if (row && row.formula) autoAssignStageOperands(curStep(), row);
+  }
+  renderStages();
+}
+
+function updateStageSourceModeInline(id, val){
+  const row = findStage(curStep(), id);
+  if (!row) return;
+  if (val === "custom" || val === "label" || val === "geo"){
+    row.source = val;
+    row.formula = null;
+  } else if (val === "formula"){
+    row.source = "custom";
+    if (!row.formula) row.formula = {type:"pctchange", ops:[]};
+    autoAssignStageOperands(curStep(), row);
+  }
+  renderStages();
+  renderJsonPreview();
+}
+
+function renderStageFormulaDrawer(d, row){
+  const isCalc = !!row.formula;
+  const fm = row.formula || {type:"pctchange", ops:[]};
+  if (isCalc) autoAssignStageOperands(d, row);
+  const eligible = eligibleStageOperands(d, row.id);
+  const curSrcMode = isCalc ? "formula" : (row.source || "custom");
+
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+    + '<label class="field-label" style="margin:0; min-width:90px;">Data Source:</label>'
+    + '<select onchange="updateStageSourceModeInline('+row.id+', this.value)" style="min-width:240px;">'
+    + '<option value="custom"'+(curSrcMode==="custom"?' selected':'')+'>Use POM default</option>'
+    + '<option value="formula"'+(curSrcMode==="formula"?' selected':'')+'>Calculated formula</option>'
+    + '</select></div>';
+
+  if (!isCalc){
+    html += '<div style="font-size:12.5px; color:var(--mut); font-style:italic; margin-top:4px; padding-left:100px;">'
+      + 'This stage pass measures the POMs as defined in the top section.'
+      + '</div>';
+  } else {
+    html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+      + '<label class="field-label" style="margin:0; min-width:90px;">Cross-Stage Formula:</label>'
+      + '<select onchange="updateStageFormulaTypeInline('+row.id+', this.value)" style="flex:1; min-width:200px;">';
+
+    FORMULAS.forEach(f=>{
+      html += '<option value="'+f.id+'"'+(fm.type===f.id?' selected':'')+'>'+f.label+'</option>';
+    });
+
+    html += '</select></div>';
+
+    const fDef = formulaDef(fm);
+    if (fDef && fDef.arity === 2){
+      const lettersNeeded = ["Stage A", "Stage B"];
+      html += '<div style="display:flex; flex-direction:column; gap:6px;">';
+      lettersNeeded.forEach((let, idx)=>{
+        const curId = fm.ops[idx] ? fm.ops[idx].id : "";
+        html += '<div class="letter-row"><span class="letter-tag">'+let[6]+'</span>'
+          + '<select onchange="updateStageInlineOperand('+row.id+', '+idx+', this.value)" style="flex:1;"><option value="">-- Pick input for '+let+' --</option>'
+          + eligible.map(e=>'<option value="'+e.id+'"'+(curId==e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('') + '</select></div>';
+      });
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function updateStageFormulaTypeInline(id, type){
+  const row = findStage(curStep(), id);
+  if (row){
+    row.formula = {type:type, ops:[]};
+    autoAssignStageOperands(curStep(), row);
+  }
+  renderStages();
+  renderJsonPreview();
+}
+
+function updateStageInlineOperand(id, idx, val){
+  const row = findStage(curStep(), id);
+  if (!row || !row.formula) return;
+  if (!row.formula.ops) row.formula.ops = [];
+  row.formula.ops[idx] = {id: parseInt(val,10)};
+  renderStages();
+  renderJsonPreview();
+}
+
+// ---------------------------------------------------------------------------
+// Stage Evaluation Summary & Drawer (With Inspector Override Option)
+// ---------------------------------------------------------------------------
+
+function renderStageEvalSummary(d, row, isOpen){
+  const c = row.criteria || R.none();
+  let text = "Not evaluated";
+  let cls = "chip-eval-muted";
+
+  if (c.mode === "rule"){
+    const r = c.rule || {};
+    if (r.source === "pom"){
+      text = "⚙️ Use spec";
+      cls = "chip-eval-pom";
+    } else if (r.preset === "rangelimit"){
+      const err = getRangeLimitError(r);
+      if (err){
+        text = "⚠️ " + err;
+        cls = "chip-eval-warn";
+      } else {
+        const loStr = r.lower ? String(r.lower.value).trim() : "";
+        const hiStr = r.upper ? String(r.upper.value).trim() : "";
+        if (loStr !== "" && hiStr !== "") text = "⚖️ Override Range: "+loStr+" to "+hiStr;
+        else if (loStr !== "") text = "⚖️ Override Min limit: ≥ "+loStr;
+        else if (hiStr !== "") text = "⚖️ Override Max limit: ≤ "+hiStr;
+        else text = "⚖️ Stage limit override";
+        cls = "chip-eval-rule";
+      }
+    }
+  } else if (c.mode === "inspector"){
+    text = "👤 Inspector decision";
+    cls = "chip-eval-rule";
+  }
+
+  const overrideTag = c.allowInspectorOverride ? ' <span style="font-size:11px; opacity:0.8;">(editable)</span>' : '';
+
+  return '<div class="chip '+cls+'" onclick="toggleStageEvalDrawer('+row.id+')">'
+    + '<span>Eval: <b>'+esc(text)+'</b>'+overrideTag+'</span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function toggleStageEvalDrawer(id){
+  if (openStageEval.has(id)) openStageEval.delete(id);
+  else {
+    openStageEval.add(id);
+    openStageFormula.delete(id);
+  }
+  renderStages();
+}
+
+function updateStageAllowInspectorOverride(id, checked){
+  const row = findStage(curStep(), id);
+  if (row){
+    if (!row.criteria) row.criteria = {mode:"none"};
+    row.criteria.allowInspectorOverride = checked;
+    renderStages();
+    renderJsonPreview();
+  }
+}
+
+function renderStageEvalDrawer(d, row){
+  const cur = critChoice(row);
+  const c = row.criteria || {};
+  
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'
+    + '<label class="field-label" style="margin:0; min-width:90px;">Evaluation Rule:</label>'
+    + '<select onchange="changeStageCritChoice('+row.id+', this.value)">'
+    + '<option value="pom"'+(cur==="pom"?' selected':'')+'>Use spec</option>'
+    + '<option value="rangelimit"'+(cur==="rangelimit"?' selected':'')+'>Override with range (Min / Max)</option>'
+    + '<option value="none"'+(cur==="none"?' selected':'')+'>None (No evaluation)</option>'
+    + '</select></div>';
+
+  if (c && c.mode === "rule" && c.rule && c.rule.source !== "pom"){
+    const r = c.rule;
+    const p = preset(r.preset);
+    const err = getRangeLimitError(r);
+
+    html += '<div style="display:flex; gap:12px; align-items:center; margin-top:10px;">';
+    if (p && p.lower){
+      html += '<div><span class="field-label">Min Limit / Lower (≥)</span>'
+        + '<input type="text" value="'+esc(r.lower ? r.lower.value : '')+'" onchange="updateStageRuleBound('+row.id+', \'lower\', this.value)" style="width:110px;" placeholder="Optional"></div>';
+    }
+    if (p && p.upper){
+      html += '<div><span class="field-label">Max Limit / Upper (≤)</span>'
+        + '<input type="text" value="'+esc(r.upper ? r.upper.value : '')+'" onchange="updateStageRuleBound('+row.id+', \'upper\', this.value)" style="width:110px;" placeholder="Optional"></div>';
+    }
+    html += '</div>';
+
+    if (err){
+      html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-top:8px;">⚠️ '+esc(err)+'</div>';
+    }
+  }
+
+  // Inspector override checkbox option right below Evaluation Rule select
+  html += '<div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--line);">'
+    + '<label class="chk" style="font-weight:600; color:var(--text);">'
+    + '<input type="checkbox" '+(c.allowInspectorOverride ? 'checked' : '')+' onchange="updateStageAllowInspectorOverride('+row.id+', this.checked)">'
+    + 'Allow inspector to override auto-evaluate result'
+    + '</label>'
+    + '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function changeStageCritChoice(id, choice){
+  const row = findStage(curStep(), id);
+  if (row) setCritChoice(row, choice);
+  renderStages();
+  renderJsonPreview();
+}
+
+function updateStageRuleBound(id, key, val){
+  const row = findStage(curStep(), id);
+  if (row && row.criteria && row.criteria.rule){
+    if (!row.criteria.rule[key]) row.criteria.rule[key] = {value:""};
+    row.criteria.rule[key].value = val;
+    renderJsonPreview();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Drag & Drop
+// ---------------------------------------------------------------------------
+
+function bindStepDrag(){
+  const rows = document.querySelectorAll(".step-row");
+  let draggedKey = null;
+  rows.forEach(r=>{
+    r.ondragstart = (e)=>{ draggedKey = r.getAttribute("data-key"); r.classList.add("dragging"); };
+    r.ondragend = ()=>{ r.classList.remove("dragging"); };
+    r.ondragover = (e)=>{ e.preventDefault(); };
+    r.ondrop = (e)=>{
+      e.preventDefault();
+      const targetKey = r.getAttribute("data-key");
+      if (draggedKey && targetKey && draggedKey!==targetKey){
+        const fromIdx = order.indexOf(draggedKey);
+        const toIdx = order.indexOf(targetKey);
+        order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, draggedKey);
+        render();
+      }
+    };
+  });
+}
+
+function bindPomDrag(){
+  const cards = document.querySelectorAll("#customPomContainer .item-card");
+  let draggedId = null;
+  cards.forEach(c=>{
+    c.ondragstart = (e)=>{ draggedId = parseInt(c.getAttribute("data-id"),10); c.classList.add("dragging"); };
+    c.ondragend = ()=>{ c.classList.remove("dragging"); };
+    c.ondragover = (e)=>{ e.preventDefault(); };
+    c.ondrop = (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(c.getAttribute("data-id"),10);
+      const d = curStep();
+      if (draggedId && targetId && draggedId!==targetId){
+        const fromIdx = customPomIndex(d, draggedId);
+        const toIdx = customPomIndex(d, targetId);
+        const item = d.customPoms.splice(fromIdx, 1)[0];
+        d.customPoms.splice(toIdx, 0, item);
+        renderDataBindingUI();
+      }
+    };
+  });
+}
+
+function bindStageDrag(){
+  const cards = document.querySelectorAll("#stagesList .stage-card");
+  let draggedId = null;
+  cards.forEach(c=>{
+    c.ondragstart = (e)=>{ draggedId = parseInt(c.getAttribute("data-id"),10); c.classList.add("dragging"); };
+    c.ondragend = ()=>{ c.classList.remove("dragging"); };
+    c.ondragover = (e)=>{ e.preventDefault(); };
+    c.ondrop = (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(c.getAttribute("data-id"),10);
+      const d = curStep();
+      if (draggedId && targetId && draggedId!==targetId){
+        const fromIdx = stageIndex(d, draggedId);
+        const toIdx = stageIndex(d, targetId);
+        const item = d.stages.splice(fromIdx, 1)[0];
+        d.stages.splice(toIdx, 0, item);
+        renderStages();
+      }
+    };
+  });
+}
+
+// Initial Run
+render();
+</script>
+</body>
+</html>

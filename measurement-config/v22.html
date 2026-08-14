@@ -99,8 +99,8 @@
 <body>
 <div class="page">
   <header class="top">
-    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v21</span></h1>
-    <p>Configure measurement steps in an inspection workflow. Set sampling plans, Measurement Chart bindings, measurement fields, auto-calculations, and evaluation rules.</p>
+    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v22</span></h1>
+    <p>Unified domain inspection configuration & execution model covering Garments, Fabrics, Hard Goods, Barcodes & QR codes, and Geolocation. Configure step parameters, view live API schemas, execution result payloads, and relational database tables.</p>
   </header>
 
   <div class="layout">
@@ -108,7 +108,11 @@
       <h2>Inspection Order</h2>
       <div id="checkList"></div>
       <p style="font-size:11px; color:var(--muted2); margin:8px 0 0; line-height:1.4;">Steps execute top-to-bottom. Drag handle to reorder.</p>
-      <button class="btn btn-primary" id="addStepBtn" style="width:100%; margin-top:10px;">+ Add measurement step</button>
+      <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+        <button class="btn btn-primary" id="addStepBtn" style="width:100%;">+ Measurement Step</button>
+        <button class="btn" id="addBarcodeStepBtn" style="width:100%; background:var(--tint); color:var(--blue); border-color:#C3D8F0; font-weight:600;">🏷️ + Barcode Step</button>
+        <button class="btn" id="addGeoStepBtn" style="width:100%; background:var(--surface1); color:var(--navy); border-color:var(--line); font-weight:600;">📍 + Geolocation Step</button>
+      </div>
     </div>
     
     <div class="main">
@@ -133,19 +137,28 @@
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
           <div>
             <h3 style="font-size:14px; font-weight:700; color:#38BDF8; margin:0 0 2px;">⚙️ Developer View — API & Database Data Model</h3>
-            <p style="font-size:11.5px; color:#94A3B8; margin:0;">Live database & API representation of the active step ("<span id="jsonStepTitle"></span>"). Updates automatically as you edit.</p>
+            <p style="font-size:11.5px; color:#94A3B8; margin:0;">Live database & API representation for the active step ("<span id="jsonStepTitle"></span>"). Updates automatically as you edit.</p>
           </div>
-          <button class="btn" onclick="copyJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11.5px; padding:5px 12px; font-weight:600;">📋 Copy JSON Payload</button>
+          <button class="btn" onclick="copyJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11.5px; padding:5px 12px; font-weight:600;">📋 Copy Config JSON</button>
         </div>
 
         <div style="margin-top:14px;">
-          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. API JSON Payload Schema</span>
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. Step Configuration API JSON Payload (Definition Schema)</span>
           <pre id="jsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:360px;"></pre>
         </div>
 
         <div style="margin-top:20px;">
-          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">2. Relational SQL Database Tables</span>
-          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">Normalized SQL records stored across database tables for this step.</p>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; flex-wrap:wrap; gap:10px;">
+            <span style="font-size:12px; font-weight:700; color:#38BDF8;">2. Mobile Batch Upsert API Payload (POST /inspectorio/mobile/ics/{inspection_uuid}/captures)</span>
+            <button class="btn" onclick="copyResultJsonPayload()" style="background:#1E293B; color:#F8FAFC; border-color:#334155; font-size:11px; padding:3px 8px;">📋 Copy Captures API Payload</button>
+          </div>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 6px;">Whole-step batch replace payload containing capture objects across levels (point, sample, item, step) with typed values, rules, and derivation lineage.</p>
+          <pre id="resultJsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:380px;"></pre>
+        </div>
+
+        <div style="margin-top:20px;">
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">3. PostgreSQL Unified Storage Schema (inspection_captures Table)</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 6px;">How all evaluated inspection captures land in a single, unified database table in PostgreSQL.</p>
           <div id="sqlTablesPreview"></div>
         </div>
       </div>
@@ -163,14 +176,15 @@
 // ---------------------------------------------------------------------------
 
 const UNIT_GROUPS = [
-  {category:"Dimension", units:["mm","cm","m","in","yd"]},
+  {category:"Dimension", units:["mm","cm","m","in","yd","ft"]},
   {category:"Area", units:["cm²","m²","mm²","in²","ft²","yd²"]},
   {category:"Weight", units:["g","kg","oz","lb"]},
   {category:"Volume", units:["mL","L","cm³","m³"]},
   {category:"Temperature", units:["°C","°F"]},
   {category:"Area Density", units:["GSM","oz/yd²"]},
-  {category:"Scale", units:["grade (1–5)"]},
-  {category:"Other", units:["%"]}
+  {category:"Barcodes & Identifiers", units:["EAN-13 string","UPC-A string","QR Code string","SKU barcode"]},
+  {category:"Geolocation & GPS", units:["GPS deg","lat/long coords","radius m"]},
+  {category:"Scale & Other", units:["grade (1–5)","%","count","pass/fail"]}
 ];
 
 const SQUARE_UNITS = {cm:"cm²", m:"m²", in:"in²", yd:"yd²"};
@@ -209,7 +223,7 @@ const PRESETS = [
   {id:"rangelimit", label:"Numeric Range / Limit (Min & Max)", lower:true, upper:true}
 ];
 const CHOICE_INSPECTOR = {id:"inspector", label:"Inspector decides (pass / fail)"};
-const CHOICE_NONE      = {id:"none",      label:"Not evaluated"};
+const CHOICE_NONE      = {id:"none",      label:"None"};
 
 function preset(id){ return PRESETS.find(p=>p.id===id); }
 
@@ -240,35 +254,43 @@ const op = (id)=>({id:id});
 
 const data = {
   garment_chart: {
-    sampling: {method:"by_size_per_style", value:"2"},
+    type: "measurement",
+    sampling: {method:"by_size_per_style", value:"2", includeReference:false},
     name: "Garment POM Measurements",
-    mc: {types:["Dimension"]},
+    mc: {mode:"pom", types:["Dimension"]},
+    options: {photo:"none", requireComment:false},
     rows: [
-      col(1, "POM Measurement", {src:"pom", crit:R.pom()})
+      col(1, "POM Measurement", {src:"custom", crit:R.pom()})
     ]
   },
   shrinkage_chart: {
-    sampling: {method:"fixed_quantity", value:"1"},
+    type: "measurement",
+    sampling: {method:"fixed_quantity", value:"1", includeReference:true},
     name: "Shrinkage & Wash Performance",
-    mc: {types:["Dimension"]},
+    mc: {mode:"pom", types:["Dimension"]},
+    options: {photo:"none", requireComment:false},
     rows: [
-      col(21, "Before wash", {src:"pom", crit:R.pom()}),
-      col(22, "After wash",  {src:"pom", crit:R.none()}),
+      col(21, "Before wash", {src:"custom", crit:R.pom()}),
+      col(22, "After wash",  {src:"custom", crit:R.none()}),
       col(23, "% Shrinkage", {unit:"%", f:{type:"pctchange", ops:[op(21), op(22)]}, crit:R.rangelimit(-5, 5)})
     ]
   },
   cookware_weight: {
-    sampling: {method:"fixed_quantity", value:"3"},
+    type: "measurement",
+    sampling: {method:"fixed_quantity", value:"3", includeReference:false},
     name: "Cookware Set Weight",
-    mc: {types:["Weight"]},
+    mc: {mode:"pom", types:["Weight"]},
+    options: {photo:"none", requireComment:false},
     rows: [
-      col(60, "Weight", {src:"pom", crit:R.pom()})
+      col(60, "Weight", {src:"custom", crit:R.pom()})
     ]
   },
   dyelot_approval: {
-    sampling: {method:"fixed_quantity", value:"1"},
+    type: "measurement",
+    sampling: {method:"fixed_quantity", value:"1", includeReference:false},
     name: "Dyelot Quality Approval",
     mc: null,
+    options: {photo:"none", requireComment:false},
     rows: [
       col(40, "Length shrinkage — 1st wash", {unit:"%", crit:R.rangelimit(-5, null)}),
       col(41, "Width shrinkage — 1st wash",  {unit:"%", crit:R.rangelimit(-5, null)}),
@@ -280,9 +302,11 @@ const data = {
     ]
   },
   fabric_weight: {
-    sampling: {method:"pct_available", value:"10"},
+    type: "measurement",
+    sampling: {method:"pct_available", value:"10", includeReference:false},
     name: "Fabric GSM (Swatch Test)",
     mc: null,
+    options: {photo:"none", requireComment:true},
     rows: [
       col(12, "Swatch length", {unit:"cm"}),
       col(13, "Swatch width",  {unit:"cm"}),
@@ -292,9 +316,11 @@ const data = {
     ]
   },
   bom_verification: {
-    sampling: {method:"by_item", value:"1"},
+    type: "measurement",
+    sampling: {method:"by_item", value:"1", includeReference:false},
     name: "BOM Material & Spec Verification",
     mc: {mode:"bom"},
+    options: {photo:"none", requireComment:false},
     rows: [
       col(70, "Material Weight / Spec", {src:"bom", unit:"auto", crit:R.none()}),
       col(71, "Measured Weight", {src:"custom", unit:"auto", crit:R.rangelimit(100, 200)}),
@@ -403,30 +429,31 @@ function unitOf(d, row, seen){
 }
 
 function critOptions(d, row){
-  if (hasChart(d)){
+  if (hasChart(d) && d.mc.mode !== "label"){
     return [
       preset("pom"),
       {id:"rangelimit", label:"Custom range / limit values (Non-MVP)"},
-      CHOICE_INSPECTOR,
       CHOICE_NONE
     ];
   }
-  const list = PRESETS.filter(p=>!p.pomOnly).slice();
-  return list.concat([CHOICE_INSPECTOR, CHOICE_NONE]);
+  return [
+    {id:"rangelimit", label:"Numeric Range / Limit (Min & Max)"},
+    CHOICE_NONE
+  ];
 }
 
 function critChoice(d, row){
   const c = row.criteria || R.none();
   if (c.mode==="none") return "none";
-  if (c.mode==="inspector") return "inspector";
   return c.rule && c.rule.source==="pom" ? "pom" : ((c.rule && c.rule.preset) || "rangelimit");
 }
 
 function setCritChoice(d, row, choice){
-  if (choice==="none"){ row.criteria = {mode:"none"}; return; }
-  if (choice==="inspector"){ row.criteria = {mode:"inspector"}; return; }
+  const prevAllow = row.criteria ? !!row.criteria.allowInspectorOverride : false;
+  if (choice==="none"){ row.criteria = {mode:"none", allowInspectorOverride:prevAllow}; return; }
   row.criteria = {
     mode: "rule",
+    allowInspectorOverride: prevAllow,
     rule: {
       source: choice==="pom" ? "pom" : "local",
       preset: choice,
@@ -434,6 +461,15 @@ function setCritChoice(d, row, choice){
       upper: {value:""}
     }
   };
+}
+
+function updateEvalAllowOverride(id, checked){
+  const row = findRow(curStep(), id);
+  if (!row) return;
+  if (!row.criteria) row.criteria = {mode:"none"};
+  row.criteria.allowInspectorOverride = checked;
+  renderRows();
+  renderJsonPreview();
 }
 
 function esc(s){
@@ -457,6 +493,7 @@ function stepToDbSchema(key, d){
     section_uuid: key,
     title: d.name,
     type: "configurable_measurement",
+    step_type: d.type || "measurement",
     is_affect_overall_result: true,
     measurement_config: {
       sampling_plan: {
@@ -510,7 +547,7 @@ function stepToDbSchema(key, d){
           field_id: row.id,
           name: row.name,
           unit: row.unit || null,
-          data_source: isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "pom" ? "measurement_chart" : "inspector_entry")),
+          data_source: isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "label" ? "barcode_scan" : (row.source === "geo" ? "location_capture" : (row.source === "pom" ? "pom_spec" : "inspector_entry")))),
           position: idx + 1,
           formula: formulaPayload,
           evaluation_rule: evalPayload
@@ -520,16 +557,216 @@ function stepToDbSchema(key, d){
   };
 }
 
+function stepToExecutionResultPayload(key, d){
+  const stepType = d.type || "measurement";
+  const isChart = hasChart(d);
+  const mcMode = d.mc ? d.mc.mode : "none";
+  
+  let captureLevel = "sample";
+  if (mcMode === "pom" || mcMode === "label" || mcMode === "bom"){
+    captureLevel = "point";
+  } else if (mcMode === "geo" || (d.sampling && d.sampling.method === "none")){
+    captureLevel = "step";
+  }
+
+  const sampleCount = (d.sampling && d.sampling.method !== "none" && d.sampling.value) ? (parseInt(d.sampling.value, 10) || 1) : 1;
+  const captures = [];
+
+  if (stepType === "geolocation" || mcMode === "geo"){
+    // Case E: Geolocation Check
+    captures.push({
+      externalId: "e001-geo-" + key,
+      level: "step",
+      itemId: "",
+      sampleRef: "",
+      sampleType: null,
+      fieldRef: "GEO-ARRIVAL",
+      fieldSource: "location_capture",
+      dataType: "json",
+      valueNumeric: null,
+      valueText: null,
+      valueBoolean: null,
+      valueJson: { lat: 10.762622, lng: 106.660172, accuracyM: 12 },
+      standardValueNumeric: null,
+      standardValueText: null,
+      standardValueBoolean: null,
+      standardValueJson: { lat: 10.761500, lng: 106.659000, label: "Factory VN-0421" },
+      unit: null,
+      evaluationRule: { mode: "rule", preset: "within_radius", radiusM: 200 },
+      autoResult: "pass",
+      result: "pass",
+      isOverridden: false,
+      overrideReason: null,
+      defectCode: null,
+      note: null,
+      photos: (d.options && d.options.photo !== "none") ? [{ source: "qc/8842/site/gate.jpg" }] : [],
+      derivation: null
+    });
+  } else if (stepType === "barcode" || mcMode === "label"){
+    // Case D: Barcode Scan & Verification
+    for (let s = 1; s <= sampleCount; s++){
+      const sRef = "S" + s;
+      d.rows.forEach((row, rIdx) => {
+        captures.push({
+          externalId: "d00" + s + "_" + row.id,
+          level: "point",
+          itemId: "ITEM-8842",
+          sampleRef: sRef,
+          sampleType: "unit",
+          fieldRef: row.name.includes("Care") ? "LBL-CARE" : "LBL-MAIN",
+          fieldSource: "barcode_scan",
+          dataType: "text",
+          valueNumeric: null,
+          valueText: rIdx === 1 ? "4056489099999" : "4056489012345",
+          valueBoolean: null,
+          valueJson: null,
+          standardValueNumeric: null,
+          standardValueText: "4056489012345",
+          standardValueBoolean: null,
+          standardValueJson: null,
+          unit: "EAN-13",
+          evaluationRule: { mode: "rule", preset: "exact_match" },
+          autoResult: rIdx === 1 ? "fail" : "pass",
+          result: rIdx === 1 ? "fail" : "pass",
+          isOverridden: false,
+          overrideReason: null,
+          defectCode: rIdx === 1 ? "LBL-MISMATCH" : null,
+          note: rIdx === 1 ? "Label code mismatched against spec" : null,
+          photos: [],
+          derivation: null
+        });
+      });
+    }
+    // Item-level aggregate verdict
+    if (captures.length > 0){
+      const hasFail = captures.some(c => c.result === "fail");
+      const isAllowOverride = (d.options && d.options.allowOverride !== false);
+      captures.push({
+        externalId: "d003-agg-" + key,
+        level: "item",
+        itemId: "ITEM-8842",
+        sampleRef: "",
+        sampleType: null,
+        fieldRef: null,
+        fieldSource: null,
+        dataType: null,
+        valueNumeric: null,
+        valueText: null,
+        valueBoolean: null,
+        valueJson: null,
+        standardValueNumeric: null,
+        standardValueText: null,
+        standardValueBoolean: null,
+        standardValueJson: null,
+        unit: null,
+        evaluationRule: null,
+        autoResult: hasFail ? "fail" : "pass",
+        result: (hasFail && isAllowOverride) ? "pass" : (hasFail ? "fail" : "pass"),
+        isOverridden: (hasFail && isAllowOverride),
+        overrideReason: (hasFail && isAllowOverride) ? "Care label reprinted on site, verified against PO" : null,
+        defectCode: (hasFail && !isAllowOverride) ? "LBL-MISMATCH" : null,
+        note: (hasFail && isAllowOverride) ? "Factory corrected before shipment" : null,
+        photos: [],
+        derivation: { type: "all_pass", sources: captures.map(c => c.externalId) }
+      });
+    }
+  } else {
+    // Standard Measurement Step (Case A, B, C)
+    for (let s = 1; s <= sampleCount; s++){
+      const sRef = "S" + s;
+      d.rows.forEach((row, rIdx) => {
+        const isCalc = !!row.formula;
+        const c = row.criteria || {};
+        const fieldSrc = isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "label" ? "barcode_scan" : (row.source === "geo" ? "location_capture" : "inspector_entry")));
+        
+        let valNum = 52.4 + (rIdx * 0.4);
+        let stdNum = isChart ? 52.0 : null;
+        let autoRes = c.mode === "rule" ? "pass" : null;
+        let res = c.mode === "none" ? null : "pass";
+        
+        let deriv = null;
+        if (isCalc && row.formula){
+          const ops = opsOf(row.formula).map(o => "c00" + o.id);
+          deriv = { type: row.formula.type || "product", sources: ops };
+        }
+
+        let evalRuleJson = null;
+        if (c.mode === "rule"){
+          evalRuleJson = { mode: "rule", source: c.rule ? c.rule.source : "local", preset: c.rule ? c.rule.preset : "rangelimit" };
+        } else if (c.mode === "inspector"){
+          evalRuleJson = { mode: "inspector" };
+        } else {
+          evalRuleJson = { mode: "none" };
+        }
+
+        captures.push({
+          externalId: "c00" + row.id + "_s" + s,
+          level: captureLevel,
+          itemId: "ITEM-8842",
+          sampleRef: sRef,
+          sampleType: "unit",
+          fieldRef: isChart ? ("POM-" + (row.name.toUpperCase().replace(/\s+/g, '_'))) : String(row.id),
+          fieldSource: fieldSrc,
+          dataType: "numeric",
+          valueNumeric: valNum,
+          valueText: null,
+          valueBoolean: null,
+          valueJson: null,
+          standardValueNumeric: stdNum,
+          standardValueText: null,
+          standardValueBoolean: null,
+          standardValueJson: null,
+          unit: row.unit || "cm",
+          evaluationRule: evalRuleJson,
+          autoResult: autoRes,
+          result: res,
+          isOverridden: false,
+          overrideReason: null,
+          defectCode: null,
+          note: null,
+          photos: [],
+          derivation: deriv
+        });
+      });
+    }
+  }
+
+  return {
+    stepId: "sec_" + key,
+    captures: captures
+  };
+}
+
+function renderResultJsonPreview(){
+  const el = document.getElementById("resultJsonPreview");
+  if (!el || !curStep()) return;
+  const payload = stepToExecutionResultPayload(active, curStep());
+  el.textContent = JSON.stringify(payload, null, 2);
+}
+
+function copyResultJsonPayload(){
+  const payload = stepToExecutionResultPayload(active, curStep());
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(()=>{
+    alert("Batch Mobile Step Captures Upload API Payload copied to clipboard!");
+  }).catch(()=>{
+    alert("Copied!");
+  });
+}
+
 function renderSqlTables(){
   const container = document.getElementById("sqlTablesPreview");
   if (!container || !curStep()) return;
   const d = curStep();
   const isChart = hasChart(d);
+  const resPayload = stepToExecutionResultPayload(active, d);
 
   let html = '';
 
-  // 1. TABLE: workflow_step_sections (inspections_workflowstepsection)
-  html += '<div style="margin-top:10px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections (inspections_workflowstepsection)</span>'
+  // HEADER A: CONFIGURATION TABLES
+  html += '<div style="font-size:11px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.05em; margin-top:10px; margin-bottom:4px;">A. Workflow Step Configuration Tables</div>';
+
+  // 1. TABLE: workflow_step_sections
+  html += '<div><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections</span>'
     + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>title</th><th>type</th><th>position</th></tr></thead><tbody>'
     + '<tr><td>sec_'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>configurable_measurement</td><td>1</td></tr>'
     + '</tbody></table></div>';
@@ -547,18 +784,18 @@ function renderSqlTables(){
   const samplingMethod = samplingMap[d.sampling.method] || d.sampling.method;
   const mcTypesJson = (isChart && d.mc.types && d.mc.types.length) ? JSON.stringify(d.mc.types) : '[]';
 
-  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_section_measurement_configs</span>'
-    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>include_ref_sample</th><th>is_chart_bound</th><th>allowed_chart_types (JSONB)</th></tr></thead><tbody>'
-    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+((d.sampling && d.sampling.includeReference)?'TRUE':'FALSE')+'</td><td>'+(isChart?'TRUE':'FALSE')+'</td><td>'+esc(mcTypesJson)+'</td></tr>'
+  html += '<div style="margin-top:12px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_section_measurement_configs</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>include_ref_sample</th><th>photo_req</th><th>require_failed_comment</th><th>is_chart_bound</th><th>allowed_chart_types (JSONB)</th></tr></thead><tbody>'
+    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+((d.sampling && d.sampling.includeReference)?'TRUE':'FALSE')+'</td><td>'+esc((d.options&&d.options.photo)?d.options.photo:'none')+'</td><td>'+((d.options&&d.options.requireComment)?'TRUE':'FALSE')+'</td><td>'+(isChart?'TRUE':'FALSE')+'</td><td>'+esc(mcTypesJson)+'</td></tr>'
     + '</tbody></table></div>';
 
   // 3. TABLE: workflow_measurement_fields
-  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_fields</span>'
+  html += '<div style="margin-top:12px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_fields</span>'
     + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>config_id (FK)</th><th>field_id</th><th>name</th><th>unit</th><th>data_source</th><th>position_order</th><th>formula_config (JSONB)</th><th>evaluation_config (JSONB)</th></tr></thead><tbody>';
   
   d.rows.forEach((row, i)=>{
     const isCalc = !!row.formula;
-    const srcType = isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "pom" ? "measurement_chart" : "inspector_entry"));
+    const srcType = isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "pom" ? "measurement_chart" : (row.source === "label" ? "label_chart" : "inspector_entry")));
     
     let formulaJson = 'NULL';
     if (isCalc){
@@ -595,6 +832,50 @@ function renderSqlTables(){
   });
   html += '</tbody></table></div>';
 
+  // HEADER B: UNIFIED INSPECTION CAPTURE TABLE (Postgres)
+  html += '<div style="font-size:11px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.05em; margin-top:20px; margin-bottom:4px;">B. Unified Inspection Execution Capture Table (PostgreSQL)</div>';
+
+  // 4. TABLE: inspection_captures
+  html += '<div><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: inspection_captures</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>step_id</th><th>level</th><th>item_id</th><th>sample_ref</th><th>field_ref</th><th>field_source</th><th>data_type</th><th>val_numeric</th><th>val_text</th><th>val_bool</th><th>val_json</th><th>std_numeric</th><th>unit</th><th>eval_rule (JSONB)</th><th>auto_result</th><th>result</th><th>is_overridden</th><th>defect_code</th><th>derivation (JSONB)</th></tr></thead><tbody>';
+
+  resPayload.captures.forEach((cap, idx) => {
+    const dbId = idx + 1;
+    const valNum = cap.valueNumeric != null ? cap.valueNumeric : 'NULL';
+    const valTxt = cap.valueText != null ? esc(cap.valueText) : 'NULL';
+    const valBool = cap.valueBoolean != null ? (cap.valueBoolean ? 'TRUE' : 'FALSE') : 'NULL';
+    const valJson = cap.valueJson != null ? esc(JSON.stringify(cap.valueJson)) : 'NULL';
+    const stdNum = cap.standardValueNumeric != null ? cap.standardValueNumeric : 'NULL';
+    const evalRuleJson = cap.evaluationRule != null ? esc(JSON.stringify(cap.evaluationRule)) : 'NULL';
+    const autoRes = cap.autoResult != null ? cap.autoResult : 'NULL';
+    const res = cap.result != null ? cap.result : 'NULL';
+    const derivJson = cap.derivation != null ? esc(JSON.stringify(cap.derivation)) : 'NULL';
+
+    html += '<tr>'
+      + '<td>' + dbId + '</td>'
+      + '<td>' + resPayload.stepId + '</td>'
+      + '<td>' + cap.level + '</td>'
+      + '<td>' + (cap.itemId ? cap.itemId : "''") + '</td>'
+      + '<td>' + (cap.sampleRef ? cap.sampleRef : "''") + '</td>'
+      + '<td>' + (cap.fieldRef ? cap.fieldRef : "''") + '</td>'
+      + '<td>' + (cap.fieldSource ? cap.fieldSource : "NULL") + '</td>'
+      + '<td>' + (cap.dataType ? cap.dataType : "NULL") + '</td>'
+      + '<td>' + valNum + '</td>'
+      + '<td>' + valTxt + '</td>'
+      + '<td>' + valBool + '</td>'
+      + '<td>' + valJson + '</td>'
+      + '<td>' + stdNum + '</td>'
+      + '<td>' + (cap.unit ? cap.unit : 'NULL') + '</td>'
+      + '<td>' + evalRuleJson + '</td>'
+      + '<td>' + autoRes + '</td>'
+      + '<td>' + res + '</td>'
+      + '<td>' + (cap.isOverridden ? 'TRUE' : 'FALSE') + '</td>'
+      + '<td>' + (cap.defectCode ? cap.defectCode : 'NULL') + '</td>'
+      + '<td>' + derivJson + '</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table></div>';
   container.innerHTML = html;
 }
 
@@ -605,13 +886,15 @@ function renderJsonPreview(){
   if (!el || !curStep()) return;
   const payload = stepToDbSchema(active, curStep());
   el.textContent = JSON.stringify(payload, null, 2);
+  
+  renderResultJsonPreview();
   renderSqlTables();
 }
 
 function copyJsonPayload(){
   const payload = stepToDbSchema(active, curStep());
   navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(()=>{
-    alert("Step JSON Data Model copied to clipboard!");
+    alert("Step Configuration JSON Schema copied to clipboard!");
   }).catch(()=>{
     alert("Copied!");
   });
@@ -662,9 +945,11 @@ function removeStep(key){
 document.getElementById("addStepBtn").onclick = ()=>{
   const newKey = "step_" + Date.now();
   data[newKey] = {
-    sampling: {method:"bysizeperstyle", value:"2"},
+    type: "measurement",
+    sampling: {method:"by_size_per_style", value:"2", includeReference:false},
     name: "New Measurement Step",
     mc: null,
+    options: {photo:"none", requireComment:false},
     rows: [ col(nextRowId++, "Measurement 1", {unit:"cm"}) ]
   };
   order.push(newKey);
@@ -672,14 +957,99 @@ document.getElementById("addStepBtn").onclick = ()=>{
   render();
 };
 
+const addBarBtn = document.getElementById("addBarcodeStepBtn");
+if (addBarBtn){
+  addBarBtn.onclick = ()=>{
+    const newKey = "barcode_" + Date.now();
+    data[newKey] = {
+      type: "barcode",
+      sampling: {method:"fixed_quantity", value:"1", includeReference:false},
+      name: "Barcode Check",
+      mc: {mode:"label", types:["Barcode","QR"]},
+      options: {
+        allowOverride: true,
+        photo: "none"
+      },
+      rows: [
+        col(nextRowId++, "Barcode", {src:"label", unit:"auto", crit:R.none()})
+      ]
+    };
+    order.push(newKey);
+    active = newKey;
+    render();
+  };
+}
+
+const addGeoBtn = document.getElementById("addGeoStepBtn");
+if (addGeoBtn){
+  addGeoBtn.onclick = ()=>{
+    const newKey = "geo_" + Date.now();
+    data[newKey] = {
+      type: "geolocation",
+      sampling: {method:"fixed_quantity", value:"1", includeReference:false},
+      name: "Geolocation Check-in",
+      mc: {mode:"geo", targetAddress:"Factory #4 - Production Facility", lat:"10.762622", long:"106.660172", radius:"100"},
+      options: {photo:"none"},
+      rows: [
+        col(nextRowId++, "Location", {src:"geo", unit:"auto", crit:R.none()}),
+        col(nextRowId++, "Distance", {src:"geo", unit:"radius m", crit:R.rangelimit(null, 100)})
+      ]
+    };
+    order.push(newKey);
+    active = newKey;
+    render();
+  };
+}
+
 function mcTypeSummary(selected){
   if (!selected || selected.length===0) return "Any type";
   if (selected.length < 3) return selected.join(", ");
   return selected.length + " types selected";
 }
 
+function updateBarcodeRequireSample(checked){
+  const d = curStep();
+  if (!d.options) d.options = {};
+  d.options.requireSample = checked;
+  renderStepHeader();
+  renderJsonPreview();
+}
+
+function updateBarcodeOverride(checked){
+  const d = curStep();
+  if (!d.options) d.options = {};
+  d.options.allowOverride = checked;
+  renderJsonPreview();
+}
+
+function updateGeoAddress(val){
+  const d = curStep();
+  if (!d.mc) d.mc = {};
+  d.mc.targetAddress = val;
+  renderJsonPreview();
+}
+function updateGeoLat(val){
+  const d = curStep();
+  if (!d.mc) d.mc = {};
+  d.mc.lat = val;
+  renderJsonPreview();
+}
+function updateGeoLong(val){
+  const d = curStep();
+  if (!d.mc) d.mc = {};
+  d.mc.long = val;
+  renderJsonPreview();
+}
+function updateGeoRadius(val){
+  const d = curStep();
+  if (!d.mc) d.mc = {};
+  d.mc.radius = val;
+  renderJsonPreview();
+}
+
 function renderStepHeader(){
   const d = curStep();
+
   const nameInput = document.getElementById("ctName");
   nameInput.value = d.name;
   nameInput.onchange = (e)=>{ d.name = e.target.value; renderSidebar(); };
@@ -687,7 +1057,7 @@ function renderStepHeader(){
   const metaEl = document.getElementById("ctMeta");
   metaEl.innerHTML = d.rows.length + " field" + (d.rows.length===1?"":"s") + " configured";
 
-  // Sampling
+  // 1. Sampling Box (Identical across all steps)
   const sBody = document.getElementById("samplingBody");
   const sMethods = [
     {id:"by_size_per_style", label:"By Size Per Style"},
@@ -698,10 +1068,9 @@ function renderStepHeader(){
     {id:"aql_table", label:"AQL Standard Table"},
     {id:"inspector_decide", label:"Inspector Decides"}
   ];
-
   let smOpts = sMethods.map(m=>'<option value="'+m.id+'"'+(d.sampling.method===m.id?' selected':'')+'>'+m.label+'</option>').join("");
   const incRef = d.sampling && d.sampling.includeReference;
-  
+
   sBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
     + '<label class="field-label">Sample Size Determination (per step execution)</label>'
     + '<div style="display:flex; gap:10px; align-items:center;">'
@@ -718,16 +1087,16 @@ function renderStepHeader(){
     + '</div>'
     + '</div>';
 
-  // Data Binding / Measurement Chart Selection
+  // 2. Data Binding Box (mcBody)
   const mcBody = document.getElementById("mcBody");
   const isChart = hasChart(d);
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (isChart ? "chart" : "none");
+  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (isChart ? "pom" : "none");
   const selectedTypes = isChart ? (d.mc.types || []) : [];
+  const stepType = d.type || "measurement";
 
   let typePopoverHtml = "";
-  if (mcMode === "chart" || mcMode === "pom"){
+  if (mcMode === "pom"){
     let panelLabels = '<label style="font-weight:600; border-bottom:1px solid var(--line); margin-bottom:4px; padding-bottom:4px;" onclick="event.stopPropagation()"><input type="checkbox" '+(selectedTypes.length===0?'checked':'')+' onchange="selectAnyMcType(event)"> Any type</label>';
-    
     panelLabels += MC_TYPES.map(t=>{
       const checked = selectedTypes.includes(t.id) ? "checked" : "";
       return '<label onclick="event.stopPropagation()"><input type="checkbox" '+checked+' onchange="toggleMcType(\''+t.id+'\', event)"> '+t.id+'</label>';
@@ -744,23 +1113,46 @@ function renderStepHeader(){
       + '</div></div>';
   } else if (mcMode === "bom"){
     typePopoverHtml = '<span style="color:var(--mut); font-size:12px; margin-left:8px; font-style:italic;">(Unit auto-derived from BOM item spec or formula)</span>';
+  } else if (mcMode === "label"){
+    typePopoverHtml = '<span style="color:var(--mut); font-size:12px; margin-left:8px; font-style:italic;">(Unit auto-derived from packaging label spec)</span>';
+  } else if (mcMode === "geo"){
+    typePopoverHtml = '<span style="color:var(--mut); font-size:12px; margin-left:8px; font-style:italic;">(Factory GPS Lat/Long & 100m geofence)</span>';
+  }
+
+  let dbSelectOpts = '<option value="none"'+(mcMode==="none"?' selected':'')+'>None (Custom Columns)</option>';
+  if (stepType === "barcode"){
+    dbSelectOpts += '<option value="label"'+(mcMode==="label"?' selected':'')+'>Every Label on the Packaging</option>';
+  } else if (stepType === "geolocation"){
+    dbSelectOpts += '<option value="geo"'+(mcMode==="geo"?' selected':'')+'>Factory GPS Location & Geofence</option>';
+  } else {
+    dbSelectOpts += '<option value="pom"'+(mcMode==="pom"?' selected':'')+'>Every POM in the Measurement Chart</option>';
+    dbSelectOpts += '<option value="bom"'+(mcMode==="bom"?' selected':'')+'>Bill of Materials (BOM)</option>';
   }
 
   mcBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">'
     + '<span class="field-label" style="margin:0; font-weight:600; min-width:130px;">Data Binding:</span>'
     + '<select onchange="updateMcMode(this.value)" style="min-width:280px;">'
-    + '<option value="none"'+(mcMode==="none"?' selected':'')+'>None (Custom Columns)</option>'
-    + '<option value="chart"'+(mcMode==="chart"||mcMode==="pom"?' selected':'')+'>Every POM in the Measurement Chart</option>'
-    + '<option value="bom"'+(mcMode==="bom"?' selected':'')+'>Bill of Materials (BOM)</option>'
+    + dbSelectOpts
     + '</select>'
     + typePopoverHtml
     + '</div>';
 
-  // Step Execution Options (Photos & Other Controls)
+  // 3. Step Options Box (stepOptionsBody)
   const optsBody = document.getElementById("stepOptionsBody");
   if (optsBody){
     const photoOpt = (d.options && d.options.photo) || "none";
     const commentOpt = (d.options && d.options.requireComment) || false;
+    const allowOverrideOpt = (d.options && d.options.allowOverride !== false) || false;
+
+    let barcodeOverrideHtml = "";
+    if (mcMode === "label"){
+      barcodeOverrideHtml = '<div style="display:flex; align-items:center; gap:8px; border-left:1px solid var(--line); padding-left:14px;">'
+        + '<label class="chk" style="font-weight:600; color:var(--text);">'
+        + '<input type="checkbox" '+(allowOverrideOpt?'checked':'')+' onchange="updateBarcodeOverride(this.checked)">'
+        + 'Allow inspectors to override barcode result'
+        + '</label>'
+        + '</div>';
+    }
 
     optsBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; gap:20px; align-items:center; flex-wrap:wrap;">'
       // Photos Control
@@ -780,6 +1172,9 @@ function renderStepHeader(){
       + '💬 Require comment on failed / out-of-spec values'
       + '</label>'
       + '</div>'
+
+      // Barcode Override Option inside the options box
+      + barcodeOverrideHtml
 
       + '</div>';
   }
@@ -837,14 +1232,25 @@ function updateSamplingIncludeReference(checked){
 
 function updateMcMode(val){
   const d = curStep();
-  if (val==="chart" || val==="pom"){
+  if (val === "pom" || val === "chart"){
     d.mc = {mode:"pom", types:[]};
-    d.rows = [ col(nextRowId++, "POM Measurement", {src:"pom", crit:R.pom()}) ];
-  } else if (val==="bom"){
+    d.rows = [ col(nextRowId++, "POM Measurement", {src:"custom", crit:R.pom()}) ];
+  } else if (val === "bom"){
     d.mc = {mode:"bom"};
     d.rows = [
       col(nextRowId++, "BOM Material / Spec", {src:"bom", unit:"auto", crit:R.none()}),
       col(nextRowId++, "Measured Value", {src:"custom", unit:"auto", crit:R.rangelimit(100, 200)})
+    ];
+  } else if (val === "label"){
+    d.mc = {mode:"label", types:["Barcode"]};
+    d.rows = [
+      col(nextRowId++, "Barcode", {src:"label", unit:"auto", crit:R.none()})
+    ];
+  } else if (val === "geo"){
+    d.mc = {mode:"geo", targetAddress:"Factory #4 - Primary Facility", lat:"10.762622", long:"106.660172", radius:"100"};
+    d.rows = [
+      col(nextRowId++, "Location", {src:"geo", unit:"auto", crit:R.none()}),
+      col(nextRowId++, "Distance", {src:"geo", unit:"radius m", crit:R.rangelimit(null, 100)})
     ];
   } else {
     d.mc = null;
@@ -859,7 +1265,7 @@ function updateMcMode(val){
 
 function renderRows(){
   const d = curStep();
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (hasChart(d) ? "chart" : "none");
+  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : "none";
   const listEl = document.getElementById("rowsList");
   let html = "";
 
@@ -868,7 +1274,7 @@ function renderRows(){
     const isFormulaOpen = openFormula.has(row.id);
     const isCalc = !!row.formula;
 
-    const showAutoUnit = (mcMode === "bom" || mcMode === "chart" || mcMode === "pom" || isCalc || row.source === "pom" || row.source === "bom" || row.source === "label" || (row.source === "geo" && row.unit === "auto"));
+    const showAutoUnit = (mcMode === "bom" || mcMode === "pom" || isCalc || row.source === "pom" || row.source === "bom" || row.source === "label" || (row.source === "geo" && row.unit === "auto"));
 
     html += '<div class="row-card" data-id="'+row.id+'" draggable="true">'
       + '<div class="row-header">'
@@ -917,7 +1323,7 @@ function renderUnitOptions(selected){
 }
 
 // ---------------------------------------------------------------------------
-// Data Source (Inspector Entry / Formula) Chip & Inline Drawer
+// Data Source (Inspector Entry / Formula / Chart) Chip & Inline Drawer
 // ---------------------------------------------------------------------------
 
 function formulaChipText(d, row){
@@ -971,8 +1377,11 @@ function renderFormulaChip(d, row, isOpen){
   if (row.source === "bom"){
     labelText = "📦 BOM spec item";
     chipStyle = "chip-eval-pom";
-  } else if (row.source === "pom"){
-    labelText = "⚙️ POM chart spec";
+  } else if (row.source === "label"){
+    labelText = "🏷️ Barcode scan";
+    chipStyle = "chip-eval-pom";
+  } else if (row.source === "geo"){
+    labelText = "📍 Location capture";
     chipStyle = "chip-eval-pom";
   } else if (isCalc){
     const summary = formulaChipText(d, row);
@@ -1000,7 +1409,7 @@ function toggleFormulaDrawer(id){
 function updateSourceModeInline(id, val){
   const row = findRow(curStep(), id);
   if (!row) return;
-  if (val === "custom" || val === "bom" || val === "pom"){
+  if (val === "custom" || val === "label" || val === "geo" || val === "bom" || val === "pom"){
     row.source = val;
     row.formula = null;
   } else if (val === "formula"){
@@ -1017,7 +1426,8 @@ function renderFormulaDrawer(d, row){
   if (isCalc) autoAssignOperands(d, row);
   const eligible = eligibleOperands(d, row.id);
   const curSrcMode = isCalc ? "formula" : (row.source || "custom");
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (hasChart(d) ? "chart" : "none");
+  const stepType = d.type || "measurement";
+  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : "none";
 
   let html = '<div class="drawer-open">'
     + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
@@ -1027,8 +1437,10 @@ function renderFormulaDrawer(d, row){
   if (mcMode === "bom" || row.source === "bom"){
     html += '<option value="bom"'+(curSrcMode==="bom"?' selected':'')+'>📦 BOM spec item</option>';
   }
-  if (mcMode === "chart" || mcMode === "pom" || row.source === "pom"){
-    html += '<option value="pom"'+(curSrcMode==="pom"?' selected':'')+'>⚙️ POM chart spec</option>';
+  if (stepType === "barcode"){
+    html += '<option value="label"'+(curSrcMode==="label"?' selected':'')+'>🏷️ Barcode scan</option>';
+  } else if (stepType === "geolocation"){
+    html += '<option value="geo"'+(curSrcMode==="geo"?' selected':'')+'>📍 Location capture</option>';
   }
 
   html += '<option value="custom"'+(curSrcMode==="custom"?' selected':'')+'>✍️ Inspector entry (manually entered)</option>'
@@ -1039,6 +1451,11 @@ function renderFormulaDrawer(d, row){
     let noteText = "This field is recorded manually by the inspector during inspection.";
     if (row.source === "pom") noteText = "Bound to Measurement Chart POM specification.";
     if (row.source === "bom") noteText = "Bound to Bill of Materials (BOM) item specification.";
+    if (row.source === "label") noteText = "Scanned via barcode/QR scanner during inspection.";
+    if (row.source === "geo") noteText = "Captured via GPS location device during inspection.";
+
+    html += '<div style="font-size:12.5px; color:var(--mut); font-style:italic; margin-top:4px; padding-left:100px;">'
+      + esc(noteText)
       + '</div>';
   } else {
     html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
@@ -1176,15 +1593,12 @@ function renderEvalSummary(d, row, isOpen){
   let text = "Not evaluated";
   let cls = "chip-eval-muted";
 
-  if (c.mode==="inspector"){
-    text = "👤 Inspector decides (Pass / Fail)";
-    cls = "chip-eval-muted";
-  } else if (c.mode==="rule"){
+  if (c.mode === "rule"){
     const r = c.rule || {};
-    if (r.source==="pom"){
+    if (r.source === "pom"){
       text = "⚙️ Within POM tolerance";
       cls = "chip-eval-pom";
-    } else if (r.preset==="rangelimit"){
+    } else if (r.preset === "rangelimit"){
       const err = getRangeLimitError(r);
       if (err){
         text = "⚠️ " + err;
@@ -1196,9 +1610,14 @@ function renderEvalSummary(d, row, isOpen){
         if (loStr !== "" && hiStr !== "") text = "⚖️ Range: "+loStr+" to "+hiStr+u;
         else if (loStr !== "") text = "⚖️ Min limit: ≥ "+loStr+u;
         else if (hiStr !== "") text = "⚖️ Max limit: ≤ "+hiStr+u;
+        else text = "⚖️ Range limit configured";
         cls = "chip-eval-rule";
       }
     }
+  }
+
+  if (c.allowInspectorOverride){
+    text += " (👤 Inspector decision allowed)";
   }
 
   return '<div class="chip '+cls+'" onclick="toggleEvalDrawer('+row.id+')">'
@@ -1210,6 +1629,7 @@ function renderEvalSummary(d, row, isOpen){
 function renderEvalDrawer(d, row){
   const opts = critOptions(d, row);
   const cur = critChoice(d, row);
+  const c = row.criteria || {};
   
   let html = '<div class="drawer-open">'
     + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'
@@ -1222,8 +1642,7 @@ function renderEvalDrawer(d, row){
   html += '</select></div>';
 
   // Rule Limits Input (Unified Range / Min / Max)
-  const c = row.criteria;
-  if (c && c.mode==="rule" && c.rule && c.rule.source!=="pom"){
+  if (c && c.mode === "rule" && c.rule && c.rule.source !== "pom"){
     const r = c.rule;
     const p = preset(r.preset);
     const err = getRangeLimitError(r);
@@ -1243,6 +1662,15 @@ function renderEvalDrawer(d, row){
       html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-top:8px;">⚠️ '+esc(err)+'</div>';
     }
   }
+
+  // Inspector Decision / Override Checkbox
+  const isAllowOverride = !!c.allowInspectorOverride;
+  html += '<div style="margin-top:10px; border-top:1px dashed var(--line); padding-top:10px;">'
+    + '<label class="chk" style="font-size:12.5px; font-weight:600; color:var(--navy);">'
+    + '<input type="checkbox" '+(isAllowOverride?'checked':'')+' onchange="updateEvalAllowOverride('+row.id+', this.checked)">'
+    + 'Allow inspector decision / override (Inspector can manually evaluate or override auto-result)'
+    + '</label>'
+    + '</div>';
 
   html += '</div>';
   return html;
@@ -1309,8 +1737,8 @@ function removeRow(id){
 
 document.getElementById("addValueBtn").onclick = ()=>{
   const d = curStep();
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (hasChart(d) ? "chart" : "none");
-  const defaultUnit = (mcMode === "bom" || mcMode === "chart" || mcMode === "pom") ? "auto" : "cm";
+  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : "none";
+  const defaultUnit = (mcMode === "bom" || mcMode === "pom" || mcMode === "label" || mcMode === "geo") ? "auto" : "cm";
   d.rows.push(col(nextRowId++, "Measurement " + (d.rows.length+1), {unit: defaultUnit}));
   renderRows();
 };

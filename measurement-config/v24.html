@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inspection workflow — Measurement steps configuration (v21)</title>
+<title>Inspection workflow — Measurement steps configuration (v24)</title>
 <style>
   :root{
     --navy:#0A2A55; --blue:#0050AA; --tint:#EAF1FA;
@@ -63,7 +63,7 @@
   .mctype-panel label{display:flex; align-items:center; gap:6px; font-size:13px; padding:5px 6px; cursor:pointer; white-space:nowrap; border-radius:4px;}
   .mctype-panel label:hover{background:var(--surface1);}
 
-  /* ---- field row card ---- */
+  /* ---- field & pom row cards ---- */
   .row-card{background:var(--surface1); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px;}
   .row-card.dragging{opacity:0.4;}
   .row-header{display:flex; align-items:center; gap:10px;}
@@ -99,8 +99,8 @@
 <body>
 <div class="page">
   <header class="top">
-    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v21</span></h1>
-    <p>Configure measurement steps in an inspection workflow. Set sampling plans, Measurement Chart bindings, measurement fields, auto-calculations, and evaluation rules.</p>
+    <h1>Inspection workflow — Measurement steps configuration <span class="badge-mvp">v24</span></h1>
+    <p>Configure measurement steps with unified Data Binding (POM Chart vs Custom POMs). Conceptually, <b>POM = Row</b> and <b>Field = Column</b>.</p>
   </header>
 
   <div class="layout">
@@ -121,10 +121,21 @@
         
         <hr style="border:0; border-top:1px solid var(--line); margin:20px 0 16px;">
         
-        <p class="section-label">Measurement Fields</p>
+        <!-- SECTION 1: MEASUREMENT FIELDS (COLUMNS) -->
+        <p class="section-label">MEASUREMENT FIELDS (COLUMNS)</p>
         <div id="rowsList"></div>
         <div style="margin-top:10px;">
           <button class="btn" id="addValueBtn">+ Add measurement field</button>
+        </div>
+
+        <!-- SECTION 2: CUSTOM POMS (ROWS) - DISPLAYED WHEN DATA BINDING = NONE -->
+        <div id="customPomsSection" style="margin-top:20px;">
+          <hr style="border:0; border-top:1px solid var(--line); margin:20px 0 16px;">
+          <p class="section-label">CUSTOM POMS (ROWS)</p>
+          <div id="customPomsList"></div>
+          <div style="margin-top:10px;">
+            <button class="btn" id="addCustomPomBtn">+ Add Custom POM</button>
+          </div>
         </div>
       </div>
 
@@ -139,13 +150,13 @@
         </div>
 
         <div style="margin-top:14px;">
-          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. API JSON Payload Schema</span>
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:4px;">1. API JSON Payload Schema (Step Definition)</span>
           <pre id="jsonPreview" style="margin:0; background:#020617; border:1px solid #1E293B; border-radius:8px; padding:14px; font-family:'Courier New',Consolas,monospace; font-size:12px; line-height:1.45; color:#E2E8F0; overflow-x:auto; max-height:360px;"></pre>
         </div>
 
         <div style="margin-top:20px;">
-          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">2. Relational SQL Database Tables</span>
-          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">Normalized SQL records stored across database tables for this step.</p>
+          <span style="font-size:12px; font-weight:700; color:#38BDF8; display:block; margin-bottom:2px;">2. Relational SQL Database Storage Schema</span>
+          <p style="font-size:11px; color:#94A3B8; margin:0 0 8px;">Normalized PostgreSQL records stored across database tables for this step ([Samples] × [POM Rows] × [Field Columns]).</p>
           <div id="sqlTablesPreview"></div>
         </div>
       </div>
@@ -153,7 +164,7 @@
   </div>
 
   <footer class="foot">
-    Reorder steps or fields using drag handles. Formulas reference other fields by name. All evaluation rules resolve against SKU specs at inspection time.
+    Reorder steps, fields, or custom POMs using drag handles. Formulas reference other fields by name. Evaluation rules evaluate values against POM specs or range limits.
   </footer>
 </div>
 
@@ -204,24 +215,10 @@ function lettersUsed(expr){
   return [...found].sort();
 }
 
-const PRESETS = [
-  {id:"pom",        label:"Within POM tolerance",              pomOnly:true},
-  {id:"rangelimit", label:"Numeric Range / Limit (Min & Max)", lower:true, upper:true}
-];
-const CHOICE_INSPECTOR = {id:"inspector", label:"Inspector decides (pass / fail)"};
-const CHOICE_NONE      = {id:"none",      label:"Not evaluated"};
-
-function preset(id){ return PRESETS.find(p=>p.id===id); }
-
-// ---------------------------------------------------------------------------
-// Sample Data Model
-// ---------------------------------------------------------------------------
-
 const R = {
-  pom:        ()=>({mode:"rule", rule:{source:"pom", preset:"pom"}}),
-  none:       ()=>({mode:"none"}),
-  insp:       ()=>({mode:"inspector"}),
-  rangelimit: (a,b)=>({mode:"rule", rule:{source:"local", preset:"rangelimit", lower:{value:a!=null?String(a):""}, upper:{value:b!=null?String(b):""}}})
+  use_spec:   (allowOver)=>({mode:"use_spec", allowInspectorOverride: !!allowOver}),
+  none:       (allowOver)=>({mode:"none", allowInspectorOverride: !!allowOver}),
+  rangelimit: (a,b, allowOver)=>({mode:"rangelimit", lower:{value:a!=null?String(a):""}, upper:{value:b!=null?String(b):""}, allowInspectorOverride: !!allowOver})
 };
 
 function col(id, name, o){
@@ -230,86 +227,106 @@ function col(id, name, o){
     id: id,
     name: name,
     required: o.opt ? false : true,
-    source: o.src || "custom",
-    unit: o.unit || "",
+    source: o.src || "pom",
+    unit: "auto",
     formula: o.f || null,
-    criteria: o.crit || R.none()
+    criteria: o.crit || R.use_spec(true)
   };
 }
+
+function createCustomPom(id, name, o){
+  o = o || {};
+  return {
+    id: id,
+    name: name,
+    unit: o.unit || "cm",
+    source: o.src || "inspector",
+    formula: o.f || null
+  };
+}
+
 const op = (id)=>({id:id});
 
 const data = {
   garment_chart: {
     sampling: {method:"by_size_per_style", value:"2"},
     name: "Garment POM Measurements",
-    mc: {types:["Dimension"]},
+    mc: {mode:"pom", types:["Dimension"]},
+    customPoms: [],
     rows: [
-      col(1, "POM Measurement", {src:"pom", crit:R.pom()})
+      col(1, "POM Measurement", {src:"pom", crit:R.use_spec(true)})
     ]
   },
   shrinkage_chart: {
     sampling: {method:"fixed_quantity", value:"1"},
     name: "Shrinkage & Wash Performance",
-    mc: {types:["Dimension"]},
+    mc: {mode:"pom", types:["Dimension"]},
+    customPoms: [],
     rows: [
-      col(21, "Before wash", {src:"pom", crit:R.pom()}),
-      col(22, "After wash",  {src:"pom", crit:R.none()}),
-      col(23, "% Shrinkage", {unit:"%", f:{type:"pctchange", ops:[op(21), op(22)]}, crit:R.rangelimit(-5, 5)})
-    ]
-  },
-  cookware_weight: {
-    sampling: {method:"fixed_quantity", value:"3"},
-    name: "Cookware Set Weight",
-    mc: {types:["Weight"]},
-    rows: [
-      col(60, "Weight", {src:"pom", crit:R.pom()})
+      col(21, "Before wash", {src:"pom", crit:R.use_spec(true)}),
+      col(22, "After wash",  {src:"pom", crit:R.none(false)}),
+      col(23, "% Shrinkage", {f:{type:"pctchange", ops:[op(21), op(22)]}, crit:R.rangelimit(-5, 5, true)})
     ]
   },
   dyelot_approval: {
     sampling: {method:"fixed_quantity", value:"1"},
     name: "Dyelot Quality Approval",
-    mc: null,
+    mc: {mode:"none"},
+    customPoms: [
+      createCustomPom(201, "Length shrinkage — 1st wash", {unit:"%"}),
+      createCustomPom(202, "Width shrinkage — 1st wash",  {unit:"%"}),
+      createCustomPom(203, "Fabric weight",               {unit:"GSM"}),
+      createCustomPom(204, "Skewing — 1st wash",          {unit:"%"}),
+      createCustomPom(205, "Colour / shade vs standard",  {unit:"grade (1–5)"}),
+      createCustomPom(206, "Dry crocking",                {unit:"grade (1–5)"}),
+      createCustomPom(207, "Wet crocking",                {unit:"grade (1–5)"})
+    ],
     rows: [
-      col(40, "Length shrinkage — 1st wash", {unit:"%", crit:R.rangelimit(-5, null)}),
-      col(41, "Width shrinkage — 1st wash",  {unit:"%", crit:R.rangelimit(-5, null)}),
-      col(42, "Fabric weight",               {unit:"GSM", crit:R.rangelimit(170, 190)}),
-      col(43, "Skewing — 1st wash",          {unit:"%", crit:R.rangelimit(null, 4)}),
-      col(49, "Colour / shade vs standard",  {crit:R.insp()}),
-      col(44, "Dry crocking",                {unit:"grade (1–5)", crit:R.rangelimit(4, null)}),
-      col(45, "Wet crocking",                {unit:"grade (1–5)", crit:R.rangelimit(3, null)})
+      col(40, "Measured Value", {src:"pom", crit:R.use_spec(true)})
+    ]
+  },
+  cookware_weight: {
+    sampling: {method:"fixed_quantity", value:"3"},
+    name: "Cookware Set Weight",
+    mc: {mode:"none"},
+    customPoms: [
+      createCustomPom(211, "Pot Weight", {unit:"g"}),
+      createCustomPom(212, "Lid Weight", {unit:"g"}),
+      createCustomPom(213, "Total Set Weight", {unit:"g"})
+    ],
+    rows: [
+      col(60, "Measured Weight", {src:"pom", crit:R.use_spec(true)}),
+      col(61, "Weight Variance %", {f:{type:"custom", ops:[op(60)], customExpr:"(A - SD) / SD * 100"}, crit:R.rangelimit(-3, 3, true)})
     ]
   },
   fabric_weight: {
     sampling: {method:"pct_available", value:"10"},
     name: "Fabric GSM (Swatch Test)",
-    mc: null,
+    mc: {mode:"none"},
+    customPoms: [
+      createCustomPom(221, "Swatch length", {unit:"cm"}),
+      createCustomPom(222, "Swatch width",  {unit:"cm"}),
+      createCustomPom(223, "Swatch area",   {unit:"cm²", f:{type:"product", ops:[op(221), op(222)]}}),
+      createCustomPom(224, "Swatch weight", {unit:"g"}),
+      createCustomPom(225, "Fabric weight (GSM)", {unit:"GSM", f:{type:"custom", ops:[op(224), op(223)], customExpr:"D / C × 10,000"}})
+    ],
     rows: [
-      col(12, "Swatch length", {unit:"cm"}),
-      col(13, "Swatch width",  {unit:"cm"}),
-      col(14, "Swatch area",   {unit:"cm²", f:{type:"product", ops:[op(12), op(13)]}}),
-      col(15, "Swatch weight", {unit:"g"}),
-      col(16, "Fabric weight (GSM)", {unit:"GSM", f:{type:"custom", ops:[op(15), op(14)], customExpr:"D / C × 10,000"}, crit:R.rangelimit(150, 200)})
-    ]
-  },
-  bom_verification: {
-    sampling: {method:"by_item", value:"1"},
-    name: "BOM Material & Spec Verification",
-    mc: {mode:"bom"},
-    rows: [
-      col(70, "Material Weight / Spec", {src:"bom", unit:"auto", crit:R.none()}),
-      col(71, "Measured Weight", {src:"custom", unit:"auto", crit:R.rangelimit(100, 200)}),
-      col(72, "Weight Variance %", {unit:"auto", f:{type:"pctchange", ops:[op(70), op(71)]}, crit:R.rangelimit(-3, 3)})
+      col(51, "Standard",   {src:"pom", crit:R.use_spec(true)}),
+      col(52, "Actual",     {src:"pom", crit:R.use_spec(true)}),
+      col(53, "Evaluation", {src:"custom", f:{type:"difference", ops:[op(52), op(51)]}, crit:R.rangelimit(-10, 10, true)})
     ]
   }
 };
 
-const order = ["garment_chart","shrinkage_chart","cookware_weight","bom_verification","dyelot_approval","fabric_weight"];
+const order = ["garment_chart","shrinkage_chart","dyelot_approval","cookware_weight","fabric_weight"];
 let active = "garment_chart";
 let nextRowId = 100;
+let nextPomId = 300;
 let mcPopoverOpen = false;
 
 const openEval = new Set();
 const openFormula = new Set();
+const openPomFormula = new Set();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -320,7 +337,8 @@ function findRow(d, id){ return d.rows.find(r=>r.id===id); }
 function rowIndex(d, id){ return d.rows.findIndex(r=>r.id===id); }
 function rowName(d, id){ const r = findRow(d,id); return r ? r.name : null; }
 
-function hasChart(d){ d = d || curStep(); return !!(d && d.mc); }
+function hasChart(d){ d = d || curStep(); return !!(d && d.mc && d.mc.mode === "pom"); }
+function mcModeOf(d){ d = d || curStep(); return (d && d.mc && d.mc.mode) ? d.mc.mode : "none"; }
 function chartTypes(d){ return (d && d.mc && d.mc.types) || []; }
 
 function formulaDef(fm){ return fm ? FORMULAS.find(x=>x.id===fm.type) : null; }
@@ -373,75 +391,120 @@ function autoAssignOperands(d, row){
   }
 }
 
-function derivedUnit(d, row, seen){
-  if (!row || !row.formula) return null;
+// ---------------------------------------------------------------------------
+// POM Formula Helpers
+// ---------------------------------------------------------------------------
+
+function dependsOnPom(d, candidateId, targetId, seen){
+  if (candidateId === targetId) return true;
   seen = seen || new Set();
-  if (seen.has(row.id)) return null;
-  seen.add(row.id);
-  const fm = row.formula, f = formulaDef(fm);
-  if (!f) return null;
-  if (f.unit==="%") return "%";
-  if (f.unit==="unitless") return "unitless";
-  if (f.unit==="custom") return null;
-
-  const units = operandIdsOf(fm).map(id=>unitOf(d, findRow(d,id), seen));
-  const allSame = units.length>0 && units.every(u=>u && u===units[0]);
-  if (f.unit==="product"){
-    if (!allSame) return null;
-    return SQUARE_UNITS[units[0]] || (units[0]+" × "+units[0]);
-  }
-  return allSame ? units[0] : null;
+  if (seen.has(candidateId)) return false;
+  seen.add(candidateId);
+  const p = (d.customPoms || []).find(x => x.id === candidateId);
+  if (!p || !p.formula) return false;
+  return operandIdsOf(p.formula).some(id => dependsOnPom(d, id, targetId, seen));
 }
 
-function unitOf(d, row, seen){
-  if (!row) return null;
-  if (row.formula){
-    const u = derivedUnit(d, row, seen);
-    if (u) return u;
-  }
-  return row.unit || null;
+function eligiblePomOperands(d, pomId){
+  return (d.customPoms || []).filter(p => !dependsOnPom(d, p.id, pomId));
 }
 
-function critOptions(d, row){
-  if (hasChart(d)){
-    return [
-      preset("pom"),
-      {id:"rangelimit", label:"Custom range / limit values (Non-MVP)"},
-      CHOICE_INSPECTOR,
-      CHOICE_NONE
-    ];
-  }
-  const list = PRESETS.filter(p=>!p.pomOnly).slice();
-  return list.concat([CHOICE_INSPECTOR, CHOICE_NONE]);
-}
+function autoAssignPomOperands(d, pom){
+  if (!pom || !pom.formula) return;
+  const fm = pom.formula, f = formulaDef(fm);
+  if (!f) return;
+  const eligible = eligiblePomOperands(d, pom.id);
+  if (!eligible.length) return;
 
-function critChoice(d, row){
-  const c = row.criteria || R.none();
-  if (c.mode==="none") return "none";
-  if (c.mode==="inspector") return "inspector";
-  return c.rule && c.rule.source==="pom" ? "pom" : ((c.rule && c.rule.preset) || "rangelimit");
-}
+  if (!fm.ops) fm.ops = [];
 
-function setCritChoice(d, row, choice){
-  if (choice==="none"){ row.criteria = {mode:"none"}; return; }
-  if (choice==="inspector"){ row.criteria = {mode:"inspector"}; return; }
-  row.criteria = {
-    mode: "rule",
-    rule: {
-      source: choice==="pom" ? "pom" : "local",
-      preset: choice,
-      lower: {value:""},
-      upper: {value:""}
+  if (f.arity === 1){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+  } else if (f.arity === 2){
+    if (!fm.ops[0] || !fm.ops[0].id) fm.ops[0] = {id: eligible[0].id};
+    if (!fm.ops[1] || !fm.ops[1].id){
+      fm.ops[1] = {id: eligible[1] ? eligible[1].id : eligible[0].id};
     }
-  };
+  } else if (f.arity === "many"){
+    if (!fm.ops || !fm.ops.length){
+      fm.ops = eligible.map(e => ({id: e.id}));
+    }
+  } else if (f.arity === "letters"){
+    const expr = fm.customExpr || "A / B";
+    const used = lettersUsed(expr);
+    fm.ops = [];
+    used.forEach(let => {
+      const idx = LETTERS.indexOf(let);
+      if (idx >= 0 && idx < eligible.length){
+        fm.ops.push({id: eligible[idx].id});
+      }
+    });
+  }
+}
+
+function pomFormulaChipText(d, pom){
+  if (!pom || !pom.formula) return "Configure formula";
+  const fm = pom.formula;
+  const f = formulaDef(fm);
+  if (!f) return "Configure formula";
+
+  const ops = opsOf(fm);
+  const names = ops.map(o => {
+    const found = (d.customPoms || []).find(p => p.id === o.id);
+    return found ? found.name : null;
+  }).filter(n => n != null);
+
+  if (f.arity === 1){
+    return names[0] ? f.shortLabel + ": " + names[0] : f.shortLabel + " (pick input)";
+  }
+  if (f.arity === 2){
+    const a = names[0] || "A";
+    const b = names[1] || "B";
+    if (f.id === "pctchange") return "Percent change: " + a + " → " + b;
+    if (f.id === "difference") return "Difference: " + a + " − " + b;
+    if (f.id === "ratio") return "Ratio: " + a + " / " + b;
+    if (f.id === "ratiopercent") return "Ratio %: " + a + " / " + b;
+    if (f.id === "product") return "Product: " + a + " × " + b;
+    return f.shortLabel + ": " + a + ", " + b;
+  }
+  if (f.arity === "many"){
+    if (!names.length) return f.shortLabel + " (select inputs)";
+    return f.id === "sum"
+      ? "Total: " + names.join(" + ")
+      : "Average: " + names.join(", ");
+  }
+  if (f.arity === "letters"){
+    const expr = fm.customExpr || "A / B";
+    const eligible = eligiblePomOperands(d, pom.id);
+    const substituted = String(expr).replace(/\b[A-Z]\b/g, m => {
+      const idx = LETTERS.indexOf(m);
+      if (idx >= 0 && idx < eligible.length){
+        return eligible[idx].name;
+      }
+      return m;
+    });
+    return "Custom: " + substituted;
+  }
+  return f.label;
 }
 
 function esc(s){
   return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+function mcTypeSummary(types){
+  if (!types || types.length === 0) return "Any type";
+  if (types.length === 1) return types[0];
+  return types.length + " types selected";
+}
+
+// ---------------------------------------------------------------------------
+// Developer Data Model JSON & SQL Tables
+// ---------------------------------------------------------------------------
+
 function stepToDbSchema(key, d){
-  const isChart = hasChart(d);
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
   
   const samplingMethodMap = {
     "bysizeperstyle": "by_size_per_style",
@@ -454,37 +517,58 @@ function stepToDbSchema(key, d){
   };
 
   return {
-    section_uuid: key,
+    section_uuid: "sec_" + key,
     title: d.name,
     type: "configurable_measurement",
+    step_type: d.type || "measurement",
     is_affect_overall_result: true,
     measurement_config: {
       sampling_plan: {
         method: samplingMethodMap[d.sampling.method] || d.sampling.method,
-        sample_size_value: (d.sampling.method !== "inspector_decide" && d.sampling.method !== "aql_table" && d.sampling.method !== "inspectordecide" && d.sampling.method !== "aqlstandard") ? d.sampling.value : null,
-        include_reference_sample: !!(d.sampling && d.sampling.includeReference)
+        sample_size_value: d.sampling.value || null
       },
-      measurement_chart: {
-        is_bound: isChart,
-        allowed_types: (isChart && d.mc.types && d.mc.types.length) ? d.mc.types : []
+      data_binding: {
+        mode: mcMode,
+        is_chart_bound: isChart,
+        allowed_chart_types: (isChart && d.mc.types) ? d.mc.types : [],
+        custom_poms: mcMode === "none" ? (d.customPoms || []).map(p => {
+          const isCalc = !!p.formula;
+          let formulaPayload = null;
+          if (isCalc){
+            const fm = p.formula;
+            const fDef = formulaDef(fm);
+            const ops = opsOf(fm);
+            formulaPayload = {
+              type: fm.type,
+              label: fDef ? fDef.label : fm.type,
+              operand_pom_ids: ops.map(o => o.id),
+              custom_expression: fm.type === "custom" ? (fm.customExpr || "A / B") : null
+            };
+          }
+          return {
+            pom_id: p.id,
+            name: p.name,
+            unit: p.unit,
+            data_source: isCalc ? "calculated" : "inspector_input",
+            formula: formulaPayload
+          };
+        }) : []
       },
       fields: d.rows.map((row, idx) => {
         const isCalc = !!row.formula;
-        const c = row.criteria || R.none();
+        const c = row.criteria || {};
         
-        let evalPayload = { mode: c.mode };
-        if (c.mode === "rule"){
-          const r = c.rule || {};
-          evalPayload.source = r.source;
-          evalPayload.preset = r.preset;
-          if (r.preset === "rangelimit"){
-            const loStr = r.lower ? String(r.lower.value).trim() : "";
-            const hiStr = r.upper ? String(r.upper.value).trim() : "";
-            evalPayload.bounds = {
-              min_limit: loStr !== "" ? (isNaN(Number(loStr)) ? loStr : Number(loStr)) : null,
-              max_limit: hiStr !== "" ? (isNaN(Number(hiStr)) ? hiStr : Number(hiStr)) : null
-            };
-          }
+        let evalPayload = {
+          mode: c.mode || "use_spec",
+          allow_inspector_override: !!c.allowInspectorOverride
+        };
+        if (c.mode === "rangelimit"){
+          const loStr = c.lower ? String(c.lower.value).trim() : "";
+          const hiStr = c.upper ? String(c.upper.value).trim() : "";
+          evalPayload.bounds = {
+            min_limit: loStr !== "" ? (isNaN(Number(loStr)) ? loStr : Number(loStr)) : null,
+            max_limit: hiStr !== "" ? (isNaN(Number(hiStr)) ? hiStr : Number(hiStr)) : null
+          };
         }
 
         let formulaPayload = null;
@@ -492,25 +576,20 @@ function stepToDbSchema(key, d){
           const fm = row.formula;
           const fDef = formulaDef(fm);
           const ops = opsOf(fm);
-          const eligible = eligibleOperands(d, row.id);
 
           formulaPayload = {
             type: fm.type,
             label: fDef ? fDef.label : fm.type,
             operand_field_ids: ops.map(o => o.id),
-            custom_expression_ui: fm.type === "custom" ? (fm.customExpr || "A / B") : null,
-            custom_expression_db: fm.type === "custom" ? String(fm.customExpr || "A / B").replace(/\b[A-Z]\b/g, m => {
-              const idx = LETTERS.indexOf(m);
-              return (idx >= 0 && idx < eligible.length) ? "{" + eligible[idx].id + "}" : m;
-            }) : null
+            custom_expression: fm.type === "custom" ? (fm.customExpr || "A / B") : null
           };
         }
 
         return {
           field_id: row.id,
           name: row.name,
-          unit: row.unit || null,
-          data_source: isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "pom" ? "measurement_chart" : "inspector_entry")),
+          unit: "auto",
+          data_source: isCalc ? "calculated" : "user_pom_default",
           position: idx + 1,
           formula: formulaPayload,
           evaluation_rule: evalPayload
@@ -524,74 +603,34 @@ function renderSqlTables(){
   const container = document.getElementById("sqlTablesPreview");
   if (!container || !curStep()) return;
   const d = curStep();
-  const isChart = hasChart(d);
+  const mcMode = mcModeOf(d);
 
   let html = '';
 
-  // 1. TABLE: workflow_step_sections (inspections_workflowstepsection)
-  html += '<div style="margin-top:10px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections (inspections_workflowstepsection)</span>'
-    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>title</th><th>type</th><th>position</th></tr></thead><tbody>'
-    + '<tr><td>sec_'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>configurable_measurement</td><td>1</td></tr>'
+  // 1. TABLE: workflow_step_sections
+  html += '<div style="margin-top:10px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_sections</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>title</th><th>type</th><th>data_binding_mode</th></tr></thead><tbody>'
+    + '<tr><td>sec_'+esc(active)+'</td><td>'+esc(d.name)+'</td><td>configurable_measurement</td><td>'+esc(mcMode)+'</td></tr>'
     + '</tbody></table></div>';
 
-  // 2. TABLE: workflow_step_section_measurement_configs
-  const samplingMap = {
-    "bysizeperstyle":"by_size_per_style",
-    "byitem":"by_item",
-    "bycolorperstyle":"by_color_per_style",
-    "determinedquantity":"fixed_quantity",
-    "pctavailable":"pct_available",
-    "aqlstandard":"aql_table",
-    "inspectordecide":"inspector_decide"
-  };
-  const samplingMethod = samplingMap[d.sampling.method] || d.sampling.method;
-  const mcTypesJson = (isChart && d.mc.types && d.mc.types.length) ? JSON.stringify(d.mc.types) : '[]';
+  // 2. TABLE: workflow_custom_poms (if Data Binding = None)
+  if (mcMode === "none" && d.customPoms && d.customPoms.length > 0){
+    html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_custom_poms (Custom POM Rows)</span>'
+      + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>pom_name</th><th>unit</th><th>data_source</th></tr></thead><tbody>';
+    d.customPoms.forEach((p, idx)=>{
+      html += '<tr><td>pom_'+p.id+'</td><td>sec_'+esc(active)+'</td><td>'+esc(p.name)+'</td><td>'+esc(p.unit)+'</td><td>'+(p.formula?'calculated':'inspector_input')+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
 
-  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_step_section_measurement_configs</span>'
-    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>sampling_method</th><th>sample_size_value</th><th>include_ref_sample</th><th>is_chart_bound</th><th>allowed_chart_types (JSONB)</th></tr></thead><tbody>'
-    + '<tr><td>cfg_'+esc(active)+'</td><td>sec_'+esc(active)+'</td><td>'+esc(samplingMethod)+'</td><td>'+esc(d.sampling.value || 'NULL')+'</td><td>'+((d.sampling && d.sampling.includeReference)?'TRUE':'FALSE')+'</td><td>'+(isChart?'TRUE':'FALSE')+'</td><td>'+esc(mcTypesJson)+'</td></tr>'
-    + '</tbody></table></div>';
-
-  // 3. TABLE: workflow_measurement_fields
-  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_fields</span>'
-    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>config_id (FK)</th><th>field_id</th><th>name</th><th>unit</th><th>data_source</th><th>position_order</th><th>formula_config (JSONB)</th><th>evaluation_config (JSONB)</th></tr></thead><tbody>';
+  // 3. TABLE: workflow_measurement_fields (Columns)
+  html += '<div style="margin-top:14px;"><span style="font-size:11.5px; font-weight:700; color:#38BDF8;">TABLE: workflow_measurement_fields (Columns)</span>'
+    + '<table class="sql-table"><thead><tr><th>id (PK)</th><th>section_id (FK)</th><th>field_name</th><th>unit</th><th>data_source</th><th>eval_mode</th><th>allow_override</th></tr></thead><tbody>';
   
   d.rows.forEach((row, i)=>{
     const isCalc = !!row.formula;
-    const srcType = isCalc ? "calculated" : (row.source === "bom" ? "bom_spec" : (row.source === "pom" ? "measurement_chart" : "inspector_entry"));
-    
-    let formulaJson = 'NULL';
-    if (isCalc){
-      const fm = row.formula;
-      const ops = opsOf(fm).map(o=>o.id);
-      const eligible = eligibleOperands(d, row.id);
-      let payloadObj = { type: fm.type, operand_field_ids: ops };
-      if (fm.type === "custom"){
-        const expr = fm.customExpr || "A / B";
-        payloadObj.custom_expression_db = String(expr).replace(/\b[A-Z]\b/g, m => {
-          const idx = LETTERS.indexOf(m);
-          return (idx >= 0 && idx < eligible.length) ? "{" + eligible[idx].id + "}" : m;
-        });
-      }
-      formulaJson = JSON.stringify(payloadObj);
-    }
-
-    const c = row.criteria || R.none();
-    let evalObj = { mode: c.mode };
-    if (c.mode === "rule"){
-      const r = c.rule || {};
-      evalObj.source = r.source;
-      evalObj.preset = r.preset;
-      if (r.preset === "rangelimit"){
-        const loStr = r.lower ? String(r.lower.value).trim() : "";
-        const hiStr = r.upper ? String(r.upper.value).trim() : "";
-        evalObj.min_limit = loStr !== "" ? (isNaN(Number(loStr)) ? loStr : Number(loStr)) : null;
-        evalObj.max_limit = hiStr !== "" ? (isNaN(Number(hiStr)) ? hiStr : Number(hiStr)) : null;
-      }
-    }
-    const evalJson = JSON.stringify(evalObj);
-
-    html += '<tr><td>fld_'+row.id+'</td><td>cfg_'+esc(active)+'</td><td>'+row.id+'</td><td>'+esc(row.name)+'</td><td>'+esc(row.unit || 'NULL')+'</td><td>'+srcType+'</td><td>'+(i+1)+'</td><td>'+esc(formulaJson)+'</td><td>'+esc(evalJson)+'</td></tr>';
+    const c = row.criteria || {};
+    html += '<tr><td>fld_'+row.id+'</td><td>sec_'+esc(active)+'</td><td>'+esc(row.name)+'</td><td>auto</td><td>'+(isCalc?'calculated':'user_pom_default')+'</td><td>'+esc(c.mode || 'use_spec')+'</td><td>'+(c.allowInspectorOverride?'TRUE':'FALSE')+'</td></tr>';
   });
   html += '</tbody></table></div>';
 
@@ -611,20 +650,21 @@ function renderJsonPreview(){
 function copyJsonPayload(){
   const payload = stepToDbSchema(active, curStep());
   navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(()=>{
-    alert("Step JSON Data Model copied to clipboard!");
+    alert("Step Configuration JSON Payload copied to clipboard!");
   }).catch(()=>{
     alert("Copied!");
   });
 }
 
 // ---------------------------------------------------------------------------
-// UI Rendering
+// Main UI Rendering
 // ---------------------------------------------------------------------------
 
 function render(){
   renderSidebar();
   renderStepHeader();
   renderRows();
+  renderCustomPoms();
   renderJsonPreview();
 }
 
@@ -662,30 +702,23 @@ function removeStep(key){
 document.getElementById("addStepBtn").onclick = ()=>{
   const newKey = "step_" + Date.now();
   data[newKey] = {
-    sampling: {method:"bysizeperstyle", value:"2"},
+    type: "measurement",
+    sampling: {method:"by_size_per_style", value:"2"},
     name: "New Measurement Step",
-    mc: null,
-    rows: [ col(nextRowId++, "Measurement 1", {unit:"cm"}) ]
+    mc: {mode:"pom", types:[]},
+    customPoms: [],
+    rows: [ col(nextRowId++, "POM Measurement", {src:"pom", crit:R.use_spec(true)}) ]
   };
   order.push(newKey);
   active = newKey;
   render();
 };
 
-function mcTypeSummary(selected){
-  if (!selected || selected.length===0) return "Any type";
-  if (selected.length < 3) return selected.join(", ");
-  return selected.length + " types selected";
-}
-
 function renderStepHeader(){
   const d = curStep();
-  const nameInput = document.getElementById("ctName");
-  nameInput.value = d.name;
-  nameInput.onchange = (e)=>{ d.name = e.target.value; renderSidebar(); };
-
-  const metaEl = document.getElementById("ctMeta");
-  metaEl.innerHTML = d.rows.length + " field" + (d.rows.length===1?"":"s") + " configured";
+  document.getElementById("ctName").value = d.name;
+  document.getElementById("ctName").onchange = (e)=>{ d.name = e.target.value; renderSidebar(); renderJsonPreview(); };
+  document.getElementById("ctMeta").textContent = "Step Type: Configurable Measurement Step";
 
   // Sampling
   const sBody = document.getElementById("samplingBody");
@@ -700,34 +733,26 @@ function renderStepHeader(){
   ];
 
   let smOpts = sMethods.map(m=>'<option value="'+m.id+'"'+(d.sampling.method===m.id?' selected':'')+'>'+m.label+'</option>').join("");
-  const incRef = d.sampling && d.sampling.includeReference;
   
   sBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px;">'
     + '<label class="field-label">Sample Size Determination (per step execution)</label>'
     + '<div style="display:flex; gap:10px; align-items:center;">'
     + '<select onchange="updateSamplingMethod(this.value)" style="flex:1;">'+smOpts+'</select>'
-    + (d.sampling.method!=="inspector_decide" && d.sampling.method!=="aql_table" && d.sampling.method!=="inspectordecide" && d.sampling.method!=="aqlstandard"
+    + (d.sampling.method!=="inspector_decide" && d.sampling.method!=="aql_table"
         ? '<input type="text" value="'+esc(d.sampling.value)+'" onchange="updateSamplingValue(this.value)" style="width:70px; text-align:center;">'
         : '')
     + '</div>'
-    + '<div style="margin-top:8px; display:flex; align-items:center;">'
-    + '<label class="chk" style="font-size:12.5px; color:var(--text); font-weight:500;">'
-    + '<input type="checkbox" '+(incRef?'checked':'')+' onchange="updateSamplingIncludeReference(this.checked)">'
-    + 'Include a reference sample'
-    + '</label>'
-    + '</div>'
     + '</div>';
 
-  // Data Binding / Measurement Chart Selection
+  // Data Binding Box
   const mcBody = document.getElementById("mcBody");
-  const isChart = hasChart(d);
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (isChart ? "chart" : "none");
+  const mcMode = mcModeOf(d);
+  const isChart = mcMode === "pom";
   const selectedTypes = isChart ? (d.mc.types || []) : [];
 
   let typePopoverHtml = "";
-  if (mcMode === "chart" || mcMode === "pom"){
+  if (mcMode === "pom"){
     let panelLabels = '<label style="font-weight:600; border-bottom:1px solid var(--line); margin-bottom:4px; padding-bottom:4px;" onclick="event.stopPropagation()"><input type="checkbox" '+(selectedTypes.length===0?'checked':'')+' onchange="selectAnyMcType(event)"> Any type</label>';
-    
     panelLabels += MC_TYPES.map(t=>{
       const checked = selectedTypes.includes(t.id) ? "checked" : "";
       return '<label onclick="event.stopPropagation()"><input type="checkbox" '+checked+' onchange="toggleMcType(\''+t.id+'\', event)"> '+t.id+'</label>';
@@ -742,6 +767,8 @@ function renderStepHeader(){
       + '<div class="mctype-panel" style="display:'+(mcPopoverOpen?'block':'none')+'" onclick="event.stopPropagation()">'
       + panelLabels
       + '</div></div>';
+  } else if (mcMode === "none"){
+    typePopoverHtml = '<span style="color:var(--mut); font-size:12px; margin-left:8px; font-style:italic;">(Define custom POM rows below)</span>';
   } else if (mcMode === "bom"){
     typePopoverHtml = '<span style="color:var(--mut); font-size:12px; margin-left:8px; font-style:italic;">(Unit auto-derived from BOM item spec or formula)</span>';
   }
@@ -749,54 +776,12 @@ function renderStepHeader(){
   mcBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">'
     + '<span class="field-label" style="margin:0; font-weight:600; min-width:130px;">Data Binding:</span>'
     + '<select onchange="updateMcMode(this.value)" style="min-width:280px;">'
-    + '<option value="none"'+(mcMode==="none"?' selected':'')+'>None (Custom Columns)</option>'
-    + '<option value="chart"'+(mcMode==="chart"||mcMode==="pom"?' selected':'')+'>Every POM in the Measurement Chart</option>'
+    + '<option value="pom"'+(mcMode==="pom"?' selected':'')+'>Every POM in the Measurement Chart</option>'
+    + '<option value="none"'+(mcMode==="none"?' selected':'')+'>None (Custom POMs)</option>'
     + '<option value="bom"'+(mcMode==="bom"?' selected':'')+'>Bill of Materials (BOM)</option>'
     + '</select>'
     + typePopoverHtml
     + '</div>';
-
-  // Step Execution Options (Photos & Other Controls)
-  const optsBody = document.getElementById("stepOptionsBody");
-  if (optsBody){
-    const photoOpt = (d.options && d.options.photo) || "none";
-    const commentOpt = (d.options && d.options.requireComment) || false;
-
-    optsBody.innerHTML = '<div style="margin-bottom:14px; background:var(--surface1); border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; gap:20px; align-items:center; flex-wrap:wrap;">'
-      // Photos Control
-      + '<div style="display:flex; align-items:center; gap:8px;">'
-      + '<span class="field-label" style="margin:0; font-weight:600; min-width:60px;">Photos:</span>'
-      + '<select onchange="updateStepPhotoOption(this.value)" style="min-width:240px;">'
-      + '<option value="none"'+(photoOpt==="none"?' selected':'')+'>📷 No photos required</option>'
-      + '<option value="per_field"'+(photoOpt==="per_field"?' selected':'')+'>📷 Require photo per measurement field</option>'
-      + '<option value="overall"'+(photoOpt==="overall"?' selected':'')+'>📷 Require overall step photo</option>'
-      + '</select>'
-      + '</div>'
-
-      // Failed Values Comment Control
-      + '<div style="display:flex; align-items:center; gap:8px;">'
-      + '<label class="chk" style="font-weight:600; color:var(--text);">'
-      + '<input type="checkbox" '+(commentOpt?'checked':'')+' onchange="updateStepCommentOption(this.checked)">'
-      + '💬 Require comment on failed / out-of-spec values'
-      + '</label>'
-      + '</div>'
-
-      + '</div>';
-  }
-}
-
-function updateStepPhotoOption(val){
-  const d = curStep();
-  if (!d.options) d.options = {};
-  d.options.photo = val;
-  renderJsonPreview();
-}
-
-function updateStepCommentOption(checked){
-  const d = curStep();
-  if (!d.options) d.options = {};
-  d.options.requireComment = checked;
-  renderJsonPreview();
 }
 
 function toggleMcPopover(e){
@@ -819,7 +804,7 @@ function selectAnyMcType(e){
 function toggleMcType(typeId, e){
   if (e) e.stopPropagation();
   const d = curStep();
-  if (!d.mc) d.mc = {types:[]};
+  if (!d.mc) d.mc = {mode:"pom", types:[]};
   if (!d.mc.types) d.mc.types = [];
   const idx = d.mc.types.indexOf(typeId);
   if (idx !== -1) d.mc.types.splice(idx, 1);
@@ -829,66 +814,58 @@ function toggleMcType(typeId, e){
 
 function updateSamplingMethod(val){ curStep().sampling.method = val; render(); }
 function updateSamplingValue(val){ curStep().sampling.value = val; render(); }
-function updateSamplingIncludeReference(checked){
-  if (!curStep().sampling) curStep().sampling = {};
-  curStep().sampling.includeReference = checked;
-  renderJsonPreview();
-}
 
 function updateMcMode(val){
   const d = curStep();
-  if (val==="chart" || val==="pom"){
+  if (val==="pom"){
     d.mc = {mode:"pom", types:[]};
-    d.rows = [ col(nextRowId++, "POM Measurement", {src:"pom", crit:R.pom()}) ];
+    d.customPoms = [];
+    d.rows = [ col(nextRowId++, "POM Measurement", {src:"pom", crit:R.use_spec(true)}) ];
   } else if (val==="bom"){
     d.mc = {mode:"bom"};
+    d.customPoms = [];
     d.rows = [
-      col(nextRowId++, "BOM Material / Spec", {src:"bom", unit:"auto", crit:R.none()}),
-      col(nextRowId++, "Measured Value", {src:"custom", unit:"auto", crit:R.rangelimit(100, 200)})
+      col(nextRowId++, "BOM Material / Spec", {src:"pom", crit:R.use_spec(true)}),
+      col(nextRowId++, "Measured Value", {src:"pom", crit:R.rangelimit(100, 200, true)})
     ];
   } else {
-    d.mc = null;
-    d.rows = [ col(nextRowId++, "Measurement 1", {unit:"cm"}) ];
+    d.mc = {mode:"none"};
+    if (!d.customPoms || d.customPoms.length === 0){
+      d.customPoms = [
+        createCustomPom(nextPomId++, "Length", {unit:"cm"}),
+        createCustomPom(nextPomId++, "Width",  {unit:"cm"})
+      ];
+    }
+    d.rows = [ col(nextRowId++, "Measured Value", {src:"pom", crit:R.use_spec(true)}) ];
   }
   render();
 }
 
 // ---------------------------------------------------------------------------
-// Measurement Fields List
+// Measurement Fields List (Columns)
 // ---------------------------------------------------------------------------
 
 function renderRows(){
   const d = curStep();
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (hasChart(d) ? "chart" : "none");
   const listEl = document.getElementById("rowsList");
   let html = "";
 
   d.rows.forEach((row, i)=>{
     const isEvalOpen = openEval.has(row.id);
     const isFormulaOpen = openFormula.has(row.id);
-    const isCalc = !!row.formula;
-
-    const showAutoUnit = (mcMode === "bom" || mcMode === "chart" || mcMode === "pom" || isCalc || row.source === "pom" || row.source === "bom" || row.source === "label" || (row.source === "geo" && row.unit === "auto"));
 
     html += '<div class="row-card" data-id="'+row.id+'" draggable="true">'
       + '<div class="row-header">'
       + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
       + '<input type="text" value="'+esc(row.name)+'" onchange="updateRowName('+row.id+', this.value)" style="flex:1; font-weight:600;" placeholder="Field Name">'
       
-      // Unit Select or Auto Unit Label
-      + (showAutoUnit
-          ? '<span style="font-size:11.5px; color:var(--muted2); font-weight:600; font-style:italic; padding:3px 8px; background:var(--surface1); border:1px solid var(--line); border-radius:6px;">unit: auto</span>'
-          : '<select onchange="updateRowUnit('+row.id+', this.value)" style="width:110px;">'
-            + renderUnitOptions(row.unit)
-            + '</select>')
-
       + '<div class="row-dup" onclick="duplicateRow('+row.id+')" title="Duplicate field">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>'
       + '</div>'
       + '<div class="ct-remove" onclick="removeRow('+row.id+')" title="Delete field">&times;</div>'
       + '</div>'
 
-      // Line 2: Matching Status Chips for Data Source & Evaluation
+      // Status Chips for Data Source & Evaluation
       + '<div class="row-line">'
       + renderFormulaChip(d, row, isFormulaOpen)
       + renderEvalSummary(d, row, isEvalOpen)
@@ -917,7 +894,7 @@ function renderUnitOptions(selected){
 }
 
 // ---------------------------------------------------------------------------
-// Data Source (Inspector Entry / Formula) Chip & Inline Drawer
+// Data Source & Evaluation Drawers for Measurement Fields (Columns)
 // ---------------------------------------------------------------------------
 
 function formulaChipText(d, row){
@@ -965,19 +942,16 @@ function formulaChipText(d, row){
 
 function renderFormulaChip(d, row, isOpen){
   const isCalc = !!row.formula;
-  let labelText = "✍️ Inspector entry";
-  let chipStyle = "chip-eval-muted";
+  let labelText = "Use POM default";
+  let chipStyle = "chip-eval-pom";
 
-  if (row.source === "bom"){
-    labelText = "📦 BOM spec item";
-    chipStyle = "chip-eval-pom";
-  } else if (row.source === "pom"){
-    labelText = "⚙️ POM chart spec";
-    chipStyle = "chip-eval-pom";
-  } else if (isCalc){
+  if (isCalc){
     const summary = formulaChipText(d, row);
     labelText = "ƒ " + summary;
     chipStyle = "chip-formula";
+  } else {
+    labelText = "Use POM default";
+    chipStyle = "chip-eval-pom";
   }
 
   return '<div class="chip '+chipStyle+'" onclick="toggleFormulaDrawer('+row.id+')">'
@@ -1000,8 +974,8 @@ function toggleFormulaDrawer(id){
 function updateSourceModeInline(id, val){
   const row = findRow(curStep(), id);
   if (!row) return;
-  if (val === "custom" || val === "bom" || val === "pom"){
-    row.source = val;
+  if (val === "pom" || val === "custom"){
+    row.source = "pom";
     row.formula = null;
   } else if (val === "formula"){
     row.source = "custom";
@@ -1016,33 +990,23 @@ function renderFormulaDrawer(d, row){
   const fm = row.formula || {type:"sum", ops:[]};
   if (isCalc) autoAssignOperands(d, row);
   const eligible = eligibleOperands(d, row.id);
-  const curSrcMode = isCalc ? "formula" : (row.source || "custom");
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (hasChart(d) ? "chart" : "none");
+  const curSrcMode = isCalc ? "formula" : "pom";
 
   let html = '<div class="drawer-open">'
     + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
-    + '<label class="field-label" style="margin:0; min-width:90px;">Data Source:</label>'
-    + '<select onchange="updateSourceModeInline('+row.id+', this.value)" style="min-width:240px;">';
-
-  if (mcMode === "bom" || row.source === "bom"){
-    html += '<option value="bom"'+(curSrcMode==="bom"?' selected':'')+'>📦 BOM spec item</option>';
-  }
-  if (mcMode === "chart" || mcMode === "pom" || row.source === "pom"){
-    html += '<option value="pom"'+(curSrcMode==="pom"?' selected':'')+'>⚙️ POM chart spec</option>';
-  }
-
-  html += '<option value="custom"'+(curSrcMode==="custom"?' selected':'')+'>✍️ Inspector entry (manually entered)</option>'
-    + '<option value="formula"'+(curSrcMode==="formula"?' selected':'')+'>ƒ Calculated (formula calculation)</option>'
+    + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Data Source:</label>'
+    + '<select onchange="updateSourceModeInline('+row.id+', this.value)" style="min-width:240px;">'
+    + '<option value="pom"'+(curSrcMode==="pom"?' selected':'')+'>Use POM default</option>'
+    + '<option value="formula"'+(curSrcMode==="formula"?' selected':'')+'>ƒ Calculated Value (formula calculation)</option>'
     + '</select></div>';
 
   if (!isCalc){
-    let noteText = "This field is recorded manually by the inspector during inspection.";
-    if (row.source === "pom") noteText = "Bound to Measurement Chart POM specification.";
-    if (row.source === "bom") noteText = "Bound to Bill of Materials (BOM) item specification.";
+    html += '<div style="font-size:12.5px; color:var(--mut); font-style:italic; margin-top:4px; padding-left:120px;">'
+      + 'Records standard inspector entry for the active Point of Measure (POM).'
       + '</div>';
   } else {
     html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
-      + '<label class="field-label" style="margin:0; min-width:90px;">Formula Type:</label>'
+      + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Formula Type:</label>'
       + '<select onchange="updateFormulaTypeInline('+row.id+', this.value)" style="flex:1; min-width:200px;">';
 
     FORMULAS.forEach(f=>{
@@ -1051,7 +1015,7 @@ function renderFormulaDrawer(d, row){
 
     html += '</select></div>';
 
-    // Unified Operand Selection UI
+    // Operand Selection UI
     const fDef = formulaDef(fm);
     if (fDef){
       html += '<div style="margin-top:8px;">';
@@ -1074,8 +1038,8 @@ function renderFormulaDrawer(d, row){
         const invalidLetters = used.filter(let => LETTERS.indexOf(let) > maxIdx || LETTERS.indexOf(let) === -1);
 
         html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">'
-          + '<span class="field-label" style="margin:0; min-width:90px;">Expression:</span>'
-          + '<input type="text" value="'+esc(expr)+'" onchange="updateInlineCustomExpr('+row.id+', this.value)" style="flex:1;" placeholder="e.g. A / B * 10000">'
+          + '<span class="field-label" style="margin:0; min-width:110px;">Expression:</span>'
+          + '<input type="text" value="'+esc(expr)+'" onchange="updateInlineCustomExpr('+row.id+', this.value)" style="flex:1;" placeholder="e.g. A / B * 100">'
           + '</div>';
 
         if (invalidLetters.length > 0){
@@ -1097,7 +1061,6 @@ function renderFormulaDrawer(d, row){
         });
         html += '</div>';
       } else {
-        // 1-operand or 2-operand letter-tagged pickers
         const lettersNeeded = fDef.arity === 1 ? ["A"] : ["A", "B"];
         html += '<div style="display:flex; flex-direction:column; gap:6px;">';
         lettersNeeded.forEach((let, idx)=>{
@@ -1155,94 +1118,78 @@ function updateInlineCustomExpr(id, val){
 }
 
 // ---------------------------------------------------------------------------
-// Evaluation Chip & Inline Drawer
+// Evaluation Chip & Inline Drawer for Measurement Fields (Columns)
 // ---------------------------------------------------------------------------
 
-function getRangeLimitError(r){
-  if (!r || r.preset!=="rangelimit") return null;
-  const loStr = r.lower ? String(r.lower.value).trim() : "";
-  const hiStr = r.upper ? String(r.upper.value).trim() : "";
-  const loNum = loStr !== "" ? Number(loStr) : null;
-  const hiNum = hiStr !== "" ? Number(hiStr) : null;
-
-  if (loStr === "" && hiStr === "") return "Needs at least one limit (Min or Max)";
-  if ((loStr !== "" && isNaN(loNum)) || (hiStr !== "" && isNaN(hiNum))) return "Limits must be valid numbers (digits only)";
-  if (loNum !== null && hiNum !== null && loNum > hiNum) return "Min limit ("+loStr+") cannot exceed Max limit ("+hiStr+")";
-  return null;
-}
-
 function renderEvalSummary(d, row, isOpen){
-  const c = row.criteria || R.none();
+  const c = row.criteria || {mode:"use_spec"};
   let text = "Not evaluated";
   let cls = "chip-eval-muted";
 
-  if (c.mode==="inspector"){
-    text = "👤 Inspector decides (Pass / Fail)";
+  if (c.mode === "use_spec"){
+    text = "⚙️ Use spec";
+    cls = "chip-eval-pom";
+  } else if (c.mode === "rangelimit"){
+    const loStr = c.lower ? String(c.lower.value).trim() : "";
+    const hiStr = c.upper ? String(c.upper.value).trim() : "";
+    if (loStr !== "" && hiStr !== "") text = "⚖️ Range: "+loStr+" to "+hiStr;
+    else if (loStr !== "") text = "⚖️ Min limit: ≥ "+loStr;
+    else if (hiStr !== "") text = "⚖️ Max limit: ≤ "+hiStr;
+    else text = "⚖️ Range limit configured";
+    cls = "chip-eval-rule";
+  } else {
+    text = "Not evaluated";
     cls = "chip-eval-muted";
-  } else if (c.mode==="rule"){
-    const r = c.rule || {};
-    if (r.source==="pom"){
-      text = "⚙️ Within POM tolerance";
-      cls = "chip-eval-pom";
-    } else if (r.preset==="rangelimit"){
-      const err = getRangeLimitError(r);
-      if (err){
-        text = "⚠️ " + err;
-        cls = "chip-eval-warn";
-      } else {
-        const loStr = r.lower ? String(r.lower.value).trim() : "";
-        const hiStr = r.upper ? String(r.upper.value).trim() : "";
-        const u = row.unit ? ' '+row.unit : '';
-        if (loStr !== "" && hiStr !== "") text = "⚖️ Range: "+loStr+" to "+hiStr+u;
-        else if (loStr !== "") text = "⚖️ Min limit: ≥ "+loStr+u;
-        else if (hiStr !== "") text = "⚖️ Max limit: ≤ "+hiStr+u;
-        cls = "chip-eval-rule";
-      }
-    }
+  }
+
+  if (c.allowInspectorOverride){
+    text += " (editable)";
   }
 
   return '<div class="chip '+cls+'" onclick="toggleEvalDrawer('+row.id+')">'
-    + '<span>Evaluation: <b>'+esc(text)+'</b></span>'
+    + '<span>Eval: <b>'+esc(text)+'</b></span>'
     + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
     + '</div>';
 }
 
 function renderEvalDrawer(d, row){
-  const opts = critOptions(d, row);
-  const cur = critChoice(d, row);
-  
+  const c = row.criteria || {mode:"use_spec"};
+  const curMode = c.mode || "use_spec";
+
   let html = '<div class="drawer-open">'
-    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'
-    + '<label class="field-label" style="margin:0; min-width:90px;">Rule Preset:</label>'
-    + '<select onchange="changeCritChoice('+row.id+', this.value)">';
-  
-  opts.forEach(o=>{
-    html += '<option value="'+o.id+'"'+(cur===o.id?' selected':'')+'>'+o.label+'</option>';
-  });
-  html += '</select></div>';
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+    + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Evaluation Rule:</label>'
+    + '<select onchange="updateEvalModeInline('+row.id+', this.value)" style="min-width:240px;">'
+    + '<option value="use_spec"'+(curMode==="use_spec"?' selected':'')+'>Use spec</option>'
+    + '<option value="rangelimit"'+(curMode==="rangelimit"?' selected':'')+'>Range Limit</option>'
+    + '<option value="none"'+(curMode==="none"?' selected':'')+'>No evaluated</option>'
+    + '</select>'
+    + '</div>';
 
-  // Rule Limits Input (Unified Range / Min / Max)
-  const c = row.criteria;
-  if (c && c.mode==="rule" && c.rule && c.rule.source!=="pom"){
-    const r = c.rule;
-    const p = preset(r.preset);
-    const err = getRangeLimitError(r);
+  if (curMode === "rangelimit"){
+    const loVal = (c.lower && c.lower.value != null) ? c.lower.value : "";
+    const hiVal = (c.upper && c.upper.value != null) ? c.upper.value : "";
 
-    html += '<div style="display:flex; gap:12px; align-items:center; margin-top:10px;">';
-    if (p && p.lower){
-      html += '<div><span class="field-label">Min Limit / Lower (≥)</span>'
-        + '<input type="text" value="'+esc(r.lower ? r.lower.value : '')+'" onchange="updateRuleBound('+row.id+', \'lower\', this.value)" style="width:110px;" placeholder="Optional"></div>';
-    }
-    if (p && p.upper){
-      html += '<div><span class="field-label">Max Limit / Upper (≤)</span>'
-        + '<input type="text" value="'+esc(r.upper ? r.upper.value : '')+'" onchange="updateRuleBound('+row.id+', \'upper\', this.value)" style="width:110px;" placeholder="Optional"></div>';
-    }
-    html += '</div>';
-
-    if (err){
-      html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-top:8px;">⚠️ '+esc(err)+'</div>';
-    }
+    html += '<div style="display:flex; gap:16px; align-items:center; margin-top:8px; padding-left:120px; flex-wrap:wrap;">'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Min Limit:</span>'
+      + '<input type="text" value="'+esc(loVal)+'" onchange="updateEvalRangeLimit('+row.id+', \'lower\', this.value)" style="width:80px; text-align:center;" placeholder="Min">'
+      + '</div>'
+      + '<div style="display:flex; align-items:center; gap:6px;">'
+      + '<span class="field-label" style="margin:0; font-weight:600;">Max Limit:</span>'
+      + '<input type="text" value="'+esc(hiVal)+'" onchange="updateEvalRangeLimit('+row.id+', \'upper\', this.value)" style="width:80px; text-align:center;" placeholder="Max">'
+      + '</div>'
+      + '</div>';
   }
+
+  // Divider line & "Allow inspector to override" checkbox
+  html += '<hr style="border:0; border-top:1px solid var(--line); margin:12px 0 10px;">'
+    + '<div style="display:flex; align-items:center; gap:8px;">'
+    + '<label class="chk" style="font-weight:600; color:var(--text); cursor:pointer;">'
+    + '<input type="checkbox" '+(c.allowInspectorOverride ? 'checked' : '')+' onchange="updateEvalAllowOverride('+row.id+', this.checked)">'
+    + 'Allow inspector to override auto-evaluate result'
+    + '</label>'
+    + '</div>';
 
   html += '</div>';
   return html;
@@ -1257,35 +1204,35 @@ function toggleEvalDrawer(id){
   renderRows();
 }
 
-function changeCritChoice(id, choice){
+function updateEvalModeInline(id, mode){
   const row = findRow(curStep(), id);
-  if (row) setCritChoice(curStep(), row, choice);
-  renderRows();
-}
-
-function updateRuleBound(id, key, val){
-  const row = findRow(curStep(), id);
-  if (row && row.criteria && row.criteria.rule){
-    if (!row.criteria.rule[key]) row.criteria.rule[key] = {value:""};
-    row.criteria.rule[key].value = val;
-  }
-}
-
-function updateRowName(id, val){ const r = findRow(curStep(), id); if (r) r.name = val; }
-function updateRowUnit(id, val){ const r = findRow(curStep(), id); if (r) r.unit = val; }
-function updateRowSource(id, val){
-  const r = findRow(curStep(), id);
-  if (!r) return;
-  if (val==="formula"){
-    if (!r.formula) r.formula = {type:"sum", ops:[]};
-    autoAssignOperands(curStep(), r);
-    openFormula.add(id);
-  } else {
-    r.formula = null;
-    openFormula.delete(id);
+  if (!row) return;
+  if (!row.criteria) row.criteria = {mode:"use_spec"};
+  row.criteria.mode = mode;
+  if (mode === "rangelimit" && !row.criteria.lower){
+    row.criteria.lower = {value:""};
+    row.criteria.upper = {value:""};
   }
   renderRows();
 }
+
+function updateEvalRangeLimit(id, key, val){
+  const row = findRow(curStep(), id);
+  if (!row || !row.criteria) return;
+  if (!row.criteria[key]) row.criteria[key] = {value:""};
+  row.criteria[key].value = val;
+  renderJsonPreview();
+}
+
+function updateEvalAllowOverride(id, checked){
+  const row = findRow(curStep(), id);
+  if (!row) return;
+  if (!row.criteria) row.criteria = {mode:"use_spec"};
+  row.criteria.allowInspectorOverride = checked;
+  renderRows();
+}
+
+function updateRowName(id, val){ const r = findRow(curStep(), id); if (r) { r.name = val; renderJsonPreview(); } }
 
 function duplicateRow(id){
   const d = curStep();
@@ -1309,11 +1256,286 @@ function removeRow(id){
 
 document.getElementById("addValueBtn").onclick = ()=>{
   const d = curStep();
-  const mcMode = (d.mc && d.mc.mode) ? d.mc.mode : (hasChart(d) ? "chart" : "none");
-  const defaultUnit = (mcMode === "bom" || mcMode === "chart" || mcMode === "pom") ? "auto" : "cm";
-  d.rows.push(col(nextRowId++, "Measurement " + (d.rows.length+1), {unit: defaultUnit}));
+  d.rows.push(col(nextRowId++, "Measurement " + (d.rows.length+1), {src:"pom", crit:R.use_spec(true)}));
   renderRows();
 };
+
+// ---------------------------------------------------------------------------
+// Custom POMs List (Rows) — Rendered when Data Binding = None
+// ---------------------------------------------------------------------------
+
+function renderCustomPoms(){
+  const d = curStep();
+  const sectionEl = document.getElementById("customPomsSection");
+  const listEl = document.getElementById("customPomsList");
+  const mcMode = mcModeOf(d);
+
+  if (mcMode !== "none"){
+    sectionEl.style.display = "none";
+    return;
+  }
+  sectionEl.style.display = "block";
+
+  if (!d.customPoms) d.customPoms = [];
+
+  let html = "";
+  d.customPoms.forEach((pom, i)=>{
+    const isFormulaOpen = openPomFormula.has(pom.id);
+
+    html += '<div class="row-card" data-pom-id="'+pom.id+'" draggable="true">'
+      + '<div class="row-header">'
+      + '<div class="drag-handle"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+      
+      // POM Name Input
+      + '<input type="text" value="'+esc(pom.name)+'" onchange="updatePomName('+pom.id+', this.value)" style="flex:1; font-weight:600;" placeholder="POM Name (e.g. Length, Chest width)">'
+      
+      // Unit Select Dropdown
+      + '<select onchange="updatePomUnit('+pom.id+', this.value)" style="width:110px; flex-shrink:0;">'
+      + renderUnitOptions(pom.unit)
+      + '</select>'
+
+      // Duplicate & Delete Buttons
+      + '<div class="row-dup" onclick="duplicatePom('+pom.id+')" title="Duplicate POM">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>'
+      + '</div>'
+      + '<div class="ct-remove" onclick="removePom('+pom.id+')" title="Delete POM">&times;</div>'
+      + '</div>'
+
+      // Status Chip for Data Source
+      + '<div class="row-line">'
+      + renderPomFormulaChip(d, pom, isFormulaOpen)
+      + '</div>'
+
+      // Expandable Inline Drawer for Data Source
+      + (isFormulaOpen ? renderPomFormulaDrawer(d, pom) : '')
+      + '</div>';
+  });
+
+  listEl.innerHTML = html;
+  bindPomDrag();
+}
+
+function renderPomFormulaChip(d, pom, isOpen){
+  const isCalc = !!pom.formula;
+  let labelText = "Inspector Input";
+  let chipStyle = "chip-eval-muted";
+
+  if (isCalc){
+    const summary = pomFormulaChipText(d, pom);
+    labelText = "ƒ " + summary;
+    chipStyle = "chip-formula";
+  } else {
+    labelText = "✍️ Inspector Input";
+    chipStyle = "chip-eval-muted";
+  }
+
+  return '<div class="chip '+chipStyle+'" onclick="togglePomFormulaDrawer('+pom.id+')">'
+    + '<span>Source: <b>'+esc(labelText)+'</b></span>'
+    + '<span class="caret">'+(isOpen?'▲':'▼')+'</span>'
+    + '</div>';
+}
+
+function renderPomFormulaDrawer(d, pom){
+  const isCalc = !!pom.formula;
+  const fm = pom.formula || {type:"sum", ops:[]};
+  if (isCalc) autoAssignPomOperands(d, pom);
+  const eligible = eligiblePomOperands(d, pom.id);
+  const curSrcMode = isCalc ? "formula" : "inspector";
+
+  let html = '<div class="drawer-open">'
+    + '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+    + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Data Source:</label>'
+    + '<select onchange="updatePomSourceModeInline('+pom.id+', this.value)" style="min-width:240px;">'
+    + '<option value="inspector"'+(curSrcMode==="inspector"?' selected':'')+'>✍️ Inspector Input (manually entered)</option>'
+    + '<option value="formula"'+(curSrcMode==="formula"?' selected':'')+'>ƒ Formula calculation</option>'
+    + '</select></div>';
+
+  if (!isCalc){
+    html += '<div style="font-size:12.5px; color:var(--mut); font-style:italic; margin-top:4px; padding-left:120px;">'
+      + 'Records standard inspector entry for this Point of Measure (POM).'
+      + '</div>';
+  } else {
+    html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">'
+      + '<label class="field-label" style="margin:0; min-width:110px; font-weight:600;">Formula Type:</label>'
+      + '<select onchange="updatePomFormulaTypeInline('+pom.id+', this.value)" style="flex:1; min-width:200px;">';
+
+    FORMULAS.forEach(f=>{
+      html += '<option value="'+f.id+'"'+(fm.type===f.id?' selected':'')+'>'+f.label+'</option>';
+    });
+
+    html += '</select></div>';
+
+    // Operand Selection UI
+    const fDef = formulaDef(fm);
+    if (fDef){
+      html += '<div style="margin-top:8px;">';
+      if (fDef.arity === "many"){
+        html += '<span class="field-label" style="margin-bottom:8px;">Select Included Custom POM Inputs:</span>'
+          + '<div style="display:flex; flex-direction:column; gap:6px;">';
+        eligible.forEach((e, idx)=>{
+          const isChecked = fm.ops.some(o=>o.id==e.id);
+          html += '<div class="letter-row" style="cursor:pointer;" onclick="const cb=this.querySelector(\'input\'); cb.checked=!cb.checked; togglePomInlineManyOperand('+pom.id+', '+e.id+', cb.checked);">'
+            + '<input type="checkbox" '+(isChecked?'checked':'')+' onclick="event.stopPropagation(); togglePomInlineManyOperand('+pom.id+', '+e.id+', this.checked)">'
+            + '<span class="letter-tag">'+letterOf(idx)+'</span>'
+            + '<span style="font-weight:600; font-size:13px; color:var(--navy);">'+esc(e.name)+'</span>'
+            + '</div>';
+        });
+        html += '</div>';
+      } else if (fDef.arity === "letters"){
+        const expr = fm.customExpr || "A / B";
+        const used = lettersUsed(expr);
+        const maxIdx = eligible.length - 1;
+        const invalidLetters = used.filter(let => LETTERS.indexOf(let) > maxIdx || LETTERS.indexOf(let) === -1);
+
+        html += '<div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">'
+          + '<span class="field-label" style="margin:0; min-width:110px;">Expression:</span>'
+          + '<input type="text" value="'+esc(expr)+'" onchange="updatePomInlineCustomExpr('+pom.id+', this.value)" style="flex:1;" placeholder="e.g. A / B * 100">'
+          + '</div>';
+
+        if (invalidLetters.length > 0){
+          const maxLetter = letterOf(maxIdx);
+          html += '<div style="color:var(--amber); background:var(--amber-l); border:1px solid var(--amber-line); border-radius:6px; padding:6px 10px; font-size:12px; margin-bottom:8px;">'
+            + '⚠️ Invalid variable '+(invalidLetters.length>1?'letters':'letter')+': "'+invalidLetters.join(', ')+'". Available POM variables in this step are <b>A</b> to <b>'+maxLetter+'</b>.'
+            + '</div>';
+        }
+
+        html += '<span class="field-label" style="margin-bottom:6px;">Available Custom POM Variables (in order):</span>'
+          + '<div style="display:flex; flex-direction:column; gap:6px;">';
+        eligible.forEach((e, idx)=>{
+          const isUsedInExpr = used.includes(letterOf(idx));
+          html += '<div class="letter-row" style="opacity:'+(isUsedInExpr?'1':'0.65')+';">'
+            + '<span class="letter-tag" style="'+(isUsedInExpr?'background:var(--blue); color:#fff; border-color:var(--blue);':'')+'">'+letterOf(idx)+'</span>'
+            + '<span style="font-weight:600; font-size:13px; color:var(--navy);">'+esc(e.name)+'</span>'
+            + (isUsedInExpr ? '<span style="font-size:11px; color:var(--blue); margin-left:auto; font-weight:600;">(Used in expression)</span>' : '')
+            + '</div>';
+        });
+        html += '</div>';
+      } else {
+        const lettersNeeded = fDef.arity === 1 ? ["A"] : ["A", "B"];
+        html += '<div style="display:flex; flex-direction:column; gap:6px;">';
+        lettersNeeded.forEach((let, idx)=>{
+          const curId = fm.ops[idx] ? fm.ops[idx].id : "";
+          html += '<div class="letter-row"><span class="letter-tag">'+let+'</span>'
+            + '<select onchange="updatePomInlineOperand('+pom.id+', '+idx+', this.value)" style="flex:1;"><option value="">-- Pick POM input for '+let+' --</option>'
+            + eligible.map(e=>'<option value="'+e.id+'"'+(curId==e.id?' selected':'')+'>'+esc(e.name)+'</option>').join('') + '</select></div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function togglePomFormulaDrawer(id){
+  if (openPomFormula.has(id)) openPomFormula.delete(id);
+  else openPomFormula.add(id);
+  renderCustomPoms();
+}
+
+function updatePomSourceModeInline(id, val){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (!p) return;
+  if (val === "formula"){
+    if (!p.formula) p.formula = {type:"sum", ops:[]};
+    autoAssignPomOperands(d, p);
+  } else {
+    p.formula = null;
+  }
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+function updatePomFormulaTypeInline(id, type){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (p){
+    p.formula = {type:type, ops:[]};
+    autoAssignPomOperands(d, p);
+  }
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+function updatePomInlineOperand(id, idx, val){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (!p || !p.formula) return;
+  if (!p.formula.ops) p.formula.ops = [];
+  p.formula.ops[idx] = {id: parseInt(val,10)};
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+function togglePomInlineManyOperand(pomId, opId, checked){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===pomId);
+  if (!p || !p.formula) return;
+  if (!p.formula.ops) p.formula.ops = [];
+  if (checked){
+    if (!p.formula.ops.some(o=>o.id===opId)) p.formula.ops.push({id:opId});
+  } else {
+    p.formula.ops = p.formula.ops.filter(o=>o.id!==opId);
+  }
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+function updatePomInlineCustomExpr(id, val){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (p && p.formula){
+    p.formula.customExpr = val;
+    autoAssignPomOperands(d, p);
+  }
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+function updatePomName(id, val){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (p) { p.name = val; renderJsonPreview(); }
+}
+
+function updatePomUnit(id, val){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (p) { p.unit = val; renderJsonPreview(); }
+}
+
+function addCustomPom(){
+  const d = curStep();
+  if (!d.customPoms) d.customPoms = [];
+  d.customPoms.push(createCustomPom(nextPomId++, "Custom POM " + (d.customPoms.length+1), {unit:"cm"}));
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+document.getElementById("addCustomPomBtn").onclick = addCustomPom;
+
+function duplicatePom(id){
+  const d = curStep();
+  const p = (d.customPoms||[]).find(x=>x.id===id);
+  if (!p) return;
+  const clone = JSON.parse(JSON.stringify(p));
+  clone.id = nextPomId++;
+  clone.name += " (Copy)";
+  d.customPoms.push(clone);
+  renderCustomPoms();
+  renderJsonPreview();
+}
+
+function removePom(id){
+  const d = curStep();
+  if (!d.customPoms || d.customPoms.length<=1) return;
+  d.customPoms = d.customPoms.filter(p=>p.id!==id);
+  renderCustomPoms();
+  renderJsonPreview();
+}
 
 // ---------------------------------------------------------------------------
 // Drag & Drop
@@ -1341,7 +1563,7 @@ function bindStepDrag(){
 }
 
 function bindRowDrag(){
-  const cards = document.querySelectorAll(".row-card");
+  const cards = document.querySelectorAll(".row-card[data-id]");
   let draggedId = null;
   cards.forEach(c=>{
     c.ondragstart = (e)=>{ draggedId = parseInt(c.getAttribute("data-id"),10); c.classList.add("dragging"); };
@@ -1357,6 +1579,29 @@ function bindRowDrag(){
         const item = d.rows.splice(fromIdx, 1)[0];
         d.rows.splice(toIdx, 0, item);
         renderRows();
+      }
+    };
+  });
+}
+
+function bindPomDrag(){
+  const cards = document.querySelectorAll(".row-card[data-pom-id]");
+  let draggedId = null;
+  cards.forEach(c=>{
+    c.ondragstart = (e)=>{ draggedId = parseInt(c.getAttribute("data-pom-id"),10); c.classList.add("dragging"); };
+    c.ondragend = ()=>{ c.classList.remove("dragging"); };
+    c.ondragover = (e)=>{ e.preventDefault(); };
+    c.ondrop = (e)=>{
+      e.preventDefault();
+      const targetId = parseInt(c.getAttribute("data-pom-id"),10);
+      const d = curStep();
+      if (draggedId && targetId && draggedId!==targetId && d.customPoms){
+        const fromIdx = d.customPoms.findIndex(p=>p.id===draggedId);
+        const toIdx = d.customPoms.findIndex(p=>p.id===targetId);
+        const item = d.customPoms.splice(fromIdx, 1)[0];
+        d.customPoms.splice(toIdx, 0, item);
+        renderCustomPoms();
+        renderJsonPreview();
       }
     };
   });
